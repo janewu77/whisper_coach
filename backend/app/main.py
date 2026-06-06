@@ -53,7 +53,11 @@ def health():
     return {"status": "ok"}
 
 
-# Landing-page screenshots.
+# Landing-page images + screenshots.
+IMG_DIR = STATIC_DIR / "img"
+if IMG_DIR.exists():
+    app.mount("/img", StaticFiles(directory=IMG_DIR), name="img")
+
 SHOTS_DIR = STATIC_DIR / "shots"
 if SHOTS_DIR.exists():
     app.mount("/shots", StaticFiles(directory=SHOTS_DIR), name="shots")
