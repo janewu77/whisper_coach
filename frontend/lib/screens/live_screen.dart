@@ -54,6 +54,7 @@ class _LiveScreenState extends State<LiveScreen> {
   final List<ChatMessage> _messages = [];
   bool _sending = false;
   bool _recording = false;
+  bool _changingRecordingState = false;
   bool _summaryDone = false;
   String? _recordingPath;
 
@@ -98,8 +99,7 @@ class _LiveScreenState extends State<LiveScreen> {
     });
     _scrollToBottom();
     try {
-      final resp =
-          await api.sendNote(widget.args.matchId, text);
+      final resp = await api.sendNote(widget.args.matchId, text);
       setState(() {
         _messages.add(AiMessage(
           resp.suggestion,
@@ -118,6 +118,25 @@ class _LiveScreenState extends State<LiveScreen> {
 
   // ── Voice note ────────────────────────────────────────────────────────────
 
+  Future<void> _toggleRecording() async {
+    if (_changingRecordingState || _sending) return;
+
+    _changingRecordingState = true;
+    try {
+      if (_recording) {
+        await _stopRecording();
+      } else {
+        await _startRecording();
+      }
+    } catch (e) {
+      if (mounted) {
+        _showError('Recording error: $e');
+      }
+    } finally {
+      _changingRecordingState = false;
+    }
+  }
+
   Future<void> _startRecording() async {
     final hasPermission = await _recorder.hasPermission();
     if (!hasPermission) {
@@ -131,11 +150,14 @@ class _LiveScreenState extends State<LiveScreen> {
       const RecordConfig(encoder: AudioEncoder.aacLc),
       path: _recordingPath!,
     );
-    setState(() => _recording = true);
+    if (mounted) {
+      setState(() => _recording = true);
+    }
   }
 
   Future<void> _stopRecording() async {
     final path = await _recorder.stop();
+    if (!mounted) return;
     setState(() => _recording = false);
     if (path == null) return;
     final file = XFile(path);
@@ -145,8 +167,7 @@ class _LiveScreenState extends State<LiveScreen> {
     });
     _scrollToBottom();
     try {
-      final resp =
-          await api.sendVoiceNote(widget.args.matchId, file);
+      final resp = await api.sendVoiceNote(widget.args.matchId, file);
       // Replace the placeholder with the actual transcription
       setState(() {
         _messages.removeLast(); // remove "Voice note..."
@@ -212,8 +233,7 @@ class _LiveScreenState extends State<LiveScreen> {
   }
 
   void _showError(String msg) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   void _scrollToBottom() {
@@ -255,8 +275,8 @@ class _LiveScreenState extends State<LiveScreen> {
                   decoration: BoxDecoration(
                     color: kRedBg,
                     borderRadius: BorderRadius.circular(100),
-                    border: Border.all(
-                        color: kRedFg.withOpacity(0.3), width: 0.5),
+                    border:
+                        Border.all(color: kRedFg.withOpacity(0.3), width: 0.5),
                   ),
                   child: const Text(
                     'In progress',
@@ -281,8 +301,7 @@ class _LiveScreenState extends State<LiveScreen> {
           Expanded(
             child: ListView.builder(
               controller: _scrollCtrl,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
               itemCount: _messages.length,
               itemBuilder: (ctx, i) => _buildMessage(_messages[i]),
             ),
@@ -320,8 +339,7 @@ class _LiveScreenState extends State<LiveScreen> {
           SizedBox(
             height: 36,
             child: ListView(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
               scrollDirection: Axis.horizontal,
               children: [
                 _QuickChip(
@@ -354,22 +372,26 @@ class _LiveScreenState extends State<LiveScreen> {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 // Mic button
-                GestureDetector(
-                  onTapDown: (_) => _startRecording(),
-                  onTapUp: (_) => _stopRecording(),
-                  onTapCancel: () => _stopRecording(),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      color: _recording ? kRedFg : kBrand,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      _recording ? Icons.stop : Icons.mic_outlined,
-                      color: Colors.white,
-                      size: 18,
+                Semantics(
+                  button: true,
+                  label: _recording
+                      ? 'Stop voice recording'
+                      : 'Start voice recording',
+                  child: GestureDetector(
+                    onTap: _toggleRecording,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: _recording ? kRedFg : kBrand,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        _recording ? Icons.stop : Icons.mic_outlined,
+                        color: Colors.white,
+                        size: 18,
+                      ),
                     ),
                   ),
                 ),
@@ -397,10 +419,8 @@ class _LiveScreenState extends State<LiveScreen> {
                     width: 38,
                     height: 38,
                     decoration: BoxDecoration(
-                      color:
-                          _sending ? kBorderStrong : kBrand,
-                      borderRadius:
-                          BorderRadius.circular(kRadiusInput),
+                      color: _sending ? kBorderStrong : kBrand,
+                      borderRadius: BorderRadius.circular(kRadiusInput),
                     ),
                     child: _sending
                         ? const Center(
@@ -440,8 +460,7 @@ class _UserBubble extends StatelessWidget {
         constraints: BoxConstraints(
           maxWidth: MediaQuery.of(context).size.width * 0.75,
         ),
-        padding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: kBrand,
           borderRadius: const BorderRadius.only(
@@ -494,8 +513,7 @@ class _SystemBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
         decoration: BoxDecoration(
           color: kSurfacePage,
           borderRadius: BorderRadius.circular(100),
@@ -529,8 +547,7 @@ class _SummaryCard extends StatelessWidget {
         children: [
           const Row(
             children: [
-              Icon(Icons.emoji_events_outlined,
-                  size: 15, color: kTextBrand),
+              Icon(Icons.emoji_events_outlined, size: 15, color: kTextBrand),
               SizedBox(width: 6),
               Text(
                 'Post-match summary',
@@ -572,8 +589,7 @@ class _SummaryCard extends StatelessWidget {
                         color: kBrandSubtle,
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(
-                            color: kBrandBorder.withOpacity(0.4),
-                            width: 0.5),
+                            color: kBrandBorder.withOpacity(0.4), width: 0.5),
                       ),
                       child: Center(
                         child: Text(
@@ -626,8 +642,7 @@ class _SummaryCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Padding(
-                      padding:
-                          EdgeInsets.only(top: 5, right: 6),
+                      padding: EdgeInsets.only(top: 5, right: 6),
                       child: Icon(Icons.arrow_forward_ios,
                           size: 9, color: kTextBrand),
                     ),
