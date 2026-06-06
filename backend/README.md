@@ -11,7 +11,7 @@ See `IMPLEMENTATION.md` for the design and the full REST contract, and
 
 - Python 3.11+
 - [uv](https://docs.astral.sh/uv/) (`pip` works too)
-- An `ANTHROPIC_API_KEY` — only needed for the **AI endpoints**; the server boots
+- An `OPENAI_API_KEY` — only needed for the **AI endpoints**; the server boots
   and the tests run without it.
 
 ## Local development
@@ -23,11 +23,14 @@ From the `backend/` directory:
 uv venv
 uv pip install -e ".[dev]"
 
-# 2. Configure your API key
+# 2. Configure your DB + API key
 cp .env.example .env
-# then edit .env and set ANTHROPIC_API_KEY=sk-ant-...
+# DB_URL defaults to local Postgres (see .env); set OPENAI_API_KEY=sk-...
 
-# 3. Run the dev server (auto-reload)
+# 3. Create the database schema (runs Alembic migrations)
+uv run alembic upgrade head
+
+# 4. Run the dev server (auto-reload)
 uv run uvicorn app.main:app --reload
 ```
 
@@ -37,8 +40,21 @@ The server starts at **http://localhost:8000**.
 - OpenAPI schema (the frontend client is generated against this): http://localhost:8000/openapi.json
 - Health check: http://localhost:8000/api/health
 
-The SQLite database (`wc.db`) is created automatically on startup. To reset it,
-stop the server and delete the file.
+## Database & migrations
+
+The schema is managed by **Alembic** (the app does not auto-create tables).
+Alembic reads `DB_URL` from your `.env`, so it always targets the same database
+as the app.
+
+```bash
+uv run alembic upgrade head            # apply all migrations (run after pulling)
+uv run alembic revision --autogenerate -m "describe change"   # after editing models.py
+uv run alembic downgrade -1            # roll back one migration
+uv run alembic current                 # show the applied revision
+```
+
+Workflow when you change `app/models.py`: autogenerate a revision, **review the
+generated file** in `alembic/versions/`, then `upgrade head`.
 
 > Without an API key the server still runs and the non-AI routes work
 > (create/get match, get team). The four AI endpoints will return `502` until a
@@ -88,11 +104,13 @@ curl -s localhost:8000/api/matches/1/lineup -H 'content-type: application/json' 
 ```
 app/
   main.py            FastAPI app, CORS, router wiring, startup DB init
-  config.py          settings (.env): DB_URL, ANTHROPIC_API_KEY, LLM_MODEL
+  config.py          settings (.env): DB_URL, OPENAI_API_KEY, LLM_MODEL
   db.py              SQLite engine + session dependency
   models.py          SQLModel tables (Team, Player, Match, Lineup, Note)
   schemas.py         request/response + agent result models (the API contract)
   routers/           roster.py, matches.py
   agents/            roster.py, lineup.py, analyst.py (lazily-built PydanticAI agents)
   tests/             pytest suite with stubbed agents
+alembic/             migration env + versions/ (schema source of truth)
+alembic.ini          alembic config (DB URL is injected from settings)
 ```

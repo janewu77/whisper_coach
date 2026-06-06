@@ -10,9 +10,19 @@ dependencies = [
     "pydantic-ai>=0.0.14",
     "python-multipart>=0.0.12",
     "pydantic-settings>=2.5",
+    "psycopg[binary]>=3.2",
+    "alembic>=1.13",
 ]
 
 [project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "httpx>=0.27",
+]
+
+# uv installs this group automatically on `uv run`/`uv sync`, so `uv run pytest`
+# works without a manual install. Mirrors the [dev] extra for pip users.
+[dependency-groups]
 dev = [
     "pytest>=8.3",
     "httpx>=0.27",
