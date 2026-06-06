@@ -53,6 +53,11 @@ def health():
     return {"status": "ok"}
 
 
+# Landing-page screenshots.
+SHOTS_DIR = STATIC_DIR / "shots"
+if SHOTS_DIR.exists():
+    app.mount("/shots", StaticFiles(directory=SHOTS_DIR), name="shots")
+
 # Flutter web app, served at /app (built into the image; see scripts/build-web.sh
 # for local dev). Mounted last so it never shadows the API or root routes.
 # html=True serves index.html for /app/ and nested paths.

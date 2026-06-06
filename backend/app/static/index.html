@@ -122,6 +122,24 @@
   .card .tag { display: inline-block; margin-top: 14px; font-size: .78rem; font-weight: 700;
     color: var(--grass); background: var(--grass-soft); padding: 4px 10px; border-radius: 999px; }
 
+  /* Screenshots */
+  .shots {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px;
+  }
+  .shot { text-align: center; }
+  .shot .frame {
+    background: #0d1411; border-radius: 30px; padding: 8px;
+    box-shadow: var(--shadow); border: 1px solid var(--line);
+    transition: transform .18s ease;
+  }
+  .shot .frame:hover { transform: translateY(-6px); }
+  .shot img {
+    width: 100%; height: auto; display: block; border-radius: 24px;
+    background: #fff;
+  }
+  .shot h4 { margin-top: 16px; font-size: 1rem; }
+  .shot p { color: var(--muted); font-size: .85rem; margin-top: 2px; }
+
   /* Stack */
   .stack { background: var(--grass-soft); border-radius: 24px; padding: 40px; }
   .stack-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
@@ -158,6 +176,7 @@
     .hero-grid { grid-template-columns: 1fr; }
     .steps { grid-template-columns: repeat(2, 1fr); }
     .cards { grid-template-columns: 1fr; }
+    .shots { grid-template-columns: 1fr; max-width: 320px; margin: 0 auto; }
     .stack-grid { grid-template-columns: 1fr; }
     /* On mobile, the title bar shows only the "Get the app" CTA. */
     .nav-links a:not(.cta) { display: none; }
@@ -181,6 +200,7 @@
     <div class="brand"><span class="ball">⚽</span> Whisper Coach</div>
     <nav class="nav-links">
       <a href="#flow">How it works</a>
+      <a href="#screens">Screens</a>
       <a href="#agents">AI agents</a>
       <a href="#stack">Tech</a>
       <a href="/docs">API docs</a>
@@ -297,6 +317,49 @@
         <h3>Match Analyst</h3>
         <p>Reviews the game's notes and adjustments to write a summary with ratings and improvements.</p>
         <span class="tag">events → report</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SCREENSHOTS -->
+<section id="screens">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="pill">From the app</span>
+      <h2>See it on the pitch</h2>
+      <p>Real screens from the Whisper Coach app — photo to lineup to live coaching.</p>
+    </div>
+    <div class="shots">
+      <div class="shot">
+        <div class="frame"><img src="/shots/01-new-match.png" alt="Create a new match" loading="lazy" /></div>
+        <h4>Create a match</h4>
+        <p>Upload a roster photo, add the opponent.</p>
+      </div>
+      <div class="shot">
+        <div class="frame"><img src="/shots/02-roster.png" alt="AI-detected players from the team sheet" loading="lazy" /></div>
+        <h4>Roster from a photo</h4>
+        <p>AI extracts every player automatically.</p>
+      </div>
+      <div class="shot">
+        <div class="frame"><img src="/shots/03-lineup.png" alt="Auto-generated lineup on a 2D pitch" loading="lazy" /></div>
+        <h4>Auto lineup</h4>
+        <p>A formation laid out on the 2D pitch.</p>
+      </div>
+      <div class="shot">
+        <div class="frame"><img src="/shots/04-reasoning.png" alt="AI tactical reasoning for the lineup" loading="lazy" /></div>
+        <h4>AI reasoning</h4>
+        <p>Why this shape against this opponent.</p>
+      </div>
+      <div class="shot">
+        <div class="frame"><img src="/shots/05-live.png" alt="Live match screen with voice and text input" loading="lazy" /></div>
+        <h4>Coach live</h4>
+        <p>Log events by voice or text in-match.</p>
+      </div>
+      <div class="shot">
+        <div class="frame"><img src="/shots/06-suggestions.png" alt="Live tactical suggestions from Whisper Coach" loading="lazy" /></div>
+        <h4>Live suggestions</h4>
+        <p>Instant subs and tactical tweaks.</p>
       </div>
     </div>
   </div>
