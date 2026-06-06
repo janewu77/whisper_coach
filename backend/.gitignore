@@ -10,3 +10,7 @@ venv/
 *.db
 .env
 # uv.lock is committed for reproducible Docker builds.
+
+# Pitch deck is sourced from docs/ at build time; the local copy (made by
+# scripts/sync-deck.sh for local dev) is not committed.
+app/static/pitch-deck.pdf

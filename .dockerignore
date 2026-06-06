@@ -1,0 +1,23 @@
+# Build context is the repo root (see backend/Dockerfile).
+# Keep: backend/ source + docs/ (for the pitch deck). Exclude the rest.
+
+.git/
+frontend/
+
+# Python / venv / caches
+**/.venv/
+**/venv/
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/*.egg-info/
+
+# Tests are not needed in the runtime image.
+backend/app/tests/
+
+# Secrets & local data — provide env via Coolify, not the image.
+**/.env
+**/*.db
+
+# Locally-synced deck copy (the image gets it from docs/ instead).
+backend/app/static/pitch-deck.pdf

@@ -112,6 +112,19 @@ Deploy as a **Dockerfile** application (no compose needed):
 6. **Health check path**: `/api/health`.
 7. Deploy. Migrations run automatically on container start.
 
+### Pitch deck asset
+
+The home page links a pitch deck served at `/pitch-deck.pdf`. The source lives in
+`docs/` (outside the backend build context), so it must be copied into the backend
+**before each deploy**:
+
+```bash
+sh scripts/sync-deck.sh   # copies docs/*.pdf -> backend/app/static/pitch-deck.pdf
+```
+
+Run it whenever the deck changes and commit the result (the committed copy is what
+Coolify builds). Alternatively wire it as a Coolify **pre-deployment command**.
+
 ## API at a glance
 
 Base URL `http://localhost:8000`. Full contract in `IMPLEMENTATION.md`.
