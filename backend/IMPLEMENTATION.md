@@ -20,7 +20,7 @@ backend/
   pyproject.toml
   app/
     main.py            # FastAPI app, router includes, CORS
-    config.py          # settings (ANTHROPIC_API_KEY, DB_URL, model id)
+    config.py          # settings (OPENAI_API_KEY, DB_URL, model id)
     db.py              # engine, session, init_db()
     models.py          # SQLModel tables: Team, Player, Match, Lineup, Note
     schemas.py         # request/response Pydantic models (the API contract)
@@ -104,7 +104,7 @@ Each agent has a `result_type` (Pydantic model) matching the response schema abo
    - `adjust(current_lineup, note)` → `AdjustResult { substitutions, position_changes, reason }`
 3. **match analyst** (`agents/analyst.py`) — `(formation, notes)` → `SummaryResult { summary, player_performance, improvements }`.
 
-Config (`agents/__init__.py`): single place setting the model id and reading `ANTHROPIC_API_KEY`. Agents must be unit-testable with a stubbed/`TestModel` so tests don't hit the network.
+Config (`agents/__init__.py`): single place setting the model id and reading `OPENAI_API_KEY`. Agents must be unit-testable with a stubbed/`TestModel` so tests don't hit the network.
 
 ---
 
