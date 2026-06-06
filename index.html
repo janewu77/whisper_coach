@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Whisper Coach — AI Football Coaching Assistant</title>
+<meta name="description" content="From a team photo and a few words: automatic lineups, live voice tactics, and post-match analysis. An AI football coaching assistant." />
+<style>
+  :root {
+    --grass: #2e9e5b;
+    --grass-light: #57c785;
+    --grass-soft: #eaf7ef;
+    --ink: #1c2a23;
+    --muted: #5d6f66;
+    --line: #e4ece7;
+    --card: #ffffff;
+    --bg: #f6fbf8;
+    --accent: #ffb703;
+    --shadow: 0 10px 30px rgba(46, 158, 91, 0.12);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--ink);
+    background: var(--bg);
+    line-height: 1.6;
+  }
+  a { color: inherit; text-decoration: none; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+
+  /* Nav */
+  header {
+    position: sticky; top: 0; z-index: 10;
+    backdrop-filter: saturate(180%) blur(10px);
+    background: rgba(246, 251, 248, 0.85);
+    border-bottom: 1px solid var(--line);
+  }
+  .nav { display: flex; align-items: center; justify-content: space-between; height: 64px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 1.15rem; }
+  .brand .ball { font-size: 1.4rem; }
+  .nav-links { display: flex; gap: 26px; align-items: center; }
+  .nav-links a { color: var(--muted); font-weight: 600; font-size: .95rem; }
+  .nav-links a:hover { color: var(--grass); }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--grass); color: #fff; font-weight: 700;
+    padding: 10px 18px; border-radius: 999px; box-shadow: var(--shadow);
+    transition: transform .15s ease, background .15s ease;
+  }
+  .btn:hover { transform: translateY(-2px); background: #27884e; }
+  .btn.ghost { background: #fff; color: var(--grass); border: 1.5px solid var(--grass); box-shadow: none; }
+  .btn.ghost:hover { background: var(--grass-soft); }
+
+  /* Hero */
+  .hero {
+    position: relative; overflow: hidden;
+    padding: 84px 0 72px;
+    background:
+      radial-gradient(1200px 400px at 80% -10%, var(--grass-soft), transparent),
+      repeating-linear-gradient(90deg, #f0f9f3 0 60px, #f6fbf8 60px 120px);
+  }
+  .hero-grid { display: grid; grid-template-columns: 1.1fr .9fr; gap: 48px; align-items: center; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--grass-soft); color: var(--grass);
+    font-weight: 700; font-size: .82rem; padding: 6px 14px; border-radius: 999px;
+    border: 1px solid #d3ecdd;
+  }
+  .hero h1 { font-size: 3rem; line-height: 1.1; margin: 18px 0 16px; letter-spacing: -1px; }
+  .hero h1 span { color: var(--grass); }
+  .hero p.lead { font-size: 1.15rem; color: var(--muted); max-width: 520px; }
+  .hero-cta { display: flex; gap: 14px; margin-top: 28px; flex-wrap: wrap; }
+  .hero-sub { margin-top: 22px; color: var(--muted); font-size: .9rem; }
+
+  /* Pitch illustration */
+  .pitch-card {
+    background: var(--card); border-radius: 22px; padding: 18px;
+    box-shadow: var(--shadow); border: 1px solid var(--line);
+  }
+  svg.pitch { width: 100%; height: auto; display: block; border-radius: 14px; }
+
+  /* Sections */
+  section { padding: 76px 0; }
+  .section-head { text-align: center; max-width: 640px; margin: 0 auto 48px; }
+  .section-head .pill { margin-bottom: 14px; }
+  .section-head h2 { font-size: 2.1rem; letter-spacing: -.5px; }
+  .section-head p { color: var(--muted); margin-top: 10px; }
+
+  /* Flow steps */
+  .steps { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; }
+  .step {
+    background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+    padding: 22px 18px; text-align: center; position: relative;
+    transition: transform .15s ease, box-shadow .15s ease;
+  }
+  .step:hover { transform: translateY(-4px); box-shadow: var(--shadow); }
+  .step .num {
+    width: 34px; height: 34px; border-radius: 50%; background: var(--grass-soft);
+    color: var(--grass); font-weight: 800; display: grid; place-items: center;
+    margin: 0 auto 12px;
+  }
+  .step .emoji { font-size: 1.6rem; }
+  .step h3 { font-size: 1rem; margin: 8px 0 4px; }
+  .step p { font-size: .85rem; color: var(--muted); }
+
+  /* Agent cards */
+  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 20px;
+    padding: 28px; transition: transform .15s ease, box-shadow .15s ease;
+  }
+  .card:hover { transform: translateY(-4px); box-shadow: var(--shadow); }
+  .card .icon {
+    width: 52px; height: 52px; border-radius: 14px; display: grid; place-items: center;
+    font-size: 1.5rem; background: var(--grass-soft); margin-bottom: 16px;
+  }
+  .card h3 { font-size: 1.2rem; margin-bottom: 8px; }
+  .card p { color: var(--muted); font-size: .95rem; }
+  .card .tag { display: inline-block; margin-top: 14px; font-size: .78rem; font-weight: 700;
+    color: var(--grass); background: var(--grass-soft); padding: 4px 10px; border-radius: 999px; }
+
+  /* Stack */
+  .stack { background: var(--grass-soft); border-radius: 24px; padding: 40px; }
+  .stack-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
+  .stack h3 { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 10px; }
+  .chip { background: #fff; border: 1px solid #d6ecdf; color: var(--ink);
+    padding: 8px 14px; border-radius: 999px; font-weight: 600; font-size: .88rem; }
+
+  /* CTA band */
+  .cta-band {
+    text-align: center; background: linear-gradient(135deg, var(--grass), var(--grass-light));
+    color: #fff; border-radius: 28px; padding: 56px 28px; box-shadow: var(--shadow);
+  }
+  .cta-band h2 { font-size: 2rem; margin-bottom: 10px; }
+  .cta-band p { opacity: .92; margin-bottom: 26px; }
+  .cta-band .btn { background: #fff; color: var(--grass); }
+  .cta-band .btn:hover { background: #f3fff8; }
+
+  /* Footer */
+  footer { padding: 40px 0; border-top: 1px solid var(--line); color: var(--muted); }
+  .foot { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; }
+  .foot a { color: var(--grass); font-weight: 600; }
+
+  @media (max-width: 880px) {
+    .hero-grid { grid-template-columns: 1fr; }
+    .steps { grid-template-columns: repeat(2, 1fr); }
+    .cards { grid-template-columns: 1fr; }
+    .stack-grid { grid-template-columns: 1fr; }
+    .nav-links a:not(.btn) { display: none; }
+    .hero h1 { font-size: 2.3rem; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <div class="brand"><span class="ball">⚽</span> Whisper Coach</div>
+    <nav class="nav-links">
+      <a href="#flow">How it works</a>
+      <a href="#agents">AI agents</a>
+      <a href="#stack">Tech</a>
+      <a class="btn ghost" href="https://github.com/janewu77/whisper_coach" target="_blank" rel="noopener">★ GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <span class="pill">⚽ AI Football Coaching Assistant</span>
+      <h1>Snap a photo. Get a <span>lineup</span>.<br/>Coach by voice.</h1>
+      <p class="lead">
+        Whisper Coach turns a team photo and a few words into automatic lineups,
+        live tactical suggestions during the match, and an instant post-match analysis.
+      </p>
+      <div class="hero-cta">
+        <a class="btn" href="https://github.com/janewu77/whisper_coach" target="_blank" rel="noopener">
+          ★ View on GitHub
+        </a>
+        <a class="btn ghost" href="#flow">See how it works →</a>
+      </div>
+      <p class="hero-sub">FastAPI · PydanticAI · Flutter · built for the pitch ⚽</p>
+    </div>
+
+    <!-- Light-themed 2D pitch illustration (self-contained SVG) -->
+    <div class="pitch-card">
+      <svg class="pitch" viewBox="0 0 400 260" role="img" aria-label="2D football pitch with a 4-3-3 lineup">
+        <defs>
+          <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#f3fbf6"/>
+            <stop offset="1" stop-color="#e7f6ee"/>
+          </linearGradient>
+        </defs>
+        <rect x="0" y="0" width="400" height="260" rx="12" fill="url(#g)"/>
+        <!-- mowing stripes -->
+        <g fill="#ddf1e5" opacity="0.6">
+          <rect x="0" y="0" width="50" height="260"/>
+          <rect x="100" y="0" width="50" height="260"/>
+          <rect x="200" y="0" width="50" height="260"/>
+          <rect x="300" y="0" width="50" height="260"/>
+        </g>
+        <!-- markings -->
+        <g stroke="#9bd3b3" stroke-width="2" fill="none">
+          <rect x="14" y="14" width="372" height="232" rx="6"/>
+          <line x1="200" y1="14" x2="200" y2="246"/>
+          <circle cx="200" cy="130" r="34"/>
+          <rect x="14" y="80" width="46" height="100"/>
+          <rect x="340" y="80" width="46" height="100"/>
+        </g>
+        <!-- players (4-3-3) -->
+        <g>
+          <!-- GK + defenders + mids + forwards -->
+          <g fill="#2e9e5b">
+            <circle cx="34" cy="130" r="8"/>
+            <circle cx="95" cy="55" r="8"/><circle cx="95" cy="105" r="8"/>
+            <circle cx="95" cy="155" r="8"/><circle cx="95" cy="205" r="8"/>
+            <circle cx="175" cy="75" r="8"/><circle cx="175" cy="130" r="8"/><circle cx="175" cy="185" r="8"/>
+          </g>
+          <g fill="#ffb703">
+            <circle cx="270" cy="70" r="8"/><circle cx="285" cy="130" r="8"/><circle cx="270" cy="190" r="8"/>
+          </g>
+        </g>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- FLOW -->
+<section id="flow">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="pill">The matchday flow</span>
+      <h2>From photo to final whistle</h2>
+      <p>Five steps. The smart parts are handled by AI; the coach just makes the calls.</p>
+    </div>
+    <div class="steps">
+      <div class="step"><div class="num">1</div><div class="emoji">📸</div><h3>Snap the roster</h3><p>Photo of the team sheet becomes a structured player list.</p></div>
+      <div class="step"><div class="num">2</div><div class="emoji">📝</div><h3>Create a match</h3><p>Opponent, venue, date — a few quick inputs.</p></div>
+      <div class="step"><div class="num">3</div><div class="emoji">🧠</div><h3>Auto lineup</h3><p>AI picks a formation and explains the tactical reason.</p></div>
+      <div class="step"><div class="num">4</div><div class="emoji">🎙️</div><h3>Coach by voice</h3><p>"Left flank is exposed" → live sub & position advice.</p></div>
+      <div class="step"><div class="num">5</div><div class="emoji">📊</div><h3>Post-match</h3><p>Summary, player ratings, and what to improve.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- AGENTS -->
+<section id="agents" style="background:#fff;border-top:1px solid var(--line);border-bottom:1px solid var(--line);">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="pill">Powered by 3 AI agents</span>
+      <h2>The coaching brain</h2>
+      <p>Each agent does one job well, returning clean structured data.</p>
+    </div>
+    <div class="cards">
+      <div class="card">
+        <div class="icon">📸</div>
+        <h3>Roster Extractor</h3>
+        <p>Reads a team-sheet photo and pulls out each player's name, number, and position.</p>
+        <span class="tag">vision → players</span>
+      </div>
+      <div class="card">
+        <div class="icon">⚽</div>
+        <h3>Lineup Generator</h3>
+        <p>Turns players + opponent into a formation and starting XI — and adjusts live from voice notes.</p>
+        <span class="tag">tactics → formation</span>
+      </div>
+      <div class="card">
+        <div class="icon">📊</div>
+        <h3>Match Analyst</h3>
+        <p>Reviews the game's notes and adjustments to write a summary with ratings and improvements.</p>
+        <span class="tag">events → report</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- STACK -->
+<section id="stack">
+  <div class="wrap">
+    <div class="stack">
+      <div class="stack-grid">
+        <div>
+          <h3>🛠️ Backend</h3>
+          <div class="chips">
+            <span class="chip">FastAPI</span>
+            <span class="chip">PydanticAI</span>
+            <span class="chip">PostgreSQL</span>
+            <span class="chip">Alembic</span>
+            <span class="chip">OpenAI · Whisper</span>
+            <span class="chip">Docker</span>
+          </div>
+        </div>
+        <div>
+          <h3>📱 Frontend</h3>
+          <div class="chips">
+            <span class="chip">Flutter</span>
+            <span class="chip">Home / Create Match</span>
+            <span class="chip">2D Pitch</span>
+            <span class="chip">Live Voice Notes</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section style="padding-top:0;">
+  <div class="wrap">
+    <div class="cta-band">
+      <h2>Build the future of the touchline ⚽</h2>
+      <p>Whisper Coach is open source. Star it, fork it, take it to the pitch.</p>
+      <a class="btn" href="https://github.com/janewu77/whisper_coach" target="_blank" rel="noopener">★ Star on GitHub</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap foot">
+    <div><span class="brand"><span class="ball">⚽</span> Whisper Coach</span></div>
+    <div>An AI football coaching assistant · <a href="https://github.com/janewu77/whisper_coach" target="_blank" rel="noopener">github.com/janewu77/whisper_coach</a></div>
+  </div>
+</footer>
+
+</body>
+</html>
