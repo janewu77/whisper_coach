@@ -104,6 +104,13 @@ class NoteResponse(BaseModel):
     suggestion: AdjustResult
 
 
+class NoteOut(BaseModel):
+    id: int
+    kind: str
+    content: str
+    ai_response: dict
+
+
 class VoiceNoteResponse(BaseModel):
     note_id: int
     transcription: str  # the text the audio was transcribed to

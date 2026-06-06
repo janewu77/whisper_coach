@@ -30,6 +30,8 @@ class Match(SQLModel, table=True):
     date: str
     notes: Optional[str] = None
     strength: Optional[str] = None  # "strong" | "weak" | None
+    # Last generated post-match summary (SummaryResult shape); null until made.
+    summary: Optional[dict] = Field(default=None, sa_column=Column(JSON))
     created_at: datetime = Field(default_factory=_now)
 
 

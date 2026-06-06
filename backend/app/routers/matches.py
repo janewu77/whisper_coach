@@ -14,6 +14,7 @@ from app.schemas import (
     MatchInput,
     MatchResponse,
     NoteInput,
+    NoteOut,
     NoteResponse,
     PlayerOut,
     SummaryResult,
@@ -148,6 +149,18 @@ async def add_note(
     return NoteResponse(note_id=note.id, suggestion=suggestion)
 
 
+@router.get("/{match_id}/notes", response_model=list[NoteOut])
+def list_notes(match_id: int, session: Session = Depends(get_session)):
+    _match_or_404(session, match_id)
+    notes = session.exec(
+        select(Note).where(Note.match_id == match_id).order_by(Note.created_at)
+    ).all()
+    return [
+        NoteOut(id=n.id, kind=n.kind, content=n.content, ai_response=n.ai_response)
+        for n in notes
+    ]
+
+
 @router.post("/{match_id}/notes/voice", response_model=VoiceNoteResponse)
 async def add_voice_note(
     match_id: int,
@@ -173,7 +186,7 @@ async def add_voice_note(
 
 @router.post("/{match_id}/summary", response_model=SummaryResult)
 async def make_summary(match_id: int, session: Session = Depends(get_session)):
-    _match_or_404(session, match_id)
+    match = _match_or_404(session, match_id)
     lineup_row = _latest_lineup(session, match_id)
     lineup = _to_lineup_result(lineup_row) if lineup_row else None
     notes = session.exec(select(Note).where(Note.match_id == match_id)).all()
@@ -182,4 +195,17 @@ async def make_summary(match_id: int, session: Session = Depends(get_session)):
         result = await summarize_match(lineup, [n.content for n in notes])
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"summary failed: {exc}")
+
+    match.summary = result.model_dump()
+    session.add(match)
+    session.commit()
     return result
+
+
+@router.get("/{match_id}/summary", response_model=SummaryResult)
+def get_summary(match_id: int, session: Session = Depends(get_session)):
+    """Return the stored summary; 404 if it hasn't been generated yet (POST first)."""
+    match = _match_or_404(session, match_id)
+    if not match.summary:
+        raise HTTPException(status_code=404, detail="summary not generated yet")
+    return SummaryResult(**match.summary)
