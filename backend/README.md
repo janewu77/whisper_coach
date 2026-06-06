@@ -78,13 +78,15 @@ with `uv run pytest -m live` once an API key is configured.
 
 ## Docker
 
-The image runs migrations on startup, then serves the API on port `8000`.
+The build context is the **repo root** (so the build can bake in the pitch deck
+from `docs/`). Build with `-f backend/Dockerfile` from the repo root:
 
 ```bash
-docker build -t whisper-coach-backend ./backend
+# from the repository root
+docker build -f backend/Dockerfile -t whisper-coach-backend .
 
 docker run -p 8000:8000 \
-  -e DB_URL="postgresql+psycopg://user:pass@host:5432/whisper_coach" \
+  -e DB_URL="postgresql://user:pass@host:5432/whisper_coach" \
   -e OPENAI_API_KEY="sk-..." \
   whisper-coach-backend
 ```
@@ -97,8 +99,9 @@ The entrypoint runs `alembic upgrade head` before launching uvicorn. Set
 Deploy as a **Dockerfile** application (no compose needed):
 
 1. **New Resource → Application → from your Git repo.**
-2. Build Pack: **Dockerfile**. Set **Base Directory** to `/backend` so Coolify
-   uses `backend/Dockerfile` and the backend build context.
+2. Build Pack: **Dockerfile**. Leave **Base Directory** at `/` (repo root) and set
+   **Dockerfile Location** to `backend/Dockerfile`. The build context must be the
+   repo root so it can copy both `backend/` and `docs/` (the pitch deck).
 3. Provision Postgres: add a **Coolify Postgres database** (or use an external
    one). Coolify gives you an internal connection string.
 4. **Environment variables** (Coolify → the app → Environment):
@@ -114,16 +117,18 @@ Deploy as a **Dockerfile** application (no compose needed):
 
 ### Pitch deck asset
 
-The home page links a pitch deck served at `/pitch-deck.pdf`. The source lives in
-`docs/` (outside the backend build context), so it must be copied into the backend
-**before each deploy**:
+The home page links a pitch deck served at `/pitch-deck.pdf`. The source of truth
+is `docs/AI_Football_Coach_Pitch_Deck.pdf`, and the Dockerfile copies it into the
+image **on every build** — fully automatic, nothing to commit or sync for deploys.
+
+For **local dev** only (where you run uvicorn directly, not Docker), create the
+local copy once:
 
 ```bash
 sh scripts/sync-deck.sh   # copies docs/*.pdf -> backend/app/static/pitch-deck.pdf
 ```
 
-Run it whenever the deck changes and commit the result (the committed copy is what
-Coolify builds). Alternatively wire it as a Coolify **pre-deployment command**.
+That local copy is gitignored; if it's missing, `/pitch-deck.pdf` returns 404.
 
 ## API at a glance
 
