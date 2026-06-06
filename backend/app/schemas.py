@@ -1,0 +1,119 @@
+"""Request/response models — the API contract shared with the frontend.
+
+Kept separate from the SQLModel tables so the wire format is stable even if
+storage changes. Agent result types live here too (reused as PydanticAI
+`result_type`s) so the LLM output is validated against the same shapes.
+"""
+
+from typing import Optional
+
+from pydantic import BaseModel, ConfigDict, Field
+
+
+# ---- Players / teams ----
+class PlayerOut(BaseModel):
+    name: str
+    number: Optional[int] = None
+    preferred_position: Optional[str] = None
+
+
+class RosterResult(BaseModel):
+    """Agent 1 (roster extractor) output."""
+
+    players: list[PlayerOut]
+
+
+class RosterResponse(BaseModel):
+    team_id: int
+    players: list[PlayerOut]
+
+
+class TeamResponse(BaseModel):
+    id: int
+    name: str
+    players: list[PlayerOut]
+
+
+# ---- Matches ----
+class MatchInput(BaseModel):
+    team_id: int
+    opponent: str
+    location: str
+    date: str
+    notes: Optional[str] = None
+    strength: Optional[str] = None
+
+
+class MatchResponse(BaseModel):
+    id: int
+    team_id: int
+    opponent: str
+    location: str
+    date: str
+    notes: Optional[str] = None
+    strength: Optional[str] = None
+
+
+# ---- Lineup (Agent 2, generate) ----
+class LineupSlot(BaseModel):
+    player: str
+    position: str
+
+
+class LineupRequest(BaseModel):
+    strength: Optional[str] = None
+
+
+class LineupResult(BaseModel):
+    """Agent 2 (lineup generator) output."""
+
+    formation: str
+    lineup: list[LineupSlot]
+    reason: str
+
+
+# ---- Notes / in-match adjustments (Agent 2, adjust) ----
+class NoteInput(BaseModel):
+    kind: str = "text"  # "text" | "voice"
+    content: str
+
+
+class Substitution(BaseModel):
+    # JSON key is "in" (reserved word in Python), so the field is "in_".
+    model_config = ConfigDict(populate_by_name=True)
+
+    out: str
+    in_: str = Field(alias="in")
+
+
+class PositionChange(BaseModel):
+    player: str
+    to: str
+
+
+class AdjustResult(BaseModel):
+    """Agent 2 (adjust mode) output."""
+
+    substitutions: list[Substitution] = []
+    position_changes: list[PositionChange] = []
+    reason: str
+
+
+class NoteResponse(BaseModel):
+    note_id: int
+    suggestion: AdjustResult
+
+
+# ---- Summary (Agent 3) ----
+class PlayerPerformance(BaseModel):
+    player: str
+    rating: str
+    comment: str
+
+
+class SummaryResult(BaseModel):
+    """Agent 3 (match analyst) output."""
+
+    summary: str
+    player_performance: list[PlayerPerformance]
+    improvements: list[str]
