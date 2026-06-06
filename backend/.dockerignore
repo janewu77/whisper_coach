@@ -1,0 +1,16 @@
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+
+# Tests are not needed in the runtime image.
+app/tests/
+
+# Secrets & local data — provide env via Coolify, not the image.
+.env
+*.db
+
+.git/
+README.md

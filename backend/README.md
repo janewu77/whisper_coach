@@ -73,6 +73,42 @@ uv run pytest app/tests/test_lineup.py::test_generate_returns_formation   # one 
 `live`-marked tests (real LLM calls) are skipped by default; run them explicitly
 with `uv run pytest -m live` once an API key is configured.
 
+## Docker
+
+The image runs migrations on startup, then serves the API on port `8000`.
+
+```bash
+docker build -t whisper-coach-backend ./backend
+
+docker run -p 8000:8000 \
+  -e DB_URL="postgresql+psycopg://user:pass@host:5432/whisper_coach" \
+  -e OPENAI_API_KEY="sk-..." \
+  whisper-coach-backend
+```
+
+The entrypoint runs `alembic upgrade head` before launching uvicorn. Set
+`RUN_MIGRATIONS=false` to skip that (e.g. when migrations run as a separate job).
+
+## Deploying to Coolify
+
+Deploy as a **Dockerfile** application (no compose needed):
+
+1. **New Resource → Application → from your Git repo.**
+2. Build Pack: **Dockerfile**. Set **Base Directory** to `/backend` so Coolify
+   uses `backend/Dockerfile` and the backend build context.
+3. Provision Postgres: add a **Coolify Postgres database** (or use an external
+   one). Coolify gives you an internal connection string.
+4. **Environment variables** (Coolify → the app → Environment):
+   - `DB_URL` = `postgresql+psycopg://<user>:<pass>@<pg-host>:5432/<db>`
+     (use the **internal** host Coolify shows for the database). Note the
+     `+psycopg` driver suffix — required.
+   - `OPENAI_API_KEY` = your key
+   - `LLM_MODEL` (optional) = `openai-chat:gpt-4o`
+5. **Port**: the app listens on `8000` — set Coolify's exposed/port mapping to
+   `8000`.
+6. **Health check path**: `/api/health`.
+7. Deploy. Migrations run automatically on container start.
+
 ## API at a glance
 
 Base URL `http://localhost:8000`. Full contract in `IMPLEMENTATION.md`.
@@ -113,4 +149,6 @@ app/
   tests/             pytest suite with stubbed agents
 alembic/             migration env + versions/ (schema source of truth)
 alembic.ini          alembic config (DB URL is injected from settings)
+Dockerfile           runtime image (uv + locked deps)
+docker-entrypoint.sh runs migrations then starts uvicorn
 ```

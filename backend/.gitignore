@@ -9,6 +9,4 @@ venv/
 # Local DB & secrets
 *.db
 .env
-
-# uv
-uv.lock
+# uv.lock is committed for reproducible Docker builds.
