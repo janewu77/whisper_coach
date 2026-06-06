@@ -58,5 +58,38 @@ void main() {
       expect(find.text('vs FC Riverside'), findsOneWidget);
       expect(find.text('Strong opponent'), findsOneWidget);
     });
+
+    testWidgets('refreshes matches without returning a Future from setState',
+        (tester) async {
+      var requestCount = 0;
+      adapter.onGet('/api/matches', (server) {
+        requestCount++;
+        return server.reply(200, [
+          {
+            'id': requestCount,
+            'team_id': 1,
+            'opponent': requestCount == 1 ? 'First FC' : 'Updated FC',
+            'location': 'Home',
+            'date': '2026-06-07',
+            'notes': null,
+            'strength': null,
+          },
+        ]);
+      });
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: buildTheme(),
+          home: MatchListScreen(apiClient: Api(dio)),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Refresh matches'));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('vs Updated FC'), findsOneWidget);
+    });
   });
 }
