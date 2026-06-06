@@ -104,6 +104,12 @@ class NoteResponse(BaseModel):
     suggestion: AdjustResult
 
 
+class VoiceNoteResponse(BaseModel):
+    note_id: int
+    transcription: str  # the text the audio was transcribed to
+    suggestion: AdjustResult
+
+
 # ---- Summary (Agent 3) ----
 class PlayerPerformance(BaseModel):
     player: str

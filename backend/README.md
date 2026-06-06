@@ -57,8 +57,8 @@ Workflow when you change `app/models.py`: autogenerate a revision, **review the
 generated file** in `alembic/versions/`, then `upgrade head`.
 
 > Without an API key the server still runs and the non-AI routes work
-> (create/get match, get team). The four AI endpoints will return `502` until a
-> valid key is set.
+> (create/get match, get team). The AI endpoints (lineup, notes, voice, summary,
+> roster) will return `502` until a valid key is set.
 
 ## Running tests
 
@@ -121,7 +121,8 @@ Base URL `http://localhost:8000`. Full contract in `IMPLEMENTATION.md`.
 | POST | `/api/matches` | create a match |
 | GET  | `/api/matches/{id}` | match incl. latest lineup + notes |
 | POST | `/api/matches/{id}/lineup` | generate formation + lineup |
-| POST | `/api/matches/{id}/notes` | in-match note → adjustment suggestion |
+| POST | `/api/matches/{id}/notes` | in-match text note → adjustment suggestion |
+| POST | `/api/matches/{id}/notes/voice` | in-match voice clip → transcribed + adjustment suggestion |
 | POST | `/api/matches/{id}/summary` | post-match summary |
 
 ### Quick manual run-through

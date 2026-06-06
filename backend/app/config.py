@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     # "openai-chat:" pins the Chat Completions API (avoids the v2 Responses
     # default). gpt-4o supports vision, needed by the roster extractor.
     llm_model: str = "openai-chat:gpt-4o"
+    # Audio transcription model for voice notes (OpenAI audio API).
+    transcribe_model: str = "whisper-1"
 
     # CORS — open in dev so the Flutter app can call from anywhere.
     cors_origins: list[str] = ["*"]

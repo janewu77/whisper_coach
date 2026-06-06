@@ -1,11 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlmodel import Session, select
 
 from app.agents.analyst import summarize_match
 from app.agents.lineup import adjust_lineup, generate_lineup
+from app.agents.transcribe import transcribe_audio
 from app.db import get_session
 from app.models import Lineup, Match, Note, Player
 from app.schemas import (
+    AdjustResult,
     LineupRequest,
     LineupResult,
     LineupSlot,
@@ -15,6 +17,7 @@ from app.schemas import (
     NoteResponse,
     PlayerOut,
     SummaryResult,
+    VoiceNoteResponse,
 )
 
 router = APIRouter(prefix="/api/matches", tags=["matches"])
@@ -101,10 +104,10 @@ async def make_lineup(
     return result
 
 
-@router.post("/{match_id}/notes", response_model=NoteResponse)
-async def add_note(
-    match_id: int, body: NoteInput, session: Session = Depends(get_session)
-):
+async def _adjust_and_store(
+    session: Session, match_id: int, kind: str, content: str
+) -> tuple[Note, AdjustResult]:
+    """Shared path for text and voice notes: run the adjust agent + persist."""
     _match_or_404(session, match_id)
     lineup_row = _latest_lineup(session, match_id)
     if not lineup_row:
@@ -113,20 +116,53 @@ async def add_note(
         )
 
     try:
-        suggestion = await adjust_lineup(_to_lineup_result(lineup_row), body.content)
+        suggestion = await adjust_lineup(_to_lineup_result(lineup_row), content)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"adjustment failed: {exc}")
 
     note = Note(
         match_id=match_id,
-        kind=body.kind,
-        content=body.content,
+        kind=kind,
+        content=content,
         ai_response=suggestion.model_dump(by_alias=True),
     )
     session.add(note)
     session.commit()
     session.refresh(note)
+    return note, suggestion
+
+
+@router.post("/{match_id}/notes", response_model=NoteResponse)
+async def add_note(
+    match_id: int, body: NoteInput, session: Session = Depends(get_session)
+):
+    note, suggestion = await _adjust_and_store(
+        session, match_id, body.kind, body.content
+    )
     return NoteResponse(note_id=note.id, suggestion=suggestion)
+
+
+@router.post("/{match_id}/notes/voice", response_model=VoiceNoteResponse)
+async def add_voice_note(
+    match_id: int,
+    audio: UploadFile = File(...),
+    session: Session = Depends(get_session),
+):
+    """Upload an audio clip; it is transcribed, then treated like a text note."""
+    _match_or_404(session, match_id)
+    if not (audio.content_type or "").startswith("audio/"):
+        raise HTTPException(status_code=422, detail="audio must be an audio file")
+
+    data = await audio.read()
+    try:
+        text = await transcribe_audio(data, audio.filename or "note.webm")
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"transcription failed: {exc}")
+
+    note, suggestion = await _adjust_and_store(session, match_id, "voice", text)
+    return VoiceNoteResponse(
+        note_id=note.id, transcription=text, suggestion=suggestion
+    )
 
 
 @router.post("/{match_id}/summary", response_model=SummaryResult)

@@ -11,7 +11,10 @@ The REST contract this app consumes lives in `../backend/IMPLEMENTATION.md` § "
 - **Flutter** (Dart), Material.
 - **http** or **dio** for REST (dio preferred: interceptors + multipart for the photo upload).
 - **image_picker** — camera/gallery for the roster photo.
-- **speech_to_text** — on-device voice → text for the live notes screen (backend receives text, not audio).
+- **record** (or `flutter_sound`) — record an audio clip on the live notes screen.
+  Transcription is **server-side**: the app uploads the audio file to
+  `POST /api/matches/{id}/notes/voice` and the backend (OpenAI Whisper) returns
+  both the transcription and the suggestion. No on-device speech package needed.
 - State: keep it light — `provider` or `ChangeNotifier`/`setState`. No heavy architecture for a 1–2 day build.
 
 Proposed structure:
@@ -24,7 +27,7 @@ frontend/
     config.dart          # API base URL (http://localhost:8000)
     api/
       client.dart        # dio instance + error handling
-      api.dart           # typed calls: extractRoster, createMatch, generateLineup, sendNote, getSummary
+      api.dart           # typed calls: extractRoster, createMatch, generateLineup, sendNote, sendVoiceNote, getSummary
     models/              # Dart models mirroring backend schemas
       team.dart  player.dart  match.dart  lineup.dart  suggestion.dart  summary.dart
     screens/
@@ -58,9 +61,16 @@ frontend/
 - **Regenerate** button re-calls the lineup endpoint.
 
 ### Screen 3 — Live / Notes (`live_screen.dart`)
-- Text field + **voice button** (`speech_to_text` fills the text field).
-- Send → `POST /api/matches/{id}/notes` → render `suggestion` (substitutions, position changes, reason) in an `ai_response_card`.
+- **Text path:** text field → send → `POST /api/matches/{id}/notes` → render `suggestion`.
+- **Voice path (server-side):** hold/tap the **mic button** to record with `record`,
+  release to stop → upload the audio file to `POST /api/matches/{id}/notes/voice`.
+  The response includes `transcription` (show it as the note text) **and** the
+  `suggestion` (render in the same `ai_response_card`). One request does both —
+  no on-device transcription step.
 - **End match / Summary** button → `POST /api/matches/{id}/summary` → render summary, per-player ratings, improvements.
+
+> Both note endpoints need a lineup to exist first (backend returns `409`
+> otherwise) — only enable the notes UI after a lineup has been generated.
 
 ---
 
@@ -76,6 +86,7 @@ frontend/
 | `getMatch(int id)` | `GET /api/matches/{id}` | `Match` (incl. lineup, notes) |
 | `generateLineup(int matchId, {String? strength})` | `POST /api/matches/{id}/lineup` | `Lineup {formation, lineup[], reason}` |
 | `sendNote(int matchId, NoteInput)` | `POST /api/matches/{id}/notes` | `Suggestion {substitutions[], positionChanges[], reason}` |
+| `sendVoiceNote(int matchId, File audio)` | `POST /api/matches/{id}/notes/voice` (multipart, field `audio`) | `VoiceNote {transcription, suggestion}` |
 | `getSummary(int matchId)` | `POST /api/matches/{id}/summary` | `Summary {summary, playerPerformance[], improvements[]}` |
 
 Dart models in `lib/models/` mirror the backend JSON exactly (camelCase in Dart ↔ snake_case JSON via `fromJson`/`toJson`). Errors: read FastAPI `{detail}` and surface a snackbar.
@@ -90,7 +101,8 @@ Dart models in `lib/models/` mirror the backend JSON exactly (camelCase in Dart 
 4. **Pitch view** — `pitch_view.dart` rendering icons from a lineup; wire `generateLineup`.
 5. **Roster upload** — `image_picker` + `extractRoster`, show extracted players on Home.
 6. **Live screen** — text notes → `sendNote` → response card.
-7. **Voice input** — `speech_to_text` into the note field.
+7. **Voice input** — record with `record`, upload via `sendVoiceNote`; show the
+   returned `transcription` as the note and render its `suggestion`.
 8. **Summary** — `getSummary` rendering.
 9. **Polish** — loading/error states, empty states, basic theming.
 
@@ -105,10 +117,10 @@ Framework: `flutter_test` (+ `mockito`/`http_mock_adapter` for dio). Run: `flutt
 **Principle:** no real network in tests — mock the dio adapter / inject a fake `Api`.
 
 - **Model (de)serialization**: each model `fromJson`/`toJson` round-trips with sample backend payloads (copy real examples from the contract). Catches camelCase/snake_case drift.
-- **API client (mocked)**: each method hits the right path/verb, sends the right body (incl. multipart for `extractRoster`), parses the success body, and maps a `{detail}` error to a thrown/handled error.
+- **API client (mocked)**: each method hits the right path/verb, sends the right body (incl. multipart for `extractRoster` and `sendVoiceNote`), parses the success body, and maps a `{detail}` error to a thrown/handled error. For `sendVoiceNote`, assert the parsed `transcription` + `suggestion`.
 - **Widget — pitch_view**: given a lineup with N players, renders N tappable player chips; tap fires the callback with the right player.
 - **Widget — home_screen**: filling the form and tapping Generate calls `createMatch` then `generateLineup` (with a mocked Api) and navigates.
 - **Widget — ai_response_card**: renders substitutions/position changes/reason from a `Suggestion`.
 - **Smoke**: app boots to Home without exceptions.
 
-Manual QA checklist (hackathon demo path): photo → roster shown → create match → lineup on pitch → tap player + voice note → suggestion card → summary. Run once end-to-end against the live backend before demo.
+Manual QA checklist (hackathon demo path): photo → roster shown → create match → lineup on pitch → tap player → record a voice note → transcription + suggestion card appears → summary. Run once end-to-end against the live backend before demo (voice note needs the backend's `OPENAI_API_KEY` set).
