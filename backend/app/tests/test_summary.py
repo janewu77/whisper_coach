@@ -84,3 +84,37 @@ def test_summary(client, team, stub_agents):
     assert body["summary"] == "Good game."
     assert body["player_performance"][0]["player"] == "John"
     assert body["improvements"]
+
+
+def test_get_summary_after_generate(client, team, stub_agents):
+    match_id = _make_match(client, team)
+    client.post(f"/api/matches/{match_id}/lineup", json={})
+    # not generated yet -> 404
+    assert client.get(f"/api/matches/{match_id}/summary").status_code == 404
+    # generate, then fetch the stored one
+    client.post(f"/api/matches/{match_id}/summary")
+    r = client.get(f"/api/matches/{match_id}/summary")
+    assert r.status_code == 200
+    assert r.json()["summary"] == "Good game."
+
+
+def test_list_notes(client, team, stub_agents):
+    match_id = _make_match(client, team)
+    client.post(f"/api/matches/{match_id}/lineup", json={})
+    assert client.get(f"/api/matches/{match_id}/notes").json() == []
+
+    client.post(
+        f"/api/matches/{match_id}/notes",
+        json={"kind": "text", "content": "John is tired"},
+    )
+    r = client.get(f"/api/matches/{match_id}/notes")
+    assert r.status_code == 200
+    body = r.json()
+    assert len(body) == 1
+    assert body[0]["content"] == "John is tired"
+    assert body[0]["kind"] == "text"
+    assert body[0]["ai_response"]["substitutions"][0]["in"] == "David"
+
+
+def test_list_notes_unknown_match_404(client):
+    assert client.get("/api/matches/999/notes").status_code == 404
