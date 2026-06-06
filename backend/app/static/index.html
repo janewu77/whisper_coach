@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Whisper Coach — AI Football Coaching Assistant</title>
 <meta name="description" content="From a team photo and a few words: automatic lineups, live voice tactics, and post-match analysis. An AI football coaching assistant." />
+<link rel="icon" type="image/jpeg" href="/img/logo.jpg" />
 <style>
   :root {
     --grass: #2e9e5b;
@@ -38,7 +39,7 @@
   }
   .nav { display: flex; align-items: center; justify-content: space-between; height: 64px; }
   .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 1.15rem; }
-  .brand .ball { font-size: 1.4rem; }
+  .brand .logo { width: 30px; height: 30px; object-fit: contain; display: block; }
   .nav-links { display: flex; gap: 26px; align-items: center; }
   .nav-links a { color: var(--muted); font-weight: 600; font-size: .95rem; }
   .nav-links a:hover { color: var(--grass); }
@@ -197,7 +198,7 @@
 
 <header>
   <div class="wrap nav">
-    <div class="brand"><span class="ball">⚽</span> Whisper Coach</div>
+    <div class="brand"><img class="logo" src="/img/logo.jpg" alt="Whisper Coach logo" /> Whisper Coach</div>
     <nav class="nav-links">
       <a href="#flow">How it works</a>
       <a href="#screens">Screens</a>
@@ -415,7 +416,7 @@
 
 <footer>
   <div class="wrap foot">
-    <div><span class="brand"><span class="ball">⚽</span> Whisper Coach</span></div>
+    <div><span class="brand"><img class="logo" src="/img/logo.jpg" alt="Whisper Coach logo" /> Whisper Coach</span></div>
     <div>An AI football coaching assistant · <a href="https://github.com/janewu77/whisper_coach" target="_blank" rel="noopener">github.com/janewu77/whisper_coach</a></div>
   </div>
 </footer>
