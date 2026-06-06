@@ -1,26 +1,62 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:whisper_coach/main.dart';
+import 'package:dio/dio.dart';
+import 'package:http_mock_adapter/http_mock_adapter.dart';
+import 'package:whisper_coach/api/api.dart';
+import 'package:whisper_coach/screens/match_list_screen.dart';
 import 'package:whisper_coach/theme.dart';
 
 void main() {
-  group('HomeScreen smoke', () {
-    testWidgets('app boots without exceptions', (tester) async {
-      await tester.pumpWidget(const WhisperCoachApp());
-      await tester.pump();
+  group('MatchListScreen', () {
+    late Dio dio;
+    late DioAdapter adapter;
+
+    setUp(() {
+      dio = Dio(BaseOptions(baseUrl: 'http://localhost:8000'));
+      adapter = DioAdapter(dio: dio);
+    });
+
+    testWidgets('shows the empty state and create action', (tester) async {
+      adapter.onGet('/api/matches', (server) => server.reply(200, []));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: buildTheme(),
+          home: MatchListScreen(apiClient: Api(dio)),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Matches'), findsOneWidget);
+      expect(find.text('No matches yet'), findsOneWidget);
       expect(find.text('New match'), findsOneWidget);
     });
 
-    testWidgets('Generate lineup button is visible', (tester) async {
-      await tester.pumpWidget(const WhisperCoachApp());
-      await tester.pump();
-      expect(find.text('Generate lineup'), findsOneWidget);
-    });
+    testWidgets('renders matches returned by the API', (tester) async {
+      adapter.onGet('/api/matches', (server) {
+        return server.reply(200, [
+          {
+            'id': 42,
+            'team_id': 1,
+            'opponent': 'FC Riverside',
+            'location': 'Home',
+            'date': '2026-06-07',
+            'notes': null,
+            'strength': 'strong',
+          },
+        ]);
+      });
 
-    testWidgets('Upload zone is visible', (tester) async {
-      await tester.pumpWidget(const WhisperCoachApp());
-      await tester.pump();
-      expect(find.text('Upload team roster photo'), findsOneWidget);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: buildTheme(),
+          home: MatchListScreen(apiClient: Api(dio)),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('vs FC Riverside'), findsOneWidget);
+      expect(find.text('Strong opponent'), findsOneWidget);
     });
   });
 }

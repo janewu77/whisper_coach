@@ -81,9 +81,17 @@ class Api {
   }
 
   /// Fetch a match (includes latest lineup and notes).
-  Future<Match> getMatch(int matchId) async {
+  Future<MatchDetails> getMatch(int matchId) async {
     final res = await _dio.get<Map<String, dynamic>>('/api/matches/$matchId');
-    return Match.fromJson(res.data!);
+    return MatchDetails.fromJson(res.data!);
+  }
+
+  /// Fetch all matches, ordered by match date descending.
+  Future<List<Match>> listMatches() async {
+    final res = await _dio.get<List<dynamic>>('/api/matches');
+    return res.data!
+        .map((item) => Match.fromJson(item as Map<String, dynamic>))
+        .toList();
   }
 
   // ── Lineup ───────────────────────────────────────────────────────────────

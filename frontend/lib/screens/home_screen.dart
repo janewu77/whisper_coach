@@ -113,7 +113,7 @@ class _HomeScreenState extends State<HomeScreen> {
         strength: _strength,
       );
       if (!mounted) return;
-      Navigator.pushNamed(
+      Navigator.pushReplacementNamed(
         context,
         '/pitch',
         arguments: PitchScreenArgs(
