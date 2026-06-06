@@ -99,9 +99,9 @@ Deploy as a **Dockerfile** application (no compose needed):
 3. Provision Postgres: add a **Coolify Postgres database** (or use an external
    one). Coolify gives you an internal connection string.
 4. **Environment variables** (Coolify → the app → Environment):
-   - `DB_URL` = `postgresql+psycopg://<user>:<pass>@<pg-host>:5432/<db>`
-     (use the **internal** host Coolify shows for the database). Note the
-     `+psycopg` driver suffix — required.
+   - `DB_URL` = `postgresql://<user>:<pass>@<pg-host>:5432/<db>`
+     (use the **internal** host Coolify shows for the database). A plain
+     `postgresql://` URL is fine — the app normalizes it to the psycopg driver.
    - `OPENAI_API_KEY` = your key
    - `LLM_MODEL` (optional) = `openai-chat:gpt-4o`
 5. **Port**: the app listens on `8000` — set Coolify's exposed/port mapping to
