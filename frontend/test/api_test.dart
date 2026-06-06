@@ -38,8 +38,20 @@ const _lineupPayload = {
   'reason': '4-3-3 gives numerical edge in central midfield.',
 };
 
-const _matchDetailsPayload = {
+final _matchDetailsPayload = {
   ..._matchPayload,
+  'notes': [
+    {
+      'id': 1,
+      'kind': 'text',
+      'content': 'Player has an injury.',
+      'ai_response': {
+        'substitutions': <dynamic>[],
+        'position_changes': <dynamic>[],
+        'reason': 'Keep the shape.',
+      },
+    },
+  ],
   'lineup': _lineupPayload,
 };
 
@@ -180,6 +192,7 @@ void main() {
       });
       final details = await apiClient.getMatch(42);
       expect(details.match.id, 42);
+      expect(details.match.notes, isNull);
       expect(details.lineup?.formation, '4-3-3');
     });
 

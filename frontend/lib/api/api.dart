@@ -90,7 +90,11 @@ class Api {
   Future<List<Match>> listMatches() async {
     final res = await _dio.get<List<dynamic>>('/api/matches');
     return res.data!
-        .map((item) => Match.fromJson(item as Map<String, dynamic>))
+        .map(
+          (item) => Match.fromJson(
+            Map<String, dynamic>.from(item as Map),
+          ),
+        )
         .toList();
   }
 

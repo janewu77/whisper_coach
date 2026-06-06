@@ -26,7 +26,11 @@ class Lineup {
   factory Lineup.fromJson(Map<String, dynamic> j) => Lineup(
         formation: j['formation'] as String,
         lineup: (j['lineup'] as List<dynamic>)
-            .map((s) => LineupSlot.fromJson(s as Map<String, dynamic>))
+            .map(
+              (s) => LineupSlot.fromJson(
+                Map<String, dynamic>.from(s as Map),
+              ),
+            )
             .toList(),
         reason: j['reason'] as String,
       );
