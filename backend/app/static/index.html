@@ -42,6 +42,8 @@
   .nav-links { display: flex; gap: 26px; align-items: center; }
   .nav-links a { color: var(--muted); font-weight: 600; font-size: .95rem; }
   .nav-links a:hover { color: var(--grass); }
+  .nav-links .cta { color: #fff; }
+  .nav-links .cta:hover { color: #fff; }
   .btn {
     display: inline-flex; align-items: center; gap: 8px;
     background: var(--grass); color: #fff; font-weight: 700;
@@ -148,7 +150,8 @@
     .steps { grid-template-columns: repeat(2, 1fr); }
     .cards { grid-template-columns: 1fr; }
     .stack-grid { grid-template-columns: 1fr; }
-    .nav-links a:not(.btn) { display: none; }
+    /* On mobile, the title bar shows only the "Get the app" CTA. */
+    .nav-links a:not(.cta) { display: none; }
     .hero h1 { font-size: 2.3rem; }
   }
 </style>
@@ -163,7 +166,7 @@
       <a href="#agents">AI agents</a>
       <a href="#stack">Tech</a>
       <a href="/docs">API docs</a>
-      <a class="btn" href="/app/">🚀 Launch app</a>
+      <a class="btn cta" href="/app/">🚀 Get the app</a>
       <a class="btn ghost" href="https://github.com/janewu77/whisper_coach" target="_blank" rel="noopener">★ GitHub</a>
     </nav>
   </div>
