@@ -152,3 +152,4 @@ alembic.ini          alembic config (DB URL is injected from settings)
 Dockerfile           runtime image (uv + locked deps)
 docker-entrypoint.sh runs migrations then starts uvicorn
 ```
+
