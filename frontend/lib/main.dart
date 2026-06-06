@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'theme.dart';
 import 'screens/home_screen.dart';
+import 'screens/match_list_screen.dart';
 import 'screens/pitch_screen.dart';
 import 'screens/live_screen.dart';
 import 'models/lineup.dart';
@@ -22,6 +23,10 @@ class WhisperCoachApp extends StatelessWidget {
       onGenerateRoute: (settings) {
         switch (settings.name) {
           case '/':
+            return MaterialPageRoute(
+              builder: (_) => const MatchListScreen(),
+            );
+          case '/new':
             return MaterialPageRoute(
               builder: (_) => const HomeScreen(),
             );

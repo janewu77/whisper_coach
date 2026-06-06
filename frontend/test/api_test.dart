@@ -38,6 +38,11 @@ const _lineupPayload = {
   'reason': '4-3-3 gives numerical edge in central midfield.',
 };
 
+const _matchDetailsPayload = {
+  ..._matchPayload,
+  'lineup': _lineupPayload,
+};
+
 const _notePayload = {
   'note_id': 5,
   'suggestion': {
@@ -158,6 +163,24 @@ void main() {
       );
       expect(m.id, 42);
       expect(m.opponent, 'FC Riverside');
+    });
+
+    test('listMatches hits collection path and parses response', () async {
+      adapter.onGet('/api/matches', (server) {
+        return server.reply(200, [_matchPayload]);
+      });
+      final matches = await apiClient.listMatches();
+      expect(matches, hasLength(1));
+      expect(matches.single.opponent, 'FC Riverside');
+    });
+
+    test('getMatch parses the saved lineup', () async {
+      adapter.onGet('/api/matches/42', (server) {
+        return server.reply(200, _matchDetailsPayload);
+      });
+      final details = await apiClient.getMatch(42);
+      expect(details.match.id, 42);
+      expect(details.lineup?.formation, '4-3-3');
     });
 
     test('generateLineup hits correct path and parses response', () async {

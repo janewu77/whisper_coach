@@ -1,3 +1,5 @@
+import 'lineup.dart';
+
 class Match {
   final int id;
   final int teamId;
@@ -35,4 +37,21 @@ class Match {
         if (notes != null) 'notes': notes,
         if (strength != null) 'strength': strength,
       };
+}
+
+class MatchDetails {
+  final Match match;
+  final Lineup? lineup;
+
+  const MatchDetails({required this.match, this.lineup});
+
+  factory MatchDetails.fromJson(Map<String, dynamic> json) {
+    final lineupJson = json['lineup'];
+    return MatchDetails(
+      match: Match.fromJson(json),
+      lineup: lineupJson is Map<String, dynamic>
+          ? Lineup.fromJson(lineupJson)
+          : null,
+    );
+  }
 }
