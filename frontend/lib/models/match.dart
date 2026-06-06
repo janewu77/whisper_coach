@@ -19,15 +19,20 @@ class Match {
     this.strength,
   });
 
-  factory Match.fromJson(Map<String, dynamic> j) => Match(
-        id: j['id'] as int,
-        teamId: j['team_id'] as int,
-        opponent: j['opponent'] as String,
-        location: j['location'] as String,
-        date: j['date'] as String,
-        notes: j['notes'] as String?,
-        strength: j['strength'] as String?,
-      );
+  factory Match.fromJson(Map<String, dynamic> j) {
+    final notes = j['notes'];
+    return Match(
+      id: j['id'] as int,
+      teamId: j['team_id'] as int,
+      opponent: j['opponent'] as String,
+      location: j['location'] as String,
+      date: j['date'] as String,
+      // Match detail responses use "notes" for the event list, while list and
+      // create responses use it for the optional setup note.
+      notes: notes is String ? notes : null,
+      strength: j['strength'] as String?,
+    );
+  }
 
   Map<String, dynamic> toJson() => {
         'team_id': teamId,
@@ -49,8 +54,8 @@ class MatchDetails {
     final lineupJson = json['lineup'];
     return MatchDetails(
       match: Match.fromJson(json),
-      lineup: lineupJson is Map<String, dynamic>
-          ? Lineup.fromJson(lineupJson)
+      lineup: lineupJson is Map
+          ? Lineup.fromJson(Map<String, dynamic>.from(lineupJson))
           : null,
     );
   }
