@@ -56,6 +56,12 @@ def create_match(body: MatchInput, session: Session = Depends(get_session)):
     return MatchResponse(**match.model_dump())
 
 
+@router.get("", response_model=list[MatchResponse])
+def list_matches(session: Session = Depends(get_session)):
+    matches = session.exec(select(Match).order_by(Match.created_at.desc())).all()
+    return [MatchResponse(**m.model_dump()) for m in matches]
+
+
 @router.get("/{match_id}")
 def get_match(match_id: int, session: Session = Depends(get_session)):
     match = _match_or_404(session, match_id)
