@@ -1,4 +1,5 @@
 import 'package:image_picker/image_picker.dart' show XFile;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
@@ -57,6 +58,8 @@ class _LiveScreenState extends State<LiveScreen> {
   bool _changingRecordingState = false;
   bool _summaryDone = false;
   String? _recordingPath;
+  String _recordingFilename = 'note.m4a';
+  String _recordingMimeType = 'audio/mp4';
 
   int _matchMinute = 0;
 
@@ -143,11 +146,35 @@ class _LiveScreenState extends State<LiveScreen> {
       _showError('Microphone permission denied.');
       return;
     }
-    final dir = await getTemporaryDirectory();
-    _recordingPath =
-        '${dir.path}/note_${DateTime.now().millisecondsSinceEpoch}.m4a';
+
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    late final RecordConfig config;
+    if (kIsWeb) {
+      if (await _recorder.isEncoderSupported(AudioEncoder.opus)) {
+        config = const RecordConfig(encoder: AudioEncoder.opus);
+        _recordingFilename = 'note_$timestamp.webm';
+        _recordingMimeType = 'audio/webm';
+      } else if (await _recorder.isEncoderSupported(AudioEncoder.aacLc)) {
+        config = const RecordConfig(encoder: AudioEncoder.aacLc);
+        _recordingFilename = 'note_$timestamp.m4a';
+        _recordingMimeType = 'audio/mp4';
+      } else {
+        config = const RecordConfig(encoder: AudioEncoder.wav);
+        _recordingFilename = 'note_$timestamp.wav';
+        _recordingMimeType = 'audio/wav';
+      }
+      // record_web returns a Blob URL from stop(); it does not write a file.
+      _recordingPath = '';
+    } else {
+      final dir = await getTemporaryDirectory();
+      _recordingFilename = 'note_$timestamp.m4a';
+      _recordingMimeType = 'audio/mp4';
+      _recordingPath = '${dir.path}/$_recordingFilename';
+      config = const RecordConfig(encoder: AudioEncoder.aacLc);
+    }
+
     await _recorder.start(
-      const RecordConfig(encoder: AudioEncoder.aacLc),
+      config,
       path: _recordingPath!,
     );
     if (mounted) {
@@ -160,7 +187,11 @@ class _LiveScreenState extends State<LiveScreen> {
     if (!mounted) return;
     setState(() => _recording = false);
     if (path == null) return;
-    final file = XFile(path);
+    final file = XFile(
+      path,
+      name: _recordingFilename,
+      mimeType: _recordingMimeType,
+    );
     setState(() {
       _messages.add(UserMessage('🎙 Voice note…'));
       _sending = true;

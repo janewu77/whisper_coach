@@ -12,6 +12,7 @@ dependencies:
 
   # Networking
   dio: ^5.4.3
+  http_parser: ^4.0.2
 
   # Media
   image_picker: ^1.1.2      # camera / gallery for roster photo
