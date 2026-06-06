@@ -1,5 +1,8 @@
 # Whisper Coach — Backend
 
+**🌐 Live: [whisper-coach.dacheng.dev](https://whisper-coach.dacheng.dev/)** — the
+backend serves the project home page at `/` and the API under `/api`.
+
 FastAPI + [PydanticAI](https://ai.pydantic.dev/) + SQLite. An AI football coaching
 assistant: extract a roster from a team photo, auto-generate a lineup, take live
 in-match notes (text/voice) for tactical adjustments, and produce a post-match summary.
