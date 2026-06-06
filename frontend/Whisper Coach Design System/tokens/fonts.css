@@ -1,0 +1,13 @@
+/* ============================================================
+   Whisper Coach — Webfonts
+   The product UI uses the native system sans (San Francisco on
+   iOS) — no webfont needed there. Hanken Grotesk is loaded as
+   the brand DISPLAY face (wordmark, scores, marketing).
+
+   NOTE: Hanken Grotesk is served from the Google Fonts CDN as a
+   stand-in. If you have a licensed/self-hosted brand display
+   face, drop the files in assets/fonts/ and replace the @import
+   with @font-face rules pointing at them.
+   ============================================================ */
+
+@import url("https://fonts.googleapis.com/css2?family=Hanken+Grotesk:ital,wght@0,400;0,500;0,600;0,700;0,800&display=swap");

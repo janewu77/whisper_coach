@@ -1,0 +1,29 @@
+<!-- @dsCard group="Spacing" viewport="700x150" name="Spacing scale" subtitle="4px base grid — space-2 … space-16" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<link rel="stylesheet" href="../../styles.css" />
+<style>
+  body { margin: 0; font-family: var(--font-sans); background: var(--surface-card); padding: 22px 24px; color: var(--text-primary); }
+  .row { display: flex; align-items: flex-end; gap: 18px; }
+  .item { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+  .bar { background: var(--brand-subtle); border: var(--border-width-hairline) solid var(--brand-border); border-radius: var(--radius-sm); height: 40px; }
+  .t { font-size: 10px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+  .t b { color: var(--text-primary); font-weight: var(--weight-medium); }
+</style>
+</head>
+<body>
+  <div class="row">
+    <div class="item"><div class="bar" style="width:4px"></div><div class="t"><b>2</b><br>4px</div></div>
+    <div class="item"><div class="bar" style="width:8px"></div><div class="t"><b>4</b><br>8px</div></div>
+    <div class="item"><div class="bar" style="width:12px"></div><div class="t"><b>6</b><br>12px</div></div>
+    <div class="item"><div class="bar" style="width:16px"></div><div class="t"><b>8</b><br>16px</div></div>
+    <div class="item"><div class="bar" style="width:20px"></div><div class="t"><b>10</b><br>20px</div></div>
+    <div class="item"><div class="bar" style="width:24px"></div><div class="t"><b>12</b><br>24px</div></div>
+    <div class="item"><div class="bar" style="width:32px"></div><div class="t"><b>16</b><br>32px</div></div>
+    <div class="item"><div class="bar" style="width:40px"></div><div class="t"><b>20</b><br>40px</div></div>
+    <div class="item"><div class="bar" style="width:48px"></div><div class="t"><b>24</b><br>48px</div></div>
+  </div>
+</body>
+</html>

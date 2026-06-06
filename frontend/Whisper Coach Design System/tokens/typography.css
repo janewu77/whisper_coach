@@ -1,0 +1,45 @@
+/* ============================================================
+   Whisper Coach — Typography tokens
+   System sans is the workhorse (native iOS feel, matches the
+   product). Hanken Grotesk is the brand display face used for
+   the wordmark, big match scores and marketing headlines.
+   ============================================================ */
+
+:root {
+  /* ---- Families ---- */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+               "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Hanken Grotesk", var(--font-sans);
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  /* ---- Size ramp (px values used across the iOS-scale UI) ---- */
+  --text-2xs:  10px;   /* tab-bar labels                       */
+  --text-xs:   11px;   /* tags, uppercase section labels        */
+  --text-sm:   12px;   /* captions, metadata                    */
+  --text-base: 13px;   /* dense body, chat messages             */
+  --text-md:   14px;   /* default body, inputs                  */
+  --text-lg:   15px;   /* primary button, emphasised body       */
+  --text-xl:   17px;   /* screen / nav-bar titles               */
+  --text-2xl:  22px;   /* sheet titles                          */
+  --text-3xl:  28px;   /* section headlines                     */
+  --display-sm: 40px;  /* big numbers                           */
+  --display-md: 56px;  /* match score                           */
+  --display-lg: 72px;
+
+  /* ---- Weights (the brand leans on 400 + 500, sparingly 600) -- */
+  --weight-regular:  400;
+  --weight-medium:   500;   /* the dominant "emphasis" weight    */
+  --weight-semibold: 600;
+  --weight-bold:     700;   /* display / scores only             */
+
+  /* ---- Line heights ---- */
+  --leading-tight:   1.15;  /* display, scores                   */
+  --leading-snug:    1.3;   /* headings                          */
+  --leading-normal:  1.5;   /* UI body                           */
+  --leading-relaxed: 1.55;  /* chat & reasoning copy             */
+
+  /* ---- Letter spacing ---- */
+  --tracking-label:  0.06em; /* uppercase section labels         */
+  --tracking-tight: -0.01em; /* display headlines                */
+  --tracking-normal: 0;
+}

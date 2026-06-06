@@ -1,0 +1,41 @@
+/* ============================================================
+   Whisper Coach — Spacing & radii tokens
+   4px base grid. Radii match the prototype (md 8 / lg 12 / xl 16).
+   ============================================================ */
+
+:root {
+  /* ---- Spacing scale (4px base) ---- */
+  --space-0:   0;
+  --space-1:   2px;
+  --space-2:   4px;
+  --space-3:   6px;
+  --space-4:   8px;
+  --space-5:   10px;
+  --space-6:   12px;
+  --space-7:   14px;
+  --space-8:   16px;
+  --space-10:  20px;
+  --space-12:  24px;
+  --space-14:  28px;
+  --space-16:  32px;
+  --space-20:  40px;
+  --space-24:  48px;
+
+  /* ---- Common semantic spacing ---- */
+  --gap-card:     12px;  /* between stacked cards            */
+  --pad-card:     14px;  /* card inner padding (y)           */
+  --pad-card-x:   16px;  /* card inner padding (x)           */
+  --pad-screen:   16px;  /* screen body horizontal padding   */
+
+  /* ---- Corner radii ---- */
+  --radius-sm:   6px;
+  --radius-md:   8px;    /* buttons, inputs                 */
+  --radius-lg:   12px;   /* cards                            */
+  --radius-xl:   16px;   /* app shell, sheets                */
+  --radius-2xl:  20px;
+  --radius-pill: 9999px; /* tags, formation pills            */
+
+  /* ---- Hairline border width (Retina half-pixel) ---- */
+  --border-width-hairline: 0.5px;
+  --border-width-default:  1px;
+}

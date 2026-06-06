@@ -1,0 +1,26 @@
+<!-- @dsCard group="Spacing" viewport="700x170" name="Elevation & shadow" subtitle="Flat by default — shadow only for floating layers" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<link rel="stylesheet" href="../../styles.css" />
+<style>
+  body { margin: 0; font-family: var(--font-sans); background: var(--surface-page); padding: 24px; color: var(--text-primary); }
+  .row { display: flex; gap: 22px; }
+  .item { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .box { width: 96px; height: 60px; background: var(--surface-card); border-radius: var(--radius-lg); border: var(--hairline); }
+  .t { font-size: 11px; color: var(--text-secondary); text-align: center; }
+  .t b { display: block; color: var(--text-primary); font-weight: var(--weight-medium); }
+</style>
+</head>
+<body>
+  <div class="row">
+    <div class="item"><div class="box" style="box-shadow:var(--shadow-none)"></div><div class="t"><b>none</b>hairline only</div></div>
+    <div class="item"><div class="box" style="box-shadow:var(--shadow-sm)"></div><div class="t"><b>sm</b>resting card</div></div>
+    <div class="item"><div class="box" style="box-shadow:var(--shadow-md)"></div><div class="t"><b>md</b>popover</div></div>
+    <div class="item"><div class="box" style="box-shadow:var(--shadow-lg)"></div><div class="t"><b>lg</b>sheet</div></div>
+    <div class="item"><div class="box" style="box-shadow:var(--shadow-app)"></div><div class="t"><b>app</b>phone shell</div></div>
+    <div class="item"><div class="box" style="box-shadow:var(--shadow-brand);border-color:var(--brand)"></div><div class="t"><b>brand</b>raised CTA</div></div>
+  </div>
+</body>
+</html>

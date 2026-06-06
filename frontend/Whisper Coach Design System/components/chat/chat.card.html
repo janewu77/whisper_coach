@@ -1,0 +1,36 @@
+<!-- @dsCard group="Components" viewport="700x340" name="Chat — coaching bubbles" subtitle="Assistant AI cards & user message bubbles" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<link rel="stylesheet" href="../../styles.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" />
+<style>
+  body { margin: 0; font-family: var(--font-sans); background: var(--surface-page); color: var(--text-primary); padding: 24px; }
+  .chat { max-width: 360px; margin: 0 auto; display: flex; flex-direction: column; gap: 10px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<script type="text/babel">
+const { ChatBubble } = window.WhisperCoachDesignSystem_6c0cf7;
+ReactDOM.createRoot(document.getElementById("root")).render(
+  <div className="chat">
+    <ChatBubble role="assistant">Match started. 4-3-3 active. Tap the mic or type to log events.</ChatBubble>
+    <ChatBubble role="user">Left side is being exposed. Torres is out of position.</ChatBubble>
+    <ChatBubble role="assistant" time="23'" lead="Suggestion:">
+      Drop Lima (LB) 10m deeper into a defensive shape and rotate Torres to track the run.
+    </ChatBubble>
+    <ChatBubble role="user">Diallo is tired, been running too much</ChatBubble>
+    <ChatBubble role="assistant" time="35'" lead="Substitution:">
+      Replace Diallo (CM) with Kowalski — fresh legs to hold the midfield.
+    </ChatBubble>
+  </div>
+);
+</script>
+</body>
+</html>

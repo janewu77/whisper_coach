@@ -1,0 +1,31 @@
+<!-- @dsCard group="Colors" viewport="700x180" name="Pitch green (turf)" subtitle="The playing field — grass, stripes & markings" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<link rel="stylesheet" href="../../styles.css" />
+<style>
+  body { margin: 0; font-family: var(--font-sans); background: var(--surface-card); padding: 20px; color: var(--text-primary); display: flex; gap: 16px; align-items: stretch; }
+  .swatches { display: flex; gap: 8px; flex: 0 0 auto; }
+  .sw { display: flex; flex-direction: column; width: 96px; }
+  .chip { height: 56px; border-radius: var(--radius-md); border: var(--hairline); }
+  .name { font-size: 11px; font-weight: var(--weight-medium); margin-top: 8px; }
+  .hex { font-size: 11px; color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+  .pitch { flex: 1; position: relative; background: var(--pitch-500); border-radius: var(--radius-md); overflow: hidden; min-height: 116px; }
+  .pitch::before { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(90deg, var(--pitch-400) 0 28px, var(--pitch-600) 28px 56px); opacity: 0.35; }
+  .line { position: absolute; border: 1.5px solid var(--pitch-line); }
+</style>
+</head>
+<body>
+  <div class="swatches">
+    <div class="sw"><div class="chip" style="background:var(--pitch-400)"></div><span class="name">pitch-400</span><span class="hex">#35914A</span></div>
+    <div class="sw"><div class="chip" style="background:var(--pitch-500)"></div><span class="name">pitch-500</span><span class="hex">#2D7A3E</span></div>
+    <div class="sw"><div class="chip" style="background:var(--pitch-600)"></div><span class="name">pitch-600</span><span class="hex">#246332</span></div>
+  </div>
+  <div class="pitch">
+    <div class="line" style="top:10%;left:8%;width:84%;height:80%;border-radius:3px"></div>
+    <div class="line" style="top:50%;left:8%;width:84%;height:0"></div>
+    <div class="line" style="top:50%;left:50%;transform:translate(-50%,-50%);width:54px;height:54px;border-radius:50%"></div>
+  </div>
+</body>
+</html>

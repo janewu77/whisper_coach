@@ -1,0 +1,95 @@
+/* ============================================================
+   Whisper Coach — Color tokens
+   Football-pitch palette: emerald brand green + grass pitch
+   greens, warm-neutral "stone" ink, and tactical status colors.
+   Base values first, then semantic aliases.
+   ============================================================ */
+
+:root {
+  /* ---- Brand green (emerald) — the interactive/brand color ---- */
+  --green-50:  #E1F5EE;   /* tag-green background          */
+  --green-100: #C9EDE0;
+  --green-200: #A6E0CC;
+  --green-300: #5DCAA5;   /* active formation-pill border  */
+  --green-400: #2FB389;
+  --green-500: #1D9E75;   /* PRIMARY — buttons, accents    */
+  --green-600: #168363;   /* primary pressed               */
+  --green-700: #0F6E56;   /* dark green text on light      */
+  --green-800: #0B5444;
+  --green-900: #093F34;
+
+  /* ---- Pitch green (the grass field) ---- */
+  --pitch-500: #2D7A3E;   /* base turf                     */
+  --pitch-600: #246332;   /* darker stripe / shadow        */
+  --pitch-400: #35914A;   /* lighter stripe                */
+  --pitch-line: rgba(255, 255, 255, 0.35); /* field markings */
+
+  /* ---- Warm neutral "stone" ramp ---- */
+  --white:     #FFFFFF;
+  --stone-50:  #FAFAF9;
+  --stone-100: #F5F5F4;   /* secondary surface             */
+  --stone-200: #E7E5E4;
+  --stone-300: #D6D3D1;
+  --stone-400: #A8A29E;
+  --stone-500: #78716C;
+  --stone-600: #57534E;
+  --ink-700:   #44403C;
+  --ink-600:   #666666;   /* secondary text                */
+  --ink-400:   #999999;   /* tertiary text                 */
+  --ink-900:   #1A1A1A;   /* primary text                  */
+  --black:     #0A0A0A;   /* status bar / AI badge         */
+
+  /* ---- Status / tactical colors ---- */
+  --amber-50:  #FAEEDA;   /* warning tag bg                */
+  --amber-700: #854F0B;   /* warning tag text              */
+  --amber-500: #C77D1A;
+  --red-50:    #FCEBEB;   /* danger tag bg                 */
+  --red-700:   #A32D2D;   /* danger tag text / live mic    */
+  --red-500:   #D14343;
+
+  /* ---- Border alphas (over light surfaces) ---- */
+  --border-hairline:  rgba(0, 0, 0, 0.12);  /* 0.5px dividers */
+  --border-strong:    rgba(0, 0, 0, 0.20);  /* inputs, chips  */
+
+  /* ============================================================
+     SEMANTIC ALIASES — reference these in components
+     ============================================================ */
+
+  /* Surfaces */
+  --surface-page:      var(--stone-100);  /* app backdrop          */
+  --surface-card:      var(--white);      /* cards, sheets, nav    */
+  --surface-sunken:    var(--stone-100);  /* secondary fills, AI msg */
+  --surface-inverse:   var(--black);      /* status bar, badges    */
+  --surface-pitch:     var(--pitch-500);
+
+  /* Text */
+  --text-primary:      var(--ink-900);
+  --text-secondary:    var(--ink-600);
+  --text-tertiary:     var(--ink-400);
+  --text-on-brand:     var(--white);
+  --text-on-inverse:   var(--white);
+  --text-brand:        var(--green-700);  /* dark green labels     */
+
+  /* Brand / interactive */
+  --brand:             var(--green-500);
+  --brand-hover:       var(--green-400);
+  --brand-pressed:     var(--green-600);
+  --brand-subtle:      var(--green-50);   /* tinted fills          */
+  --brand-border:      var(--green-300);
+
+  /* Borders */
+  --border-subtle:     var(--border-hairline);
+  --border-default:    var(--border-strong);
+  --border-brand:      var(--green-300);
+
+  /* Status (success = brand green) */
+  --success-fg:        var(--green-700);
+  --success-bg:        var(--green-50);
+  --warning-fg:        var(--amber-700);
+  --warning-bg:        var(--amber-50);
+  --danger-fg:         var(--red-700);
+  --danger-bg:         var(--red-50);
+
+  /* Focus ring */
+  --ring-brand:        rgba(29, 158, 117, 0.40);
+}

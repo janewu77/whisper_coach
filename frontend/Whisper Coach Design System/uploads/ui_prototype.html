@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Whisper Coach — UI Prototype</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" />
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f0f0;display:flex;justify-content:center;align-items:flex-start;padding:40px 16px;min-height:100vh}
+:root{
+  --color-background-primary:#fff;
+  --color-background-secondary:#f5f5f4;
+  --color-text-primary:#1a1a1a;
+  --color-text-secondary:#666;
+  --color-text-tertiary:#999;
+  --color-border-tertiary:rgba(0,0,0,.12);
+  --color-border-secondary:rgba(0,0,0,.2);
+  --border-radius-md:8px;
+  --border-radius-lg:12px;
+  --border-radius-xl:16px;
+  --font-sans:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+}
+.app{max-width:390px;width:100%;margin:0 auto;font-family:var(--font-sans);background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-xl);overflow:hidden;min-height:780px;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.12)}
+.status-bar{background:#0a0a0a;color:#fff;font-size:12px;padding:10px 20px 6px;display:flex;justify-content:space-between;align-items:center}
+.screen{flex:1;display:none;flex-direction:column;overflow:hidden}
+.screen.active{display:flex}
+.nav-bar{background:var(--color-background-primary);border-top:0.5px solid var(--color-border-tertiary);display:grid;grid-template-columns:repeat(3,1fr);padding:8px 0 12px}
+.nav-btn{display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:none;cursor:pointer;font-size:10px;color:var(--color-text-tertiary);font-family:var(--font-sans);padding:4px}
+.nav-btn.active{color:#1D9E75}
+.nav-btn i{font-size:22px}
+.screen-body{flex:1;overflow-y:auto;padding:20px 16px 16px}
+.section-title{font-size:11px;font-weight:500;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
+.tag{display:inline-block;font-size:11px;padding:3px 8px;border-radius:20px;font-weight:500}
+.tag-green{background:#E1F5EE;color:#0F6E56}
+.tag-amber{background:#FAEEDA;color:#854F0B}
+.tag-red{background:#FCEBEB;color:#A32D2D}
+.card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:14px 16px;margin-bottom:12px}
+.btn-primary{width:100%;padding:13px;background:#1D9E75;color:#fff;border:none;border-radius:var(--border-radius-md);font-size:15px;font-weight:500;cursor:pointer;font-family:var(--font-sans)}
+.btn-secondary{padding:9px 16px;background:var(--color-background-secondary);color:var(--color-text-primary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);font-size:14px;font-weight:500;cursor:pointer;font-family:var(--font-sans)}
+input,select,textarea{width:100%;padding:10px 12px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);font-size:14px;font-family:var(--font-sans);background:var(--color-background-primary);color:var(--color-text-primary);margin-top:6px;outline:none}
+label{font-size:13px;color:var(--color-text-secondary);display:block}
+.upload-zone{border:1px dashed var(--color-border-secondary);border-radius:var(--border-radius-lg);padding:28px 16px;text-align:center;cursor:pointer;margin-bottom:12px;transition:background .15s}
+.upload-zone:hover{background:var(--color-background-secondary)}
+.upload-zone i{font-size:32px;color:var(--color-text-tertiary);display:block;margin-bottom:8px}
+.pitch-wrap{position:relative;background:#2d7a3e;border-radius:var(--border-radius-md);height:380px;margin-bottom:12px;overflow:hidden}
+.pitch-line{position:absolute;border:1.5px solid rgba(255,255,255,.35)}
+.player-dot{position:absolute;width:38px;height:38px;border-radius:50%;background:#fff;border:2.5px solid #1D9E75;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;color:#0F6E56;cursor:pointer;transform:translate(-50%,-50%);transition:all .15s;text-align:center;line-height:1.2}
+.player-dot:hover,.player-dot.selected{background:#1D9E75;color:#fff;border-color:#fff;z-index:10}
+.ai-badge{position:absolute;bottom:12px;right:12px;background:#0a0a0a;color:#fff;font-size:11px;padding:4px 10px;border-radius:20px;font-weight:500}
+.formation-pill{display:inline-flex;align-items:center;gap:6px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);border-radius:20px;padding:5px 12px;font-size:13px;font-weight:500;cursor:pointer;margin-right:8px;margin-bottom:8px}
+.formation-pill.active{background:#E1F5EE;color:#0F6E56;border-color:#5DCAA5}
+.ai-card{background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:12px 14px;margin-bottom:10px}
+.ai-card .from{font-size:11px;font-weight:500;color:#0F6E56;margin-bottom:4px;display:flex;align-items:center;gap:5px}
+.ai-card .msg{font-size:13px;color:var(--color-text-primary);line-height:1.55}
+.user-card{background:#1D9E75;border-radius:var(--border-radius-lg);padding:10px 14px;margin-bottom:10px;align-self:flex-end;max-width:80%;margin-left:auto}
+.user-card .msg{font-size:13px;color:#fff;line-height:1.5}
+.chat-area{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column}
+.input-row{padding:10px 12px;border-top:0.5px solid var(--color-border-tertiary);display:flex;gap:8px;align-items:flex-end;background:var(--color-background-primary)}
+.input-row textarea{flex:1;resize:none;height:38px;margin-top:0;padding:9px 12px}
+.voice-btn{width:42px;height:38px;border-radius:var(--border-radius-md);background:#1D9E75;border:none;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.voice-btn i{font-size:18px}
+.send-btn{width:42px;height:38px;border-radius:var(--border-radius-md);background:var(--color-background-secondary);border:0.5px solid var(--color-border-secondary);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.header-bar{padding:16px 16px 10px;border-bottom:0.5px solid var(--color-border-tertiary)}
+.header-bar h2{font-size:17px;font-weight:500}
+.header-bar p{font-size:12px;color:var(--color-text-secondary);margin-top:2px}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="status-bar">
+    <span>9:41</span>
+    <span style="font-weight:500;font-size:13px">Whisper Coach</span>
+    <span><i class="ti ti-wifi" style="font-size:14px;vertical-align:-2px"></i></span>
+  </div>
+
+  <!-- Screen 1: Create Match -->
+  <div class="screen active" id="s1">
+    <div class="header-bar">
+      <h2>New match</h2>
+      <p>Saturday · Local League · June 7</p>
+    </div>
+    <div class="screen-body">
+      <div class="upload-zone" id="uploadZone" onclick="simulateUpload()">
+        <i class="ti ti-camera" aria-hidden="true"></i>
+        <p style="font-size:14px;font-weight:500;color:var(--color-text-primary)">Upload team roster photo</p>
+        <p style="font-size:12px;color:var(--color-text-secondary);margin-top:4px">AI will extract player names automatically</p>
+      </div>
+      <div id="rosterResult" style="display:none;margin-bottom:12px">
+        <p class="section-title">Detected players (14)</p>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          <span class="tag tag-green">M. Chen</span><span class="tag tag-green">J. Park</span><span class="tag tag-green">L. Torres</span><span class="tag tag-green">K. Müller</span><span class="tag tag-green">A. Diallo</span><span class="tag tag-green">F. Rossi</span><span class="tag tag-green">O. Saka</span><span class="tag tag-green">T. Hansen</span><span class="tag tag-green">B. Nkosi</span><span class="tag tag-green">H. Yamada</span><span class="tag tag-green">G. Lima</span><span class="tag tag-green">S. Walsh</span><span class="tag tag-amber">D. Kowalski</span><span class="tag tag-amber">R. Patel</span>
+        </div>
+      </div>
+      <div class="card">
+        <label>Opponent<input type="text" placeholder="e.g. FC Riverside" /></label>
+        <div style="height:12px"></div>
+        <label>Match type
+          <select style="margin-top:6px">
+            <option>Balanced — similar level</option>
+            <option>Strong opponent — defend first</option>
+            <option>Weaker opponent — press high</option>
+          </select>
+        </label>
+        <div style="height:12px"></div>
+        <label>Notes (optional)<textarea rows="2" placeholder="e.g. Their striker is fast, watch the flanks" style="height:60px;resize:none;margin-top:6px"></textarea></label>
+      </div>
+      <button class="btn-primary" onclick="goTo('s2')"><i class="ti ti-wand" style="font-size:16px;vertical-align:-2px;margin-right:6px" aria-hidden="true"></i>Generate lineup</button>
+    </div>
+  </div>
+
+  <!-- Screen 2: Pitch / Lineup -->
+  <div class="screen" id="s2">
+    <div class="header-bar" style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div>
+        <h2 id="formationTitle">Lineup · 4-3-3</h2>
+        <p>vs FC Riverside · Compact center recommended</p>
+      </div>
+      <span class="tag tag-green" style="margin-top:2px">AI</span>
+    </div>
+    <div class="screen-body" style="padding:12px 12px 8px">
+      <div style="display:flex;flex-wrap:wrap;margin-bottom:10px">
+        <span class="formation-pill active" onclick="setFormation(this,'4-3-3')">4-3-3</span>
+        <span class="formation-pill" onclick="setFormation(this,'4-2-3-1')">4-2-3-1</span>
+        <span class="formation-pill" onclick="setFormation(this,'3-5-2')">3-5-2</span>
+      </div>
+      <div class="pitch-wrap">
+        <div class="pitch-line" style="top:8%;left:15%;width:70%;height:84%;border-radius:3px"></div>
+        <div class="pitch-line" style="top:8%;left:33%;width:34%;height:16%"></div>
+        <div class="pitch-line" style="bottom:8%;left:33%;width:34%;height:16%"></div>
+        <div class="pitch-line" style="top:49%;left:15%;width:70%;height:1px"></div>
+        <div style="position:absolute;top:49%;left:50%;transform:translate(-50%,-50%);width:60px;height:60px;border-radius:50%;border:1.5px solid rgba(255,255,255,.3)"></div>
+        <!-- GK -->
+        <div class="player-dot" style="left:50%;top:88%">H.Y<br>GK</div>
+        <!-- Defenders -->
+        <div class="player-dot" style="left:15%;top:72%">G.L<br>LB</div>
+        <div class="player-dot" style="left:35%;top:72%">K.M<br>CB</div>
+        <div class="player-dot" style="left:65%;top:72%">B.N<br>CB</div>
+        <div class="player-dot" style="left:85%;top:72%">S.W<br>RB</div>
+        <!-- Midfielders -->
+        <div class="player-dot" style="left:20%;top:52%">T.H<br>LCM</div>
+        <div class="player-dot" style="left:50%;top:50%">A.D<br>CM</div>
+        <div class="player-dot" style="left:80%;top:52%">F.R<br>RCM</div>
+        <!-- Forwards -->
+        <div class="player-dot" style="left:20%;top:28%">L.T<br>LW</div>
+        <div class="player-dot" style="left:50%;top:22%">O.S<br>ST</div>
+        <div class="player-dot" style="left:80%;top:28%">J.P<br>RW</div>
+        <div class="ai-badge"><i class="ti ti-cpu" style="font-size:11px;vertical-align:-1px;margin-right:4px" aria-hidden="true"></i>AI generated</div>
+      </div>
+      <div class="card" style="padding:12px 14px">
+        <div style="font-size:12px;color:#0F6E56;font-weight:500;margin-bottom:5px"><i class="ti ti-bulb" style="font-size:14px;vertical-align:-2px;margin-right:4px" aria-hidden="true"></i>AI reasoning</div>
+        <p style="font-size:13px;color:var(--color-text-primary);line-height:1.55">Opponent runs a strong central midfield. 4-3-3 gives you a numerical advantage in center. Torres and Park on flanks to stretch their line. Saka leads the press from ST.</p>
+      </div>
+      <button class="btn-primary" onclick="goTo('s3')"><i class="ti ti-player-play" style="font-size:15px;vertical-align:-2px;margin-right:6px" aria-hidden="true"></i>Start match</button>
+    </div>
+  </div>
+
+  <!-- Screen 3: Live Notes -->
+  <div class="screen" id="s3" style="flex-direction:column">
+    <div class="header-bar" style="display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <h2>Live match</h2>
+        <p>vs FC Riverside · 38'</p>
+      </div>
+      <span class="tag tag-amber">In progress</span>
+    </div>
+    <div class="chat-area" id="chatArea">
+      <div class="ai-card">
+        <div class="from"><i class="ti ti-cpu" style="font-size:13px" aria-hidden="true"></i> Whisper Coach</div>
+        <div class="msg">Match started. 4-3-3 formation active. Tap the mic or type to log events and get real-time suggestions.</div>
+      </div>
+      <div class="user-card"><div class="msg">Left side is being exposed. Torres is out of position.</div></div>
+      <div class="ai-card">
+        <div class="from"><i class="ti ti-cpu" style="font-size:13px" aria-hidden="true"></i> Whisper Coach · 23'</div>
+        <div class="msg"><strong style="font-weight:500">Suggestion:</strong> Drop Lima (LB) 10m deeper into a defensive shape. Rotate Torres to track the run. Consider swapping to 4-4-2 flat if pressure continues past 30'.</div>
+      </div>
+      <div class="user-card"><div class="msg">Diallo is tired, been running too much</div></div>
+      <div class="ai-card">
+        <div class="from"><i class="ti ti-cpu" style="font-size:13px" aria-hidden="true"></i> Whisper Coach · 35'</div>
+        <div class="msg"><strong style="font-weight:500">Substitution:</strong> Replace Diallo (CM) with Kowalski — fresh legs in center will help hold the midfield. Patel is also ready on the right if Rossi fades.</div>
+      </div>
+    </div>
+    <div id="typingIndicator" style="display:none;padding:0 16px 6px;font-size:12px;color:var(--color-text-secondary)"><i class="ti ti-dots" style="font-size:14px;vertical-align:-2px" aria-hidden="true"></i> AI is thinking…</div>
+    <div class="input-row">
+      <button class="voice-btn" onclick="simulateVoice()" aria-label="Voice input"><i class="ti ti-microphone" aria-hidden="true"></i></button>
+      <textarea id="noteInput" placeholder="Type event or ask for advice…" rows="1" onkeydown="handleEnter(event)"></textarea>
+      <button class="send-btn" onclick="sendNote()" aria-label="Send"><i class="ti ti-send" style="font-size:17px;color:var(--color-text-secondary)" aria-hidden="true"></i></button>
+    </div>
+    <div style="padding:8px 12px 4px;display:flex;gap:6px;overflow-x:auto;border-top:0.5px solid var(--color-border-tertiary)">
+      <button class="btn-secondary" style="font-size:12px;white-space:nowrap;padding:6px 12px" onclick="quickMsg('Goal scored!')">⚽ Goal scored</button>
+      <button class="btn-secondary" style="font-size:12px;white-space:nowrap;padding:6px 12px" onclick="quickMsg('Player injured')">🚑 Injury</button>
+      <button class="btn-secondary" style="font-size:12px;white-space:nowrap;padding:6px 12px" onclick="quickMsg('Generate post-match summary')">📋 Summary</button>
+    </div>
+  </div>
+
+  <!-- Nav bar -->
+  <div class="nav-bar">
+    <button class="nav-btn active" id="nav1" onclick="goTo('s1')"><i class="ti ti-plus-circle" aria-hidden="true"></i>Create</button>
+    <button class="nav-btn" id="nav2" onclick="goTo('s2')"><i class="ti ti-layout-grid" aria-hidden="true"></i>Lineup</button>
+    <button class="nav-btn" id="nav3" onclick="goTo('s3')"><i class="ti ti-message-circle" aria-hidden="true"></i>Live</button>
+  </div>
+</div>
+
+<script>
+function goTo(id){
+  document.querySelectorAll('.screen').forEach(s=>{s.classList.remove('active');s.style.display='none'});
+  const t=document.getElementById(id);
+  t.classList.add('active');t.style.display='flex';
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  const idx={'s1':0,'s2':1,'s3':2}[id];
+  document.querySelectorAll('.nav-btn')[idx].classList.add('active');
+}
+function simulateUpload(){
+  const z=document.getElementById('uploadZone');
+  z.innerHTML='<i class="ti ti-check" style="font-size:28px;color:#1D9E75;display:block;margin-bottom:6px"></i><p style="font-size:14px;font-weight:500;color:#1D9E75">Photo processed!</p><p style="font-size:12px;color:var(--color-text-secondary);margin-top:4px">14 players detected</p>';
+  z.style.borderColor='#5DCAA5';z.style.background='#E1F5EE';
+  document.getElementById('rosterResult').style.display='block';
+}
+function setFormation(el,f){
+  document.querySelectorAll('.formation-pill').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('formationTitle').textContent='Lineup · '+f;
+}
+const aiReplies={
+  'goal scored!':'Great! 1-0. Maintain the press. Consider pushing Park higher to support the second goal.',
+  'player injured':'Which player? If it\'s a defender, bring Patel in on the right. Kowalski can drop deeper to cover.',
+  'generate post-match summary':'Generating post-match report… 4-3-3 formation held well. Torres effective on the left. Midfield needs stamina work. Diallo sub at 35\' was the right call. Full report saved.'
+};
+function sendNote(){
+  const inp=document.getElementById('noteInput');
+  const txt=inp.value.trim();if(!txt)return;
+  addUserMsg(txt);inp.value='';
+  const key=txt.toLowerCase();
+  const r=Object.keys(aiReplies).find(k=>key.includes(k));
+  showTyping(r?aiReplies[r]:getGenericReply(txt));
+}
+function quickMsg(t){addUserMsg(t);const k=t.toLowerCase();const r=Object.keys(aiReplies).find(k2=>k.includes(k2));showTyping(r?aiReplies[r]:getGenericReply(t));}
+function getGenericReply(t){return'Noted: "'+t+'". Based on current formation, holding 4-3-3 is recommended. Let me know if you want a substitution or positional change.';}
+function addUserMsg(t){const c=document.getElementById('chatArea');const d=document.createElement('div');d.className='user-card';d.innerHTML='<div class="msg">'+t+'</div>';c.appendChild(d);c.scrollTop=c.scrollHeight;}
+function showTyping(reply){
+  const ind=document.getElementById('typingIndicator');ind.style.display='block';
+  setTimeout(()=>{ind.style.display='none';const c=document.getElementById('chatArea');const d=document.createElement('div');d.className='ai-card';d.innerHTML='<div class="from"><i class="ti ti-cpu" style="font-size:13px"></i> Whisper Coach</div><div class="msg">'+reply+'</div>';c.appendChild(d);c.scrollTop=c.scrollHeight;},1400);
+}
+function simulateVoice(){const btn=document.querySelector('.voice-btn');btn.style.background='#A32D2D';btn.innerHTML='<i class="ti ti-player-stop"></i>';setTimeout(()=>{btn.style.background='#1D9E75';btn.innerHTML='<i class="ti ti-microphone"></i>';document.getElementById('noteInput').value='Striker is pressing too high';},1800);}
+function handleEnter(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendNote();}}
+</script>
+</body>
+</html>

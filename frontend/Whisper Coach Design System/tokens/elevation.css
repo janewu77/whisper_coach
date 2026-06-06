@@ -1,0 +1,23 @@
+/* ============================================================
+   Whisper Coach — Elevation tokens
+   The UI is mostly flat: hairline borders define cards, and
+   shadow is reserved for things that truly float (the app
+   shell, sheets, floating actions).
+   ============================================================ */
+
+:root {
+  /* ---- Shadows ---- */
+  --shadow-none: none;
+  --shadow-xs:   0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-sm:   0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md:   0 4px 12px rgba(0, 0, 0, 0.10);
+  --shadow-lg:   0 8px 24px rgba(0, 0, 0, 0.12);
+  --shadow-app:  0 8px 40px rgba(0, 0, 0, 0.12);  /* phone shell */
+
+  /* Brand-tinted lift for the primary CTA when raised */
+  --shadow-brand: 0 6px 18px rgba(29, 158, 117, 0.28);
+
+  /* ---- Semantic borders (pair color token with width) ---- */
+  --hairline: var(--border-width-hairline) solid var(--border-subtle);
+  --stroke:   var(--border-width-hairline) solid var(--border-default);
+}

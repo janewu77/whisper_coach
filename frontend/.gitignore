@@ -1,0 +1,15 @@
+# Build output
+build/
+
+# Dart/Flutter tool caches
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.metadata
+
+# IDE files
+.idea/
+*.iml
+
+# OS files
+.DS_Store
