@@ -1,9 +1,21 @@
 # Whisper Coach backend image.
 #
-# Build context is the REPO ROOT (not backend/) so the build can copy the pitch
-# deck from docs/ into the served assets automatically on every deploy.
+# Build context is the REPO ROOT (not backend/) so the build can compile the
+# Flutter web app from frontend/ and copy the pitch deck from docs/.
 #   Local:   docker build -f backend/Dockerfile -t whisper-coach-backend .
 #   Coolify: Base Directory = /, Dockerfile Location = backend/Dockerfile
+
+# --- Stage 1: build the Flutter web app ---
+FROM ghcr.io/cirruslabs/flutter:stable AS webbuild
+WORKDIR /build
+# Resolve deps first for layer caching.
+COPY frontend/pubspec.yaml frontend/pubspec.lock ./
+RUN flutter pub get
+# Then the rest of the app and build. base-href must match the serve path (/app/).
+COPY frontend ./
+RUN flutter build web --release --base-href /app/
+
+# --- Stage 2: Python runtime ---
 FROM python:3.12-slim
 
 # uv for fast, locked installs.
@@ -27,9 +39,11 @@ COPY backend/alembic.ini ./
 COPY backend/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-# Pitch deck: copied straight from docs/ at build time, so the deployed deck is
-# always whatever is committed in docs/ — no manual sync step needed.
+# Pitch deck: copied straight from docs/ at build time (served at /pitch-deck.pdf).
 COPY docs/AI_Football_Coach_Pitch_Deck.pdf ./app/static/pitch-deck.pdf
+
+# Flutter web build output: served at /app.
+COPY --from=webbuild /build/build/web ./app/static/app
 
 EXPOSE 8000
 

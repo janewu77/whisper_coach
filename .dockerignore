@@ -1,8 +1,7 @@
 # Build context is the repo root (see backend/Dockerfile).
-# Keep: backend/ source + docs/ (for the pitch deck). Exclude the rest.
+# Keep: backend/ source, frontend/ (Flutter web build), docs/ (pitch deck).
 
 .git/
-frontend/
 
 # Python / venv / caches
 **/.venv/
@@ -15,9 +14,23 @@ frontend/
 # Tests are not needed in the runtime image.
 backend/app/tests/
 
+# Flutter: keep lib/ web/ pubspec*, drop native platforms + build artifacts.
+frontend/build/
+frontend/.dart_tool/
+frontend/.flutter-plugins
+frontend/.flutter-plugins-dependencies
+frontend/android/
+frontend/ios/
+frontend/macos/
+frontend/linux/
+frontend/windows/
+frontend/test/
+frontend/Whisper Coach Design System/
+
 # Secrets & local data — provide env via Coolify, not the image.
 **/.env
 **/*.db
 
-# Locally-synced deck copy (the image gets it from docs/ instead).
+# Build-time/local-only assets (the image generates these during build).
 backend/app/static/pitch-deck.pdf
+backend/app/static/app/

@@ -14,3 +14,6 @@ venv/
 # Pitch deck is sourced from docs/ at build time; the local copy (made by
 # scripts/sync-deck.sh for local dev) is not committed.
 app/static/pitch-deck.pdf
+
+# Flutter web build output (made by scripts/build-web.sh / the Docker build).
+app/static/app/
