@@ -15,7 +15,9 @@ class Settings(BaseSettings):
     # PydanticAI / OpenAI. OPENAI_API_KEY is read by pydantic-ai directly,
     # but we surface it here so startup can warn if it's missing.
     openai_api_key: str = ""
-    llm_model: str = "openai:gpt-4o"
+    # "openai-chat:" pins the Chat Completions API (avoids the v2 Responses
+    # default). gpt-4o supports vision, needed by the roster extractor.
+    llm_model: str = "openai-chat:gpt-4o"
 
     # CORS — open in dev so the Flutter app can call from anywhere.
     cors_origins: list[str] = ["*"]
