@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:dio/dio.dart';
 import 'package:http_mock_adapter/http_mock_adapter.dart';
 import 'package:whisper_coach/api/api.dart';
+import 'package:whisper_coach/models/match.dart';
 import 'package:whisper_coach/screens/match_list_screen.dart';
 import 'package:whisper_coach/theme.dart';
 
@@ -61,26 +62,12 @@ void main() {
 
     testWidgets('refreshes matches without returning a Future from setState',
         (tester) async {
-      var requestCount = 0;
-      adapter.onGet('/api/matches', (server) {
-        requestCount++;
-        return server.reply(200, [
-          {
-            'id': requestCount,
-            'team_id': 1,
-            'opponent': requestCount == 1 ? 'First FC' : 'Updated FC',
-            'location': 'Home',
-            'date': '2026-06-07',
-            'notes': null,
-            'strength': null,
-          },
-        ]);
-      });
+      final api = _SequenceApi();
 
       await tester.pumpWidget(
         MaterialApp(
           theme: buildTheme(),
-          home: MatchListScreen(apiClient: Api(dio)),
+          home: MatchListScreen(apiClient: api),
         ),
       );
       await tester.pumpAndSettle();
@@ -92,4 +79,22 @@ void main() {
       expect(find.text('vs Updated FC'), findsOneWidget);
     });
   });
+}
+
+class _SequenceApi extends Api {
+  int requestCount = 0;
+
+  @override
+  Future<List<Match>> listMatches() async {
+    requestCount++;
+    return [
+      Match(
+        id: requestCount,
+        teamId: 1,
+        opponent: requestCount == 1 ? 'First FC' : 'Updated FC',
+        location: 'Home',
+        date: '2026-06-07',
+      ),
+    ];
+  }
 }
