@@ -30,7 +30,9 @@ class _MatchListScreenState extends State<MatchListScreen> {
 
   Future<void> _refresh() async {
     final matches = _api.listMatches();
-    setState(() => _matches = matches);
+    setState(() {
+      _matches = matches;
+    });
     await matches;
   }
 
@@ -78,7 +80,18 @@ class _MatchListScreenState extends State<MatchListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Matches'),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset(
+              'assets/images/whisper_coach_logo.png',
+              width: 30,
+              height: 30,
+            ),
+            const SizedBox(width: 10),
+            const Text('Matches'),
+          ],
+        ),
         actions: [
           IconButton(
             tooltip: 'Refresh matches',

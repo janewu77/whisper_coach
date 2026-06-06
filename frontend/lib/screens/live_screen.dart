@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:image_picker/image_picker.dart' show XFile;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -36,6 +38,8 @@ class SummaryMessage extends ChatMessage {
   SummaryMessage(this.summary);
 }
 
+enum _InputMode { voice, text }
+
 // ── Screen ────────────────────────────────────────────────────────────────────
 
 class LiveScreen extends StatefulWidget {
@@ -53,10 +57,12 @@ class _LiveScreenState extends State<LiveScreen> {
   final _recorder = AudioRecorder();
 
   final List<ChatMessage> _messages = [];
+  Timer? _matchClock;
   bool _sending = false;
   bool _recording = false;
   bool _changingRecordingState = false;
   bool _summaryDone = false;
+  _InputMode _inputMode = _InputMode.voice;
   String? _recordingPath;
   String _recordingFilename = 'note.m4a';
   String _recordingMimeType = 'audio/mp4';
@@ -68,26 +74,22 @@ class _LiveScreenState extends State<LiveScreen> {
     super.initState();
     _messages.add(
       SystemMessage(
-          'Match started. Tap the mic or type to log events and get suggestions.'),
+          'Match started. Voice input is ready. Speak to log events and get suggestions.'),
     );
-    // Tick the match clock every 60 seconds
-    _startClock();
+    _matchClock = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) {
+        setState(() => _matchMinute++);
+      }
+    });
   }
 
   @override
   void dispose() {
+    _matchClock?.cancel();
     _textCtrl.dispose();
     _scrollCtrl.dispose();
     _recorder.dispose();
     super.dispose();
-  }
-
-  void _startClock() {
-    Future.delayed(const Duration(seconds: 60), () {
-      if (!mounted) return;
-      setState(() => _matchMinute++);
-      _startClock();
-    });
   }
 
   // ── Text note ────────────────────────────────────────────────────────────
@@ -306,8 +308,10 @@ class _LiveScreenState extends State<LiveScreen> {
                   decoration: BoxDecoration(
                     color: kRedBg,
                     borderRadius: BorderRadius.circular(100),
-                    border:
-                        Border.all(color: kRedFg.withOpacity(0.3), width: 0.5),
+                    border: Border.all(
+                      color: kRedFg.withValues(alpha: 0.3),
+                      width: 0.5,
+                    ),
                   ),
                   child: const Text(
                     'In progress',
@@ -361,117 +365,245 @@ class _LiveScreenState extends State<LiveScreen> {
   }
 
   Widget _buildComposer() {
+    final inputLocked = _recording || _changingRecordingState || _sending;
+
     return SafeArea(
       top: false,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Quick actions
-          SizedBox(
-            height: 36,
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-              scrollDirection: Axis.horizontal,
-              children: [
-                _QuickChip(
-                  icon: Icons.sports_soccer_outlined,
-                  label: 'Goal',
-                  onTap: () => _quickAction('We scored a goal.'),
+      child: Container(
+        color: kSurfaceCard,
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Quick actions
+            SizedBox(
+              height: 36,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                children: [
+                  _QuickChip(
+                    icon: Icons.sports_soccer_outlined,
+                    label: 'Goal',
+                    onTap: () => _quickAction('We scored a goal.'),
+                  ),
+                  const SizedBox(width: 6),
+                  _QuickChip(
+                    icon: Icons.medical_services_outlined,
+                    label: 'Injury',
+                    onTap: () => _quickAction('Player has an injury.'),
+                  ),
+                  const SizedBox(width: 6),
+                  _QuickChip(
+                    icon: Icons.assignment_outlined,
+                    label: 'Summary',
+                    onTap: _summaryDone ? null : _endMatch,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              child: _inputMode == _InputMode.voice
+                  ? _buildVoiceInput()
+                  : _buildTextInput(),
+            ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: _CompactInputModeButton(
+                mode: _inputMode,
+                enabled: !inputLocked,
+                onTap: () {
+                  setState(() {
+                    _inputMode = _inputMode == _InputMode.voice
+                        ? _InputMode.text
+                        : _InputMode.voice;
+                  });
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVoiceInput() {
+    return Column(
+      key: const ValueKey('voice-input'),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Semantics(
+          button: true,
+          label: _recording ? 'Stop voice recording' : 'Start voice recording',
+          child: GestureDetector(
+            key: const Key('voice-record-button'),
+            onTap: _sending ? null : _toggleRecording,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              width: 104,
+              height: 104,
+              decoration: BoxDecoration(
+                color: _recording ? kRedFg : kBrand,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: _recording ? kRedBg : kBrandSubtle,
+                  width: 7,
+                  strokeAlign: BorderSide.strokeAlignOutside,
                 ),
-                const SizedBox(width: 6),
-                _QuickChip(
-                  icon: Icons.medical_services_outlined,
-                  label: 'Injury',
-                  onTap: () => _quickAction('Player has an injury.'),
-                ),
-                const SizedBox(width: 6),
-                _QuickChip(
-                  icon: Icons.assignment_outlined,
-                  label: 'Summary',
-                  onTap: _summaryDone ? null : _endMatch,
-                ),
-              ],
+                boxShadow: [
+                  BoxShadow(
+                    color:
+                        (_recording ? kRedFg : kBrand).withValues(alpha: 0.24),
+                    blurRadius: 18,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: Icon(
+                _recording ? Icons.stop_rounded : Icons.mic_rounded,
+                color: Colors.white,
+                size: 46,
+              ),
             ),
           ),
-          const SizedBox(height: 6),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          _recording ? 'Recording... Tap to stop' : 'Tap to speak',
+          style: const TextStyle(
+            color: kTextPrimary,
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          _recording
+              ? 'Your note will be sent when recording stops'
+              : 'Describe what is happening on the pitch',
+          style: kStyleSecondary,
+        ),
+      ],
+    );
+  }
 
-          // Text + mic row
-          Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12).copyWith(bottom: 8),
+  Widget _buildTextInput() {
+    return Row(
+      key: const ValueKey('text-input'),
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Expanded(
+          child: TextField(
+            key: const Key('live-note-text-field'),
+            controller: _textCtrl,
+            autofocus: true,
+            maxLines: null,
+            textInputAction: TextInputAction.send,
+            onSubmitted: (_) => _sendText(),
+            decoration: const InputDecoration(
+              hintText: 'Type event or ask for advice...',
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Semantics(
+          button: true,
+          label: 'Send text note',
+          child: GestureDetector(
+            key: const Key('send-text-note-button'),
+            onTap: _sending ? null : _sendText,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: _sending ? kBorderStrong : kBrand,
+                borderRadius: BorderRadius.circular(kRadiusInput),
+              ),
+              child: _sending
+                  ? const Center(
+                      child: SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      ),
+                    )
+                  : const Icon(
+                      Icons.send_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CompactInputModeButton extends StatelessWidget {
+  final _InputMode mode;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  const _CompactInputModeButton({
+    required this.mode,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final switchToText = mode == _InputMode.voice;
+    final foreground = enabled ? kTextSecondary : kTextTertiary;
+
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      label: switchToText ? 'Switch to text input' : 'Switch to voice input',
+      child: Material(
+        color: kSurfacePage,
+        borderRadius: BorderRadius.circular(100),
+        child: InkWell(
+          onTap: enabled ? onTap : null,
+          borderRadius: BorderRadius.circular(100),
+          child: Container(
+            key: switchToText
+                ? const Key('text-input-mode-button')
+                : const Key('voice-input-mode-button'),
+            height: 44,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(100),
+              border: Border.all(color: kBorderHairline),
+            ),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Mic button
-                Semantics(
-                  button: true,
-                  label: _recording
-                      ? 'Stop voice recording'
-                      : 'Start voice recording',
-                  child: GestureDetector(
-                    onTap: _toggleRecording,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 150),
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: _recording ? kRedFg : kBrand,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        _recording ? Icons.stop : Icons.mic_outlined,
-                        color: Colors.white,
-                        size: 18,
-                      ),
-                    ),
-                  ),
+                Icon(
+                  switchToText ? Icons.keyboard_rounded : Icons.mic_rounded,
+                  size: 17,
+                  color: foreground,
                 ),
-                const SizedBox(width: 8),
-
-                // Text field
-                Expanded(
-                  child: TextField(
-                    controller: _textCtrl,
-                    maxLines: null,
-                    textInputAction: TextInputAction.send,
-                    onSubmitted: (_) => _sendText(),
-                    decoration: const InputDecoration(
-                      hintText: 'Type event or ask for advice…',
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-
-                // Send button
-                GestureDetector(
-                  onTap: _sending ? null : _sendText,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      color: _sending ? kBorderStrong : kBrand,
-                      borderRadius: BorderRadius.circular(kRadiusInput),
-                    ),
-                    child: _sending
-                        ? const Center(
-                            child: SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2,
-                              ),
-                            ),
-                          )
-                        : const Icon(Icons.send_outlined,
-                            color: Colors.white, size: 16),
+                const SizedBox(width: 5),
+                Text(
+                  switchToText ? 'Text input' : 'Voice input',
+                  style: TextStyle(
+                    color: foreground,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -492,9 +624,9 @@ class _UserBubble extends StatelessWidget {
           maxWidth: MediaQuery.of(context).size.width * 0.75,
         ),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           color: kBrand,
-          borderRadius: const BorderRadius.only(
+          borderRadius: BorderRadius.only(
             topLeft: Radius.circular(kRadiusCard),
             topRight: Radius.circular(kRadiusCard),
             bottomLeft: Radius.circular(kRadiusCard),
@@ -620,7 +752,9 @@ class _SummaryCard extends StatelessWidget {
                         color: kBrandSubtle,
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(
-                            color: kBrandBorder.withOpacity(0.4), width: 0.5),
+                          color: kBrandBorder.withValues(alpha: 0.4),
+                          width: 0.5,
+                        ),
                       ),
                       child: Center(
                         child: Text(

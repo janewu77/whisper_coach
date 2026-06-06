@@ -16,7 +16,11 @@ flutter run -d chrome --web-port 3000
 flutter build web
 
 ### TODO
+
+
+
+### done 
  - 首页改成match 列表
- - 语音语页：放大录单按钮，默认是语言输入，可切换到文字输入
  - 更换logo
+ - 语音语页：放大录单按钮，默认是语言输入，有按钮可切换到文字输入
  

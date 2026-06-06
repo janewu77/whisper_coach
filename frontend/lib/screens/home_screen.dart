@@ -142,7 +142,18 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('New match'),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset(
+              'assets/images/whisper_coach_logo.png',
+              width: 30,
+              height: 30,
+            ),
+            const SizedBox(width: 10),
+            const Text('New match'),
+          ],
+        ),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(0.5),
           child: Container(height: 0.5, color: kBorderHairline),
