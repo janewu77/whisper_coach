@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:http_parser/http_parser.dart';
 import 'package:image_picker/image_picker.dart';
 import 'client.dart' as wc_client;
 import '../models/player.dart';
@@ -81,8 +82,7 @@ class Api {
 
   /// Fetch a match (includes latest lineup and notes).
   Future<Match> getMatch(int matchId) async {
-    final res =
-        await _dio.get<Map<String, dynamic>>('/api/matches/$matchId');
+    final res = await _dio.get<Map<String, dynamic>>('/api/matches/$matchId');
     return Match.fromJson(res.data!);
   }
 
@@ -117,6 +117,7 @@ class Api {
       'audio': MultipartFile.fromBytes(
         bytes,
         filename: audio.name,
+        contentType: MediaType.parse(audio.mimeType ?? 'audio/mpeg'),
       ),
     });
     final res = await _dio.post<Map<String, dynamic>>(
