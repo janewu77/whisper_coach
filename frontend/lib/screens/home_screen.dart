@@ -1,14 +1,12 @@
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import '../api/api.dart';
 import '../api/client.dart';
-import '../models/player.dart';
+import '../services/team_service.dart';
 import '../theme.dart';
-import '../widgets/player_chip.dart';
 import '../main.dart';
 
+/// Create a new match for the currently selected team and generate a lineup.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -17,13 +15,6 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  // ── Upload & roster state ────────────────────────────────────────────────
-  XFile? _photoFile;
-  Uint8List? _photoBytes;
-  int? _teamId;
-  List<Player> _players = [];
-  bool _extracting = false;
-
   // ── Match form ───────────────────────────────────────────────────────────
   final _opponentCtrl = TextEditingController();
   final _locationCtrl = TextEditingController();
@@ -45,31 +36,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // ── Actions ──────────────────────────────────────────────────────────────
 
-  Future<void> _pickAndExtract() async {
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(source: ImageSource.gallery);
-    if (picked == null) return;
-    final bytes = await picked.readAsBytes();
-    setState(() {
-      _photoFile = picked;
-      _photoBytes = bytes;
-      _extracting = true;
-      _players = [];
-      _teamId = null;
-    });
-    try {
-      final result = await api.extractRoster(picked);
-      setState(() {
-        _teamId = result.teamId;
-        _players = result.players;
-      });
-    } catch (e) {
-      _showError(dioErrorMessage(e));
-    } finally {
-      setState(() => _extracting = false);
-    }
-  }
-
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
       context: context,
@@ -88,8 +54,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _generateLineup() async {
-    if (_teamId == null) {
-      _showError('Upload a team photo first.');
+    final teamId = TeamService.instance.currentTeamId;
+    if (teamId == null) {
+      _showError('Select a team first.');
       return;
     }
     if (_opponentCtrl.text.trim().isEmpty) {
@@ -99,7 +66,7 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _generating = true);
     try {
       final match = await api.createMatch(
-        teamId: _teamId!,
+        teamId: teamId,
         opponent: _opponentCtrl.text.trim(),
         location: _locationCtrl.text.trim().isEmpty
             ? 'TBD'
@@ -126,7 +93,7 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (e) {
       _showError(dioErrorMessage(e));
     } finally {
-      setState(() => _generating = false);
+      if (mounted) setState(() => _generating = false);
     }
   }
 
@@ -140,20 +107,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final teamName = TeamService.instance.current?.name;
     return Scaffold(
       appBar: AppBar(
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Image.asset(
-              'assets/images/whisper_coach_logo.png',
-              width: 30,
-              height: 30,
-            ),
-            const SizedBox(width: 10),
-            const Text('New match'),
-          ],
-        ),
+        title: const Text('New match'),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(0.5),
           child: Container(height: 0.5, color: kBorderHairline),
@@ -162,27 +119,16 @@ class _HomeScreenState extends State<HomeScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          _UploadZone(
-            photoBytes: _photoBytes,
-            extracting: _extracting,
-            onTap: _pickAndExtract,
-          ),
-          const SizedBox(height: 16),
-
-          // Detected players
-          if (_extracting)
-            const Center(child: CircularProgressIndicator(color: kBrand))
-          else if (_players.isNotEmpty) ...[
-            const Text('DETECTED PLAYERS', style: kStyleLabel),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: _players
-                  .map((p) => PlayerChip(name: p.name))
-                  .toList(),
+          if (teamName != null) ...[
+            Row(
+              children: [
+                const Icon(Icons.groups_2_outlined,
+                    size: 16, color: kTextSecondary),
+                const SizedBox(width: 6),
+                Text('Team: $teamName', style: kStyleSecondary),
+              ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
           ],
 
           // Match details card
@@ -296,90 +242,6 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 // ── Sub-widgets ───────────────────────────────────────────────────────────────
-
-class _UploadZone extends StatelessWidget {
-  final Uint8List? photoBytes;
-  final bool extracting;
-  final VoidCallback onTap;
-
-  const _UploadZone({
-    required this.photoBytes,
-    required this.extracting,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 120,
-        decoration: BoxDecoration(
-          color: kBrandSubtle,
-          borderRadius: BorderRadius.circular(kRadiusCard),
-          border: Border.all(
-            color: kBrandBorder.withOpacity(0.6),
-            width: 1,
-            strokeAlign: BorderSide.strokeAlignInside,
-          ),
-        ),
-        child: photoBytes != null
-            ? ClipRRect(
-                borderRadius: BorderRadius.circular(kRadiusCard - 1),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Image.memory(photoBytes!, fit: BoxFit.cover),
-                    Container(color: Colors.black26),
-                    if (extracting)
-                      const Center(
-                        child: CircularProgressIndicator(color: Colors.white),
-                      )
-                    else
-                      Center(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 5),
-                          decoration: BoxDecoration(
-                            color: Colors.black54,
-                            borderRadius: BorderRadius.circular(100),
-                          ),
-                          child: const Text(
-                            'Tap to replace',
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              )
-            : Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.upload_file_outlined,
-                      size: 28, color: kTextBrand),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Upload team roster photo',
-                    style: kStyleBody.copyWith(
-                      color: kTextBrand,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'AI will extract player names automatically',
-                    style: kStyleSecondary,
-                  ),
-                ],
-              ),
-      ),
-    );
-  }
-}
 
 class _StrengthChip extends StatelessWidget {
   final String label;

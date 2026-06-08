@@ -3,7 +3,7 @@ import 'theme.dart';
 import 'auth/auth_service.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
-import 'screens/match_list_screen.dart';
+import 'screens/team_gate.dart';
 import 'screens/pitch_screen.dart';
 import 'screens/live_screen.dart';
 import 'models/lineup.dart';
@@ -58,7 +58,7 @@ class WhisperCoachApp extends StatelessWidget {
 
 /// Routes between the login screen and the app based on auth state. When login
 /// is disabled (no Auth0 config) the user is always treated as authenticated,
-/// so this transparently shows the match list.
+/// so this transparently shows the team gate.
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
 
@@ -73,9 +73,7 @@ class AuthGate extends StatelessWidget {
             body: Center(child: CircularProgressIndicator(color: kBrand)),
           );
         }
-        return auth.isAuthenticated
-            ? const MatchListScreen()
-            : const LoginScreen();
+        return auth.isAuthenticated ? const TeamGate() : const LoginScreen();
       },
     );
   }

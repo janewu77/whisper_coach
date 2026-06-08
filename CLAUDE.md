@@ -21,7 +21,18 @@ The plan deliberately keeps the stack minimal for a 1–2 day hackathon build.
 2. **lineup generator** — players + opponent info → `{formation, lineup, reason}` (e.g. 4-3-3 / 4-2-3-1 / 3-5-2)
 3. **match analyst** — notes + events → post-match summary
 
-**Frontend** (`frontend/`): Flutter, three screens only — Home/Create Match (upload photo, opponent input), Pitch Screen (2D pitch with clickable player icons), Live/Notes Screen (text + voice input, AI response cards).
+**Frontend** (`frontend/`): Flutter. After login the user picks/creates a
+**team** (`TeamGate` → `CreateTeamScreen` on first run; otherwise `HomeShell`).
+`HomeShell` is a tabbed scaffold with a **team selector** in the app bar (switch
+team / "Create new team…") and a bottom `BottomNavigationBar`:
+- **Players tab** (`PlayersTab`) — the current team's roster; "add from photo"
+  runs the roster extractor against the existing team.
+- **Matches tab** (`MatchesTab`) — the current team's matches; "New match"
+  (`HomeScreen`) → Pitch Screen (2D pitch, clickable icons) → Live/Notes Screen
+  (text + voice input, AI response cards).
+
+Current team state lives in `lib/services/team_service.dart` (a `ChangeNotifier`
+singleton, like `AuthService`). More tabs can be added to `HomeShell`.
 
 ## Explicitly out of scope (do not build)
 

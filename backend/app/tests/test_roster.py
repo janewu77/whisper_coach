@@ -42,3 +42,36 @@ def test_roster_extract_rejects_non_image(client, stub_extract):
 def test_get_unknown_team_404(client):
     r = client.get("/api/teams/999")
     assert r.status_code == 404
+
+
+def test_create_and_list_teams(client):
+    assert client.get("/api/teams").json() == []
+
+    r = client.post("/api/teams", json={"name": "Sunday FC"})
+    assert r.status_code == 201
+    team = r.json()
+    assert team["id"] > 0 and team["name"] == "Sunday FC"
+
+    teams = client.get("/api/teams").json()
+    assert [t["name"] for t in teams] == ["Sunday FC"]
+
+
+def test_create_team_requires_name(client):
+    assert client.post("/api/teams", json={"name": "   "}).status_code == 422
+
+
+def test_roster_extract_appends_to_existing_team(client, stub_extract):
+    team_id = client.post("/api/teams", json={"name": "Existing FC"}).json()["id"]
+
+    files = {"image": ("roster.png", io.BytesIO(b"fakeimage"), "image/png")}
+    r = client.post(
+        "/api/roster/extract", files=files, data={"team_id": str(team_id)}
+    )
+    assert r.status_code == 200
+    assert r.json()["team_id"] == team_id
+
+    # players landed on the existing team, no new team was created
+    t = client.get(f"/api/teams/{team_id}").json()
+    assert t["name"] == "Existing FC"
+    assert len(t["players"]) == 2
+    assert len(client.get("/api/teams").json()) == 1

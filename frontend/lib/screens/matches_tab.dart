@@ -3,22 +3,24 @@ import 'package:intl/intl.dart';
 
 import '../api/api.dart';
 import '../api/client.dart';
-import '../auth/auth_service.dart';
-import '../config.dart';
 import '../main.dart';
 import '../models/match.dart';
 import '../theme.dart';
 
-class MatchListScreen extends StatefulWidget {
+/// Match list for the currently selected team. Lives inside the [HomeShell]
+/// tab scaffold (no app bar of its own). The "New match" FAB creates a match
+/// against the current team.
+class MatchesTab extends StatefulWidget {
+  final int teamId;
   final Api? apiClient;
 
-  const MatchListScreen({super.key, this.apiClient});
+  const MatchesTab({super.key, required this.teamId, this.apiClient});
 
   @override
-  State<MatchListScreen> createState() => _MatchListScreenState();
+  State<MatchesTab> createState() => _MatchesTabState();
 }
 
-class _MatchListScreenState extends State<MatchListScreen> {
+class _MatchesTabState extends State<MatchesTab> {
   late Future<List<Match>> _matches;
   final Set<int> _openingMatchIds = {};
 
@@ -27,11 +29,19 @@ class _MatchListScreenState extends State<MatchListScreen> {
   @override
   void initState() {
     super.initState();
-    _matches = _api.listMatches();
+    _matches = _api.listMatches(teamId: widget.teamId);
+  }
+
+  @override
+  void didUpdateWidget(MatchesTab old) {
+    super.didUpdateWidget(old);
+    if (old.teamId != widget.teamId) {
+      _matches = _api.listMatches(teamId: widget.teamId);
+    }
   }
 
   Future<void> _refresh() async {
-    final matches = _api.listMatches();
+    final matches = _api.listMatches(teamId: widget.teamId);
     setState(() {
       _matches = matches;
     });
@@ -81,38 +91,7 @@ class _MatchListScreenState extends State<MatchListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Image.asset(
-              'assets/images/whisper_coach_logo.png',
-              width: 30,
-              height: 30,
-            ),
-            const SizedBox(width: 10),
-            const Text('Matches'),
-          ],
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'Refresh matches',
-            onPressed: _refresh,
-            icon: const Icon(Icons.refresh_outlined),
-          ),
-          if (Config.authEnabled)
-            IconButton(
-              tooltip: 'Log out',
-              onPressed: () => AuthService.instance.logout(),
-              icon: const Icon(Icons.logout_outlined),
-            ),
-          const SizedBox(width: 4),
-        ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(0.5),
-          child: Container(height: 0.5, color: kBorderHairline),
-        ),
-      ),
+      backgroundColor: kSurfacePage,
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _createMatch,
         backgroundColor: kBrand,

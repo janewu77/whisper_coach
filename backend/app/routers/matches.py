@@ -68,14 +68,14 @@ def create_match(
 
 @router.get("", response_model=list[MatchResponse])
 def list_matches(
+    team_id: int | None = None,
     session: Session = Depends(get_session),
     user_id: str = Depends(current_user_id),
 ):
-    matches = session.exec(
-        select(Match)
-        .where(Match.owner_id == user_id)
-        .order_by(Match.created_at.desc())
-    ).all()
+    query = select(Match).where(Match.owner_id == user_id)
+    if team_id is not None:
+        query = query.where(Match.team_id == team_id)
+    matches = session.exec(query.order_by(Match.created_at.desc())).all()
     return [MatchResponse(**m.model_dump()) for m in matches]
 
 

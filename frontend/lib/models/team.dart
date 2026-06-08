@@ -10,7 +10,8 @@ class Team {
   factory Team.fromJson(Map<String, dynamic> j) => Team(
         id: j['id'] as int,
         name: j['name'] as String,
-        players: (j['players'] as List<dynamic>)
+        // The team-list endpoint omits players; default to an empty roster.
+        players: (j['players'] as List<dynamic>? ?? const [])
             .map((p) => Player.fromJson(p as Map<String, dynamic>))
             .toList(),
       );

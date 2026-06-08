@@ -30,12 +30,33 @@ class Api {
     return res.data!;
   }
 
+  // ── Teams ───────────────────────────────────────────────────────────────
+
+  /// List the current user's teams (id + name only, no roster).
+  Future<List<Team>> listTeams() async {
+    final res = await _dio.get<List<dynamic>>('/api/teams');
+    return res.data!
+        .map((item) => Team.fromJson(Map<String, dynamic>.from(item as Map)))
+        .toList();
+  }
+
+  /// Create a new (empty) team by name.
+  Future<Team> createTeam(String name) async {
+    final res = await _dio.post<Map<String, dynamic>>(
+      '/api/teams',
+      data: {'name': name},
+    );
+    return Team.fromJson(res.data!);
+  }
+
   // ── Roster ──────────────────────────────────────────────────────────────
 
-  /// Upload a team photo and extract player names via AI.
+  /// Upload a team photo and extract player names via AI. When [teamId] is
+  /// given the players are appended to that team; otherwise a new team is made.
   Future<ExtractRosterResult> extractRoster(
     XFile image, {
     String? teamName,
+    int? teamId,
   }) async {
     final bytes = await image.readAsBytes();
     final formData = FormData.fromMap({
@@ -44,6 +65,7 @@ class Api {
         filename: image.name,
       ),
       if (teamName != null) 'team_name': teamName,
+      if (teamId != null) 'team_id': teamId,
     });
     final res = await _dio.post<Map<String, dynamic>>(
       '/api/roster/extract',
@@ -95,9 +117,13 @@ class Api {
     return MatchDetails.fromJson(res.data!);
   }
 
-  /// Fetch all matches, ordered by match date descending.
-  Future<List<Match>> listMatches() async {
-    final res = await _dio.get<List<dynamic>>('/api/matches');
+  /// Fetch matches, ordered by match date descending. When [teamId] is given,
+  /// only that team's matches are returned.
+  Future<List<Match>> listMatches({int? teamId}) async {
+    final res = await _dio.get<List<dynamic>>(
+      '/api/matches',
+      queryParameters: {if (teamId != null) 'team_id': teamId},
+    );
     return res.data!
         .map(
           (item) => Match.fromJson(

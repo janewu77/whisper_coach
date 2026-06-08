@@ -44,6 +44,17 @@ class TeamResponse(BaseModel):
     players: list[PlayerOut]
 
 
+class TeamCreate(BaseModel):
+    name: str
+
+
+class TeamSummary(BaseModel):
+    """A team in the user's team list (without the roster)."""
+
+    id: int
+    name: str
+
+
 # ---- Matches ----
 class MatchInput(BaseModel):
     team_id: int

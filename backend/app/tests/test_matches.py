@@ -54,3 +54,29 @@ def test_list_matches(client, team):
     body = r.json()
     assert len(body) == 2
     assert {m["opponent"] for m in body} == {"Rivals", "United"}
+
+
+def test_list_matches_filtered_by_team(client, team):
+    other = client.post("/api/teams", json={"name": "Other FC"}).json()
+    client.post(
+        "/api/matches",
+        json={
+            "team_id": team.id,
+            "opponent": "Rivals",
+            "location": "Home",
+            "date": "2026-06-10",
+        },
+    )
+    client.post(
+        "/api/matches",
+        json={
+            "team_id": other["id"],
+            "opponent": "Strangers",
+            "location": "Away",
+            "date": "2026-06-11",
+        },
+    )
+
+    scoped = client.get("/api/matches", params={"team_id": team.id}).json()
+    assert [m["opponent"] for m in scoped] == ["Rivals"]
+    assert len(client.get("/api/matches").json()) == 2
