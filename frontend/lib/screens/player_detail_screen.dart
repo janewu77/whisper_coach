@@ -194,17 +194,55 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
         file,
       );
       if (!mounted) return;
-      setState(() {
-        _applyPlayer(p);
-        _voiceBusy = false;
-      });
-      _snack('Profile updated from your description — review and Save.');
+      setState(() => _voiceBusy = false);
+      // Don't apply directly — show the proposed changes for confirmation.
+      await _reviewProposal(p);
     } catch (e) {
       if (mounted) {
         setState(() => _voiceBusy = false);
         _snack(dioErrorMessage(e));
       }
     }
+  }
+
+  /// Show the LLM's proposed profile as a before/after diff; apply to the form
+  /// only if the coach confirms (they can still edit fields before Save).
+  Future<void> _reviewProposal(Player proposed) async {
+    final diffs = _computeDiffs(proposed);
+    if (diffs.isEmpty) {
+      _snack('No changes suggested.');
+      return;
+    }
+    final apply = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: kSurfaceCard,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(kRadiusSheet)),
+      ),
+      builder: (ctx) => _ProposalSheet(diffs: diffs),
+    );
+    if (apply == true) setState(() => _applyPlayer(proposed));
+  }
+
+  List<_FieldDiff> _computeDiffs(Player p) {
+    final diffs = <_FieldDiff>[];
+    void add(String label, String before, String after, {bool multiline = false}) {
+      if (before.trim() != after.trim()) {
+        diffs.add(_FieldDiff(label, before, after, multiline: multiline));
+      }
+    }
+
+    add('Jersey number', _numberCtrl.text.trim(),
+        p.number?.toString() ?? '');
+    add('Positions', _positions.join(', '), p.positions.join(', '));
+    add('Preferred foot', _foot ?? '', p.preferredFoot ?? '');
+    add('Height', _heightCtrl.text.trim(),
+        p.heightCm != null ? '${p.heightCm} cm' : '');
+    add('Traits', _traits.join(', '), p.traits.join(', '));
+    add('Description', _descCtrl.text.trim(), p.description ?? '',
+        multiline: true);
+    return diffs;
   }
 
   // ── Save ─────────────────────────────────────────────────────────────────
@@ -512,6 +550,139 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
           const SizedBox(height: 12),
           ...children,
         ],
+      ),
+    );
+  }
+}
+
+class _FieldDiff {
+  final String label;
+  final String before;
+  final String after;
+  final bool multiline;
+
+  const _FieldDiff(this.label, this.before, this.after, {this.multiline = false});
+}
+
+/// Bottom sheet showing the LLM's proposed profile changes as before → after.
+/// Returns true (Apply) or null/false (Discard).
+class _ProposalSheet extends StatelessWidget {
+  final List<_FieldDiff> diffs;
+
+  const _ProposalSheet({required this.diffs});
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: kBorderStrong,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            const Text('Suggested changes', style: kStyleScreenTitle),
+            const SizedBox(height: 2),
+            Text('From your description — review before applying.',
+                style: kStyleSecondary),
+            const SizedBox(height: 14),
+            Flexible(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (final d in diffs) _DiffRow(diff: d),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text('Discard'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () => Navigator.pop(context, true),
+                    icon: const Icon(Icons.check, size: 18),
+                    label: const Text('Apply'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DiffRow extends StatelessWidget {
+  final _FieldDiff diff;
+
+  const _DiffRow({required this.diff});
+
+  @override
+  Widget build(BuildContext context) {
+    final before = diff.before.isEmpty ? '—' : diff.before;
+    final after = diff.after.isEmpty ? '—' : diff.after;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(diff.label.toUpperCase(), style: kStyleLabel),
+          const SizedBox(height: 4),
+          if (diff.multiline) ...[
+            _valueBox(before, strike: true),
+            const SizedBox(height: 4),
+            _valueBox(after, highlight: true),
+          ] else
+            Row(
+              children: [
+                Flexible(child: _valueBox(before, strike: true)),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8),
+                  child: Icon(Icons.arrow_forward, size: 14, color: kTextTertiary),
+                ),
+                Flexible(child: _valueBox(after, highlight: true)),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _valueBox(String text, {bool strike = false, bool highlight = false}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: highlight ? kBrandSubtle : kSurfacePage,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 13,
+          height: 1.4,
+          color: highlight ? kTextBrand : kTextSecondary,
+          decoration: strike && text != '—' ? TextDecoration.lineThrough : null,
+        ),
       ),
     );
   }
