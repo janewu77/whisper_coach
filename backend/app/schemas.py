@@ -54,6 +54,49 @@ class TeamResponse(BaseModel):
     players: list[TeamPlayer]
 
 
+class PlayerDetail(BaseModel):
+    """Full editable profile for one player (player detail screen)."""
+
+    id: int
+    name: str
+    number: Optional[int] = None
+    preferred_position: Optional[str] = None
+    positions: list[str] = []
+    preferred_foot: Optional[str] = None  # "left" | "right" | "both"
+    height_cm: Optional[int] = None
+    traits: list[str] = []
+    description: Optional[str] = None
+
+
+class PlayerUpdate(BaseModel):
+    """Manual edit of a player profile — every field optional (PATCH)."""
+
+    name: Optional[str] = None
+    number: Optional[int] = None
+    preferred_position: Optional[str] = None
+    positions: Optional[list[str]] = None
+    preferred_foot: Optional[str] = None
+    height_cm: Optional[int] = None
+    traits: Optional[list[str]] = None
+    description: Optional[str] = None
+
+
+class DescribeRequest(BaseModel):
+    text: str
+
+
+class PlayerProfileResult(BaseModel):
+    """Agent output: a player's COMPLETE profile, extracted/merged from a
+    spoken or typed description. Empty/None fields mean 'no information'."""
+
+    number: Optional[int] = None
+    positions: list[str] = []
+    preferred_foot: Optional[str] = None
+    height_cm: Optional[int] = None
+    traits: list[str] = []
+    description: Optional[str] = None
+
+
 class TeamCreate(BaseModel):
     name: str
 

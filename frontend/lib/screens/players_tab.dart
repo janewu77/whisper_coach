@@ -9,10 +9,12 @@ import 'package:record/record.dart';
 import '../api/api.dart';
 import '../api/client.dart';
 import '../models/import_review.dart';
+import '../models/player.dart';
 import '../models/team.dart';
 import '../theme.dart';
 import 'crop_screen.dart';
 import 'import_review_screen.dart';
+import 'player_detail_screen.dart';
 
 /// Roster view for the currently selected team. Players can be added by
 /// uploading a team photo (AI extraction appends them to this team).
@@ -61,6 +63,20 @@ class _PlayersTabState extends State<PlayersTab> {
     final team = api.getTeam(widget.teamId);
     setState(() => _team = team);
     await team;
+  }
+
+  Future<void> _editPlayer(Player p) async {
+    if (p.id == null) return;
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => PlayerDetailScreen(
+          teamId: widget.teamId,
+          playerId: p.id!,
+          initialName: p.name,
+        ),
+      ),
+    );
+    if (changed == true && mounted) await _refresh();
   }
 
   Future<void> _deletePlayer(int playerId, String name) async {
@@ -324,6 +340,7 @@ class _PlayersTabState extends State<PlayersTab> {
                   name: p.name,
                   number: p.number,
                   position: p.preferredPosition,
+                  onEdit: p.id == null ? null : () => _editPlayer(p),
                   onDelete: p.id == null
                       ? null
                       : () => _deletePlayer(p.id!, p.name),
@@ -341,12 +358,14 @@ class _PlayerTile extends StatelessWidget {
   final String name;
   final int? number;
   final String? position;
+  final VoidCallback? onEdit;
   final VoidCallback? onDelete;
 
   const _PlayerTile({
     required this.name,
     this.number,
     this.position,
+    this.onEdit,
     this.onDelete,
   });
 
@@ -399,6 +418,17 @@ class _PlayerTile extends StatelessWidget {
               ],
             ),
           ),
+          if (onEdit != null)
+            IconButton(
+              tooltip: 'Edit player',
+              onPressed: onEdit,
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(
+                Icons.edit_outlined,
+                size: 19,
+                color: kTextSecondary,
+              ),
+            ),
           if (onDelete != null)
             IconButton(
               tooltip: 'Remove player',

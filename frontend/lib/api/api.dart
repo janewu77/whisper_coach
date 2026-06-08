@@ -92,6 +92,73 @@ class Api {
     await _dio.delete('/api/teams/$teamId/players/$playerId');
   }
 
+  /// Fetch one player's full editable profile.
+  Future<Player> getPlayer(int teamId, int playerId) async {
+    final res = await _dio.get<Map<String, dynamic>>(
+      '/api/teams/$teamId/players/$playerId',
+    );
+    return Player.fromJson(res.data!);
+  }
+
+  /// Persist edits to a player's profile (PATCH — only provided fields change).
+  Future<Player> updatePlayer(
+    int teamId,
+    int playerId, {
+    String? name,
+    int? number,
+    String? preferredPosition,
+    List<String>? positions,
+    String? preferredFoot,
+    int? heightCm,
+    List<String>? traits,
+    String? description,
+  }) async {
+    final res = await _dio.patch<Map<String, dynamic>>(
+      '/api/teams/$teamId/players/$playerId',
+      data: {
+        if (name != null) 'name': name,
+        if (number != null) 'number': number,
+        if (preferredPosition != null) 'preferred_position': preferredPosition,
+        if (positions != null) 'positions': positions,
+        if (preferredFoot != null) 'preferred_foot': preferredFoot,
+        if (heightCm != null) 'height_cm': heightCm,
+        if (traits != null) 'traits': traits,
+        if (description != null) 'description': description,
+      },
+    );
+    return Player.fromJson(res.data!);
+  }
+
+  /// Extract a structured profile from a typed description (no save).
+  Future<Player> describePlayer(int teamId, int playerId, String text) async {
+    final res = await _dio.post<Map<String, dynamic>>(
+      '/api/teams/$teamId/players/$playerId/describe',
+      data: {'text': text},
+    );
+    return Player.fromJson(res.data!);
+  }
+
+  /// Extract a structured profile from a spoken description (no save).
+  Future<Player> describePlayerVoice(
+    int teamId,
+    int playerId,
+    XFile audio,
+  ) async {
+    final bytes = await audio.readAsBytes();
+    final formData = FormData.fromMap({
+      'audio': MultipartFile.fromBytes(
+        bytes,
+        filename: audio.name,
+        contentType: MediaType.parse(audio.mimeType ?? 'audio/mpeg'),
+      ),
+    });
+    final res = await _dio.post<Map<String, dynamic>>(
+      '/api/teams/$teamId/players/$playerId/describe/voice',
+      data: formData,
+    );
+    return Player.fromJson(res.data!);
+  }
+
   // ── Roster import review ──────────────────────────────────────────────────
 
   /// Upload a team photo and stage a review (nothing is saved until confirm).

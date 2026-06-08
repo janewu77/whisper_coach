@@ -3,7 +3,7 @@ import io
 import pytest
 
 from app.routers import roster as roster_router
-from app.schemas import PlayerOut, RosterResult
+from app.schemas import PlayerOut, PlayerProfileResult, RosterResult
 
 
 @pytest.fixture
@@ -81,6 +81,63 @@ def test_delete_unknown_player_404(client, team):
     assert (
         client.delete(f"/api/teams/{team.id}/players/999999").status_code == 404
     )
+
+
+def _first_player_id(client, team):
+    return client.get(f"/api/teams/{team.id}").json()["players"][0]["id"]
+
+
+def test_get_player_detail_defaults(client, team):
+    pid = _first_player_id(client, team)
+    body = client.get(f"/api/teams/{team.id}/players/{pid}").json()
+    assert body["positions"] == [] and body["traits"] == []
+    assert body["preferred_foot"] is None
+
+
+def test_update_player_profile_persists(client, team):
+    pid = _first_player_id(client, team)
+    r = client.patch(
+        f"/api/teams/{team.id}/players/{pid}",
+        json={
+            "number": 11,
+            "positions": ["ST", "RW"],
+            "preferred_foot": "left",
+            "height_cm": 180,
+            "traits": ["strong", "good ball control"],
+            "description": "Quick, direct striker.",
+        },
+    )
+    assert r.status_code == 200
+    b = r.json()
+    assert b["positions"] == ["ST", "RW"]
+    assert b["preferred_foot"] == "left"
+    assert b["height_cm"] == 180
+    assert b["traits"] == ["strong", "good ball control"]
+
+    again = client.get(f"/api/teams/{team.id}/players/{pid}").json()
+    assert again["number"] == 11
+    assert again["description"] == "Quick, direct striker."
+
+
+def test_describe_player_does_not_persist(client, team, monkeypatch):
+    pid = _first_player_id(client, team)
+
+    async def fake_profile(text, current):
+        return PlayerProfileResult(
+            positions=["ST"], preferred_foot="right", traits=["fast"],
+            description="Fast forward.",
+        )
+
+    monkeypatch.setattr("app.routers.roster.extract_profile", fake_profile)
+    r = client.post(
+        f"/api/teams/{team.id}/players/{pid}/describe",
+        json={"text": "fast right-footed striker"},
+    )
+    assert r.status_code == 200
+    assert r.json()["positions"] == ["ST"]
+
+    # extraction must NOT have written to the player
+    assert client.get(f"/api/teams/{team.id}/players/{pid}").json()["positions"] == []
 
 
 def test_roster_extract_appends_to_existing_team(client, stub_extract):

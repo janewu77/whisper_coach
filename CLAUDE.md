@@ -22,13 +22,19 @@ The plan deliberately keeps the stack minimal for a 1–2 day hackathon build.
 3. **match analyst** — notes + events → post-match summary
 4. **roster matcher** (`agents/matcher.py`) — finds cross-language / spelling-variant duplicate candidates (Li Gang ↔ 李刚) with a confidence score
 5. **import command parser** (`agents/import_editor.py`) — turns a coach's natural-language / voice command into structured edit/delete/merge actions
+6. **text roster extractor** (`agents/roster.py::extract_players_from_text`) — spoken/typed player list → `players` (powers the Players tab's "add by voice")
+7. **player profiler** (`agents/player_profile.py`) — a spoken/typed description → a structured player profile (positions, foot, height, traits, bio) for the player detail screen
 
 **Frontend** (`frontend/`): Flutter. After login the user picks/creates a
 **team** (`TeamGate` → `CreateTeamScreen` on first run; otherwise `HomeShell`).
 `HomeShell` is a tabbed scaffold with a **team selector** in the app bar (switch
 team / "Create new team…") and a bottom `BottomNavigationBar`:
-- **Players tab** (`PlayersTab`) — the current team's roster (each row has a
-  delete action). Two add buttons both stage a **roster import review**
+- **Players tab** (`PlayersTab`) — the current team's roster (each row has
+  **edit** → `PlayerDetailScreen` and delete actions). The detail screen edits a
+  player's full profile (number, positions, preferred foot, height, traits, bio)
+  in grouped sections, with a voice "describe" button that calls the player
+  profiler and merges the result into the form (saved only on Save, via PATCH).
+  Two add buttons both stage a **roster import review**
   (`ImportReviewScreen`) instead of saving directly: "add from photo" (crop via
   `CropScreen` → image) and "add by voice" (record → transcribe → extract). See
   "Roster import review" below.

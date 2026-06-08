@@ -22,6 +22,12 @@ class Player(SQLModel, table=True):
     name: str
     number: Optional[int] = None
     preferred_position: Optional[str] = None
+    # Extended profile (set via the player detail screen / voice profiling).
+    positions: list = Field(default_factory=list, sa_column=Column(JSON))  # e.g. ["ST","RW"]
+    preferred_foot: Optional[str] = None  # "left" | "right" | "both"
+    height_cm: Optional[int] = None
+    traits: list = Field(default_factory=list, sa_column=Column(JSON))  # ["strong", ...]
+    description: Optional[str] = None
 
 
 class Match(SQLModel, table=True):
