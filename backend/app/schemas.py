@@ -55,6 +55,102 @@ class TeamSummary(BaseModel):
     name: str
 
 
+# ---- Roster import review ----
+class FieldChange(BaseModel):
+    """A single changed field on an "updated" import item (for before/after)."""
+
+    field: str  # "name" | "number" | "preferred_position"
+    before: Optional[str] = None
+    after: Optional[str] = None
+
+
+class ImportItemOut(BaseModel):
+    id: int
+    name: str
+    number: Optional[int] = None
+    preferred_position: Optional[str] = None
+    classification: str  # "new" | "updated" | "duplicate" | "unchanged"
+    confidence: Optional[float] = None  # 0..1, set for duplicate candidates
+    rationale: Optional[str] = None
+    deleted: bool = False
+    # The existing player a non-"new" item maps to (for merge / before-after).
+    match: Optional[PlayerOut] = None
+    match_player_id: Optional[int] = None
+    changes: list[FieldChange] = []
+
+
+class ImportReviewResponse(BaseModel):
+    """The full review, grouped into the sections the UI renders."""
+
+    session_id: int
+    team_id: int
+    status: str
+    new_players: list[ImportItemOut] = []
+    updated_players: list[ImportItemOut] = []
+    duplicate_candidates: list[ImportItemOut] = []
+    unchanged_players: list[ImportItemOut] = []
+    # Optional short message from an AI command (e.g. "Merged Li Gang into 李刚").
+    reply: Optional[str] = None
+
+
+class ImportItemEdit(BaseModel):
+    """Manual edit of one item — only updates the temporary session."""
+
+    name: Optional[str] = None
+    number: Optional[int] = None
+    preferred_position: Optional[str] = None
+
+
+class MergeRequest(BaseModel):
+    """Resolve a duplicate by linking it to an existing player, or fold one
+    imported row into another. Exactly one target should be provided."""
+
+    target_player_id: Optional[int] = None
+    target_item_id: Optional[int] = None
+
+
+class CommandRequest(BaseModel):
+    text: str
+
+
+class ConfirmResponse(BaseModel):
+    created: int
+    updated: int
+    skipped: int
+
+
+# Agent: roster matcher (cross-language / spelling-variant duplicate finder)
+class MatchCandidate(BaseModel):
+    imported_index: int
+    matched_player_id: Optional[int] = None
+    confidence: float = 0.0  # 0..1
+    rationale: Optional[str] = None
+
+
+class MatchResult(BaseModel):
+    """Roster-matcher agent output."""
+
+    matches: list[MatchCandidate] = []
+
+
+# Agent: natural-language import command parser
+class ImportAction(BaseModel):
+    type: str  # "edit" | "delete" | "merge"
+    item_id: int
+    name: Optional[str] = None
+    number: Optional[int] = None
+    preferred_position: Optional[str] = None
+    target_item_id: Optional[int] = None
+    target_player_id: Optional[int] = None
+
+
+class CommandResult(BaseModel):
+    """Import command-parser agent output."""
+
+    actions: list[ImportAction] = []
+    reply: Optional[str] = None
+
+
 # ---- Matches ----
 class MatchInput(BaseModel):
     team_id: int

@@ -5,6 +5,7 @@ import '../api/api.dart';
 import '../api/client.dart';
 import '../models/team.dart';
 import '../theme.dart';
+import 'import_review_screen.dart';
 
 /// Roster view for the currently selected team. Players can be added by
 /// uploading a team photo (AI extraction appends them to this team).
@@ -47,15 +48,22 @@ class _PlayersTabState extends State<PlayersTab> {
     if (picked == null) return;
     setState(() => _extracting = true);
     try {
-      await api.extractRoster(picked, teamId: widget.teamId);
-      await _refresh();
+      // Stage the import for review — nothing is saved until the coach confirms.
+      final review = await api.createImport(widget.teamId, picked);
+      if (!mounted) return;
+      setState(() => _extracting = false);
+      final confirmed = await Navigator.of(context).push<bool>(
+        MaterialPageRoute(
+          builder: (_) => ImportReviewScreen(review: review),
+        ),
+      );
+      if (confirmed == true && mounted) await _refresh();
     } catch (e) {
       if (mounted) {
+        setState(() => _extracting = false);
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(dioErrorMessage(e))));
       }
-    } finally {
-      if (mounted) setState(() => _extracting = false);
     }
   }
 

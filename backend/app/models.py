@@ -56,3 +56,9 @@ class Note(SQLModel, table=True):
     content: str
     ai_response: dict = Field(default_factory=dict, sa_column=Column(JSON))
     created_at: datetime = Field(default_factory=_now)
+
+
+# NOTE: the roster import-review session is intentionally NOT a DB table. It is a
+# short-lived, in-memory staging buffer (see app/services/import_store.py) so
+# OCR/AI output never persists until the coach confirms. Only `confirm` writes to
+# the `player` table above.

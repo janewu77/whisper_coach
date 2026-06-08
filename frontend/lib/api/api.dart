@@ -8,6 +8,7 @@ import '../models/match.dart';
 import '../models/lineup.dart';
 import '../models/suggestion.dart';
 import '../models/summary.dart';
+import '../models/import_review.dart';
 
 class ExtractRosterResult {
   final int teamId;
@@ -84,6 +85,108 @@ class Api {
   Future<Team> getTeam(int teamId) async {
     final res = await _dio.get<Map<String, dynamic>>('/api/teams/$teamId');
     return Team.fromJson(res.data!);
+  }
+
+  // ── Roster import review ──────────────────────────────────────────────────
+
+  /// Upload a team photo and stage a review (nothing is saved until confirm).
+  Future<ImportReview> createImport(int teamId, XFile image) async {
+    final bytes = await image.readAsBytes();
+    final formData = FormData.fromMap({
+      'image': MultipartFile.fromBytes(bytes, filename: image.name),
+    });
+    final res = await _dio.post<Map<String, dynamic>>(
+      '/api/teams/$teamId/imports',
+      data: formData,
+    );
+    return ImportReview.fromJson(res.data!);
+  }
+
+  /// Re-fetch the current review state.
+  Future<ImportReview> getImport(int sessionId) async {
+    final res = await _dio.get<Map<String, dynamic>>('/api/imports/$sessionId');
+    return ImportReview.fromJson(res.data!);
+  }
+
+  /// Edit one item's fields (temporary session only).
+  Future<ImportReview> editImportItem(
+    int sessionId,
+    int itemId, {
+    String? name,
+    int? number,
+    String? preferredPosition,
+  }) async {
+    final res = await _dio.patch<Map<String, dynamic>>(
+      '/api/imports/$sessionId/items/$itemId',
+      data: {
+        if (name != null) 'name': name,
+        if (number != null) 'number': number,
+        if (preferredPosition != null) 'preferred_position': preferredPosition,
+      },
+    );
+    return ImportReview.fromJson(res.data!);
+  }
+
+  /// Remove one item from the import.
+  Future<ImportReview> deleteImportItem(int sessionId, int itemId) async {
+    final res = await _dio.delete<Map<String, dynamic>>(
+      '/api/imports/$sessionId/items/$itemId',
+    );
+    return ImportReview.fromJson(res.data!);
+  }
+
+  /// Merge an item into an existing player (or another import item).
+  Future<ImportReview> mergeImportItem(
+    int sessionId,
+    int itemId, {
+    int? targetPlayerId,
+    int? targetItemId,
+  }) async {
+    final res = await _dio.post<Map<String, dynamic>>(
+      '/api/imports/$sessionId/items/$itemId/merge',
+      data: {
+        if (targetPlayerId != null) 'target_player_id': targetPlayerId,
+        if (targetItemId != null) 'target_item_id': targetItemId,
+      },
+    );
+    return ImportReview.fromJson(res.data!);
+  }
+
+  /// Apply a natural-language command to the review (e.g. "delete Zhao Liu").
+  Future<ImportReview> sendImportCommand(int sessionId, String text) async {
+    final res = await _dio.post<Map<String, dynamic>>(
+      '/api/imports/$sessionId/command',
+      data: {'text': text},
+    );
+    return ImportReview.fromJson(res.data!);
+  }
+
+  /// Apply a spoken command (audio is transcribed, then parsed).
+  Future<ImportReview> sendImportVoiceCommand(
+    int sessionId,
+    XFile audio,
+  ) async {
+    final bytes = await audio.readAsBytes();
+    final formData = FormData.fromMap({
+      'audio': MultipartFile.fromBytes(
+        bytes,
+        filename: audio.name,
+        contentType: MediaType.parse(audio.mimeType ?? 'audio/mpeg'),
+      ),
+    });
+    final res = await _dio.post<Map<String, dynamic>>(
+      '/api/imports/$sessionId/command/voice',
+      data: formData,
+    );
+    return ImportReview.fromJson(res.data!);
+  }
+
+  /// Confirm the import — writes the staged players to the database.
+  Future<ImportConfirm> confirmImport(int sessionId) async {
+    final res = await _dio.post<Map<String, dynamic>>(
+      '/api/imports/$sessionId/confirm',
+    );
+    return ImportConfirm.fromJson(res.data!);
   }
 
   // ── Matches ──────────────────────────────────────────────────────────────

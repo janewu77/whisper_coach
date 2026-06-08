@@ -6,7 +6,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
-from app.routers import matches, me, roster
+from app.routers import imports, matches, me, roster
 
 STATIC_DIR = Path(__file__).parent / "static"
 FLUTTER_DIR = STATIC_DIR / "app"
@@ -24,6 +24,7 @@ app.add_middleware(
 app.include_router(me.router)
 app.include_router(roster.router)
 app.include_router(matches.router)
+app.include_router(imports.router)
 
 
 @app.get("/", include_in_schema=False)
