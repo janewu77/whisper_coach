@@ -38,10 +38,20 @@ class RosterResponse(BaseModel):
     players: list[PlayerOut]
 
 
+class TeamPlayer(BaseModel):
+    """A roster player as returned to the app — includes the DB id so the client
+    can act on individual players (e.g. delete)."""
+
+    id: int
+    name: str
+    number: Optional[int] = None
+    preferred_position: Optional[str] = None
+
+
 class TeamResponse(BaseModel):
     id: int
     name: str
-    players: list[PlayerOut]
+    players: list[TeamPlayer]
 
 
 class TeamCreate(BaseModel):

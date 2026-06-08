@@ -87,6 +87,11 @@ class Api {
     return Team.fromJson(res.data!);
   }
 
+  /// Remove a single player from a team's roster.
+  Future<void> deletePlayer(int teamId, int playerId) async {
+    await _dio.delete('/api/teams/$teamId/players/$playerId');
+  }
+
   // ── Roster import review ──────────────────────────────────────────────────
 
   /// Upload a team photo and stage a review (nothing is saved until confirm).

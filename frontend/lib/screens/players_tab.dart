@@ -42,6 +42,37 @@ class _PlayersTabState extends State<PlayersTab> {
     await team;
   }
 
+  Future<void> _deletePlayer(int playerId, String name) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Remove player?'),
+        content: Text('Remove $name from this team\'s roster?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: kRedFg),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await api.deletePlayer(widget.teamId, playerId);
+      await _refresh();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(dioErrorMessage(e))));
+      }
+    }
+  }
+
   Future<void> _addFromPhoto() async {
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: ImageSource.gallery);
@@ -136,6 +167,9 @@ class _PlayersTabState extends State<PlayersTab> {
                   name: p.name,
                   number: p.number,
                   position: p.preferredPosition,
+                  onDelete: p.id == null
+                      ? null
+                      : () => _deletePlayer(p.id!, p.name),
                 );
               },
             ),
@@ -150,8 +184,14 @@ class _PlayerTile extends StatelessWidget {
   final String name;
   final int? number;
   final String? position;
+  final VoidCallback? onDelete;
 
-  const _PlayerTile({required this.name, this.number, this.position});
+  const _PlayerTile({
+    required this.name,
+    this.number,
+    this.position,
+    this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -202,6 +242,17 @@ class _PlayerTile extends StatelessWidget {
               ],
             ),
           ),
+          if (onDelete != null)
+            IconButton(
+              tooltip: 'Remove player',
+              onPressed: onDelete,
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(
+                Icons.delete_outline,
+                size: 20,
+                color: kTextTertiary,
+              ),
+            ),
         ],
       ),
     );

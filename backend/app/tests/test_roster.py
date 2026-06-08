@@ -60,6 +60,29 @@ def test_create_team_requires_name(client):
     assert client.post("/api/teams", json={"name": "   "}).status_code == 422
 
 
+def test_get_team_includes_player_ids(client, team):
+    body = client.get(f"/api/teams/{team.id}").json()
+    assert all(isinstance(p["id"], int) for p in body["players"])
+
+
+def test_delete_player(client, team):
+    body = client.get(f"/api/teams/{team.id}").json()
+    pid = body["players"][0]["id"]
+
+    r = client.delete(f"/api/teams/{team.id}/players/{pid}")
+    assert r.status_code == 204
+
+    after = client.get(f"/api/teams/{team.id}").json()
+    assert len(after["players"]) == 1
+    assert all(p["id"] != pid for p in after["players"])
+
+
+def test_delete_unknown_player_404(client, team):
+    assert (
+        client.delete(f"/api/teams/{team.id}/players/999999").status_code == 404
+    )
+
+
 def test_roster_extract_appends_to_existing_team(client, stub_extract):
     team_id = client.post("/api/teams", json={"name": "Existing FC"}).json()["id"]
 

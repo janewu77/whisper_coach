@@ -6,9 +6,9 @@ from app.auth import current_user_id
 from app.db import get_session
 from app.models import Player, Team
 from app.schemas import (
-    PlayerOut,
     RosterResponse,
     TeamCreate,
+    TeamPlayer,
     TeamResponse,
     TeamSummary,
 )
@@ -99,9 +99,30 @@ def get_team(
         id=team.id,
         name=team.name,
         players=[
-            PlayerOut(
-                name=p.name, number=p.number, preferred_position=p.preferred_position
+            TeamPlayer(
+                id=p.id,
+                name=p.name,
+                number=p.number,
+                preferred_position=p.preferred_position,
             )
             for p in players
         ],
     )
+
+
+@router.delete("/teams/{team_id}/players/{player_id}", status_code=204)
+def delete_player(
+    team_id: int,
+    player_id: int,
+    session: Session = Depends(get_session),
+    user_id: str = Depends(current_user_id),
+):
+    """Remove a single player from a team's roster (owner-scoped)."""
+    team = session.get(Team, team_id)
+    if not team or team.owner_id != user_id:
+        raise HTTPException(status_code=404, detail="team not found")
+    player = session.get(Player, player_id)
+    if not player or player.team_id != team_id:
+        raise HTTPException(status_code=404, detail="player not found")
+    session.delete(player)
+    session.commit()
