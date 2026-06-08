@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -5,6 +7,7 @@ import '../api/api.dart';
 import '../api/client.dart';
 import '../models/team.dart';
 import '../theme.dart';
+import 'crop_screen.dart';
 import 'import_review_screen.dart';
 
 /// Roster view for the currently selected team. Players can be added by
@@ -77,10 +80,24 @@ class _PlayersTabState extends State<PlayersTab> {
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: ImageSource.gallery);
     if (picked == null) return;
+
+    // Let the coach crop to just the roster area; only that region is imported.
+    final bytes = await picked.readAsBytes();
+    if (!mounted) return;
+    final cropped = await Navigator.of(context).push<Uint8List>(
+      MaterialPageRoute(builder: (_) => CropScreen(bytes: bytes)),
+    );
+    if (cropped == null) return; // cancelled crop → don't import
+    final file = XFile.fromData(
+      cropped,
+      name: 'roster_crop.jpg',
+      mimeType: 'image/jpeg',
+    );
+
     setState(() => _extracting = true);
     try {
       // Stage the import for review — nothing is saved until the coach confirms.
-      final review = await api.createImport(widget.teamId, picked);
+      final review = await api.createImport(widget.teamId, file);
       if (!mounted) return;
       setState(() => _extracting = false);
       final confirmed = await Navigator.of(context).push<bool>(
