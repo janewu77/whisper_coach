@@ -14,6 +14,16 @@ class WebAuth0Client implements Auth0Client {
   String? get _audience =>
       Config.auth0Audience.isEmpty ? null : Config.auth0Audience;
 
+  /// The current page URL without query/fragment, e.g.
+  /// `https://whisper-coach.dacheng.dev/app/`. Used as the explicit redirect /
+  /// logout target so it matches the Auth0 Allowed Callback/Logout URLs exactly
+  /// (auth0-spa-js would otherwise default to the bare origin). Adapts to both
+  /// the `/app/` and the GitHub Pages `/whisper_coach/app/` base paths.
+  String get _appUrl {
+    final b = Uri.base;
+    return '${b.origin}${b.path}';
+  }
+
   @override
   Future<AuthSession?> init() async {
     // Completes the redirect callback (if returning from Auth0) and hydrates the
@@ -29,12 +39,13 @@ class WebAuth0Client implements Auth0Client {
     await _auth0.loginWithRedirect(
       audience: _audience,
       scopes: Config.auth0Scopes,
+      redirectUrl: _appUrl,
     );
     return null;
   }
 
   @override
-  Future<void> logout() => _auth0.logout();
+  Future<void> logout() => _auth0.logout(returnToUrl: _appUrl);
 
   @override
   Future<String?> accessToken() async {
