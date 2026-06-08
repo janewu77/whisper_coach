@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlmodel import Session, select
 
 from app.agents.import_editor import parse_command
-from app.agents.roster import extract_roster
+from app.agents.roster import extract_players_from_text, extract_roster
 from app.agents.transcribe import transcribe_audio
 from app.auth import current_user_id
 from app.db import get_session
@@ -88,13 +88,60 @@ async def create_import(
     except Exception as exc:  # noqa: BLE001 — surface any LLM/agent failure
         raise HTTPException(status_code=502, detail=f"roster extraction failed: {exc}")
 
-    # Supersede any earlier unconfirmed session for this team.
+    imp = await _stage_players(db, team_id, user_id, extracted.players)
+    return _review(db, imp)
+
+
+async def _stage_players(db: Session, team_id: int, user_id: str, players):
+    """Supersede any pending session for the team and stage `players` for review."""
     for stale in store.pending_for_team(user_id, team_id):
         stale.status = "discarded"
-
     imp = store.create(owner_id=user_id, team_id=team_id)
     existing = _existing_players(db, team_id)
-    imp.items = await classify_imported(extracted.players, existing, store.new_item_id)
+    imp.items = await classify_imported(players, existing, store.new_item_id)
+    return imp
+
+
+@router.post("/teams/{team_id}/imports/text", response_model=ImportReviewResponse)
+async def create_import_from_text(
+    team_id: int,
+    body: CommandRequest,
+    db: Session = Depends(get_session),
+    user_id: str = Depends(current_user_id),
+):
+    """Stage players the coach describes in free text (e.g. dictated names)."""
+    _owned_team_or_404(db, team_id, user_id)
+    if not body.text.strip():
+        raise HTTPException(status_code=422, detail="text is required")
+    try:
+        extracted = await extract_players_from_text(body.text)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"player extraction failed: {exc}")
+    imp = await _stage_players(db, team_id, user_id, extracted.players)
+    return _review(db, imp)
+
+
+@router.post("/teams/{team_id}/imports/voice", response_model=ImportReviewResponse)
+async def create_import_from_voice(
+    team_id: int,
+    audio: UploadFile = File(...),
+    db: Session = Depends(get_session),
+    user_id: str = Depends(current_user_id),
+):
+    """Stage players from a spoken description (audio → transcribe → extract)."""
+    _owned_team_or_404(db, team_id, user_id)
+    if not (audio.content_type or "").startswith("audio/"):
+        raise HTTPException(status_code=422, detail="audio must be an audio file")
+    data = await audio.read()
+    try:
+        text = await transcribe_audio(data, audio.filename or "players.webm")
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"transcription failed: {exc}")
+    try:
+        extracted = await extract_players_from_text(text)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"player extraction failed: {exc}")
+    imp = await _stage_players(db, team_id, user_id, extracted.players)
     return _review(db, imp)
 
 

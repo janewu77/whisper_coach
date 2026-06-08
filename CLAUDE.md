@@ -27,9 +27,11 @@ The plan deliberately keeps the stack minimal for a 1–2 day hackathon build.
 **team** (`TeamGate` → `CreateTeamScreen` on first run; otherwise `HomeShell`).
 `HomeShell` is a tabbed scaffold with a **team selector** in the app bar (switch
 team / "Create new team…") and a bottom `BottomNavigationBar`:
-- **Players tab** (`PlayersTab`) — the current team's roster; "add from photo"
-  stages a **roster import review** (`ImportReviewScreen`) instead of saving
-  directly. See "Roster import review" below.
+- **Players tab** (`PlayersTab`) — the current team's roster (each row has a
+  delete action). Two add buttons both stage a **roster import review**
+  (`ImportReviewScreen`) instead of saving directly: "add from photo" (crop via
+  `CropScreen` → image) and "add by voice" (record → transcribe → extract). See
+  "Roster import review" below.
 - **Matches tab** (`MatchesTab`) — the current team's matches; "New match"
   (`HomeScreen`) → Pitch Screen (2D pitch, clickable icons) → Live/Notes Screen
   (text + voice input, AI response cards).
@@ -85,7 +87,9 @@ the official roster).
   resolved deterministically (unchanged vs updated by field diff); leftovers go
   to the **roster matcher** agent to surface cross-language/spelling duplicates.
 - **Endpoints** (`routers/imports.py`, all owner-scoped):
-  `POST /api/teams/{id}/imports` (image → review), `GET /api/imports/{sid}`,
+  `POST /api/teams/{id}/imports` (image → review) plus `.../imports/voice` and
+  `.../imports/text` (speak/type players to add → review, via the text roster
+  extractor), `GET /api/imports/{sid}`,
   `PATCH/DELETE .../items/{iid}`, `POST .../items/{iid}/merge`,
   `POST .../command` + `.../command/voice` (NL/voice editing via the import
   command parser), and `POST .../confirm` — **the only step that writes to the

@@ -1,10 +1,14 @@
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:record/record.dart';
 
 import '../api/api.dart';
 import '../api/client.dart';
+import '../models/import_review.dart';
 import '../models/team.dart';
 import '../theme.dart';
 import 'crop_screen.dart';
@@ -25,10 +29,24 @@ class _PlayersTabState extends State<PlayersTab> {
   late Future<Team> _team;
   bool _extracting = false;
 
+  // Voice "add player" recording state.
+  final _recorder = AudioRecorder();
+  bool _recording = false;
+  bool _voiceBusy = false;
+  String _recFilename = 'players.m4a';
+  String _recMime = 'audio/mp4';
+  String? _recPath;
+
   @override
   void initState() {
     super.initState();
     _team = api.getTeam(widget.teamId);
+  }
+
+  @override
+  void dispose() {
+    _recorder.dispose();
+    super.dispose();
   }
 
   @override
@@ -100,39 +118,161 @@ class _PlayersTabState extends State<PlayersTab> {
       final review = await api.createImport(widget.teamId, file);
       if (!mounted) return;
       setState(() => _extracting = false);
-      final confirmed = await Navigator.of(context).push<bool>(
-        MaterialPageRoute(
-          builder: (_) => ImportReviewScreen(review: review),
-        ),
-      );
-      if (confirmed == true && mounted) await _refresh();
+      await _openReview(review);
     } catch (e) {
       if (mounted) {
         setState(() => _extracting = false);
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(dioErrorMessage(e))));
+        _showError(dioErrorMessage(e));
       }
     }
+  }
+
+  /// Open the review screen for a staged import; refresh the roster on confirm.
+  Future<void> _openReview(ImportReview review) async {
+    if (!mounted) return;
+    final confirmed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => ImportReviewScreen(review: review)),
+    );
+    if (confirmed == true && mounted) await _refresh();
+  }
+
+  // ── Add by voice ───────────────────────────────────────────────────────
+
+  Future<void> _toggleVoice() async {
+    if (_voiceBusy) return;
+    try {
+      if (_recording) {
+        await _stopVoiceAndStage();
+      } else {
+        await _startVoice();
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _recording = false;
+          _voiceBusy = false;
+        });
+        _showError('Recording error: $e');
+      }
+    }
+  }
+
+  Future<void> _startVoice() async {
+    if (!await _recorder.hasPermission()) {
+      _showError('Microphone permission denied.');
+      return;
+    }
+    final ts = DateTime.now().millisecondsSinceEpoch;
+    late final RecordConfig config;
+    if (kIsWeb) {
+      if (await _recorder.isEncoderSupported(AudioEncoder.opus)) {
+        config = const RecordConfig(encoder: AudioEncoder.opus);
+        _recFilename = 'players_$ts.webm';
+        _recMime = 'audio/webm';
+      } else if (await _recorder.isEncoderSupported(AudioEncoder.aacLc)) {
+        config = const RecordConfig(encoder: AudioEncoder.aacLc);
+        _recFilename = 'players_$ts.m4a';
+        _recMime = 'audio/mp4';
+      } else {
+        config = const RecordConfig(encoder: AudioEncoder.wav);
+        _recFilename = 'players_$ts.wav';
+        _recMime = 'audio/wav';
+      }
+      _recPath = ''; // record_web returns a Blob URL from stop()
+    } else {
+      final dir = await getTemporaryDirectory();
+      _recFilename = 'players_$ts.m4a';
+      _recMime = 'audio/mp4';
+      _recPath = '${dir.path}/$_recFilename';
+      config = const RecordConfig(encoder: AudioEncoder.aacLc);
+    }
+    await _recorder.start(config, path: _recPath!);
+    if (mounted) setState(() => _recording = true);
+  }
+
+  Future<void> _stopVoiceAndStage() async {
+    final path = await _recorder.stop();
+    if (!mounted) return;
+    setState(() {
+      _recording = false;
+      _voiceBusy = true;
+    });
+    if (path == null) {
+      setState(() => _voiceBusy = false);
+      return;
+    }
+    final file = XFile(path, name: _recFilename, mimeType: _recMime);
+    try {
+      final review = await api.createImportFromVoice(widget.teamId, file);
+      if (!mounted) return;
+      setState(() => _voiceBusy = false);
+      await _openReview(review);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _voiceBusy = false);
+        _showError(dioErrorMessage(e));
+      }
+    }
+  }
+
+  void _showError(String msg) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(msg)));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kSurfacePage,
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _extracting ? null : _addFromPhoto,
-        backgroundColor: kBrand,
-        foregroundColor: kTextOnBrand,
-        elevation: 0,
-        icon: _extracting
-            ? const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(
-                    color: Colors.white, strokeWidth: 2),
-              )
-            : const Icon(Icons.add_a_photo_outlined, size: 20),
-        label: Text(_extracting ? 'Reading photo…' : 'Add from photo'),
+      floatingActionButton: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Add by voice — speak the player(s), then review before saving.
+          FloatingActionButton(
+            heroTag: 'addByVoice',
+            onPressed: _extracting ? null : _toggleVoice,
+            backgroundColor: _recording ? kRedFg : kSurfaceCard,
+            foregroundColor: _recording ? Colors.white : kTextBrand,
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(
+                color: _recording ? kRedFg : kBorderStrong,
+                width: 0.5,
+              ),
+            ),
+            tooltip: _recording ? 'Stop & add' : 'Add by voice',
+            child: _voiceBusy
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                        color: kBrand, strokeWidth: 2),
+                  )
+                : Icon(_recording ? Icons.stop_rounded : Icons.mic_none_outlined,
+                    size: 22),
+          ),
+          const SizedBox(width: 12),
+          // Add from photo — crop, then review.
+          FloatingActionButton.extended(
+            heroTag: 'addFromPhoto',
+            onPressed: (_extracting || _recording || _voiceBusy)
+                ? null
+                : _addFromPhoto,
+            backgroundColor: kBrand,
+            foregroundColor: kTextOnBrand,
+            elevation: 0,
+            icon: _extracting
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                        color: Colors.white, strokeWidth: 2),
+                  )
+                : const Icon(Icons.add_a_photo_outlined, size: 20),
+            label: Text(_extracting ? 'Reading photo…' : 'Add from photo'),
+          ),
+        ],
       ),
       body: FutureBuilder<Team>(
         future: _team,

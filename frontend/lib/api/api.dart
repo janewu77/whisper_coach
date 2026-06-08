@@ -107,6 +107,24 @@ class Api {
     return ImportReview.fromJson(res.data!);
   }
 
+  /// Speak/describe players to add; audio is transcribed and the extracted
+  /// players are staged for review (nothing is saved until confirm).
+  Future<ImportReview> createImportFromVoice(int teamId, XFile audio) async {
+    final bytes = await audio.readAsBytes();
+    final formData = FormData.fromMap({
+      'audio': MultipartFile.fromBytes(
+        bytes,
+        filename: audio.name,
+        contentType: MediaType.parse(audio.mimeType ?? 'audio/mpeg'),
+      ),
+    });
+    final res = await _dio.post<Map<String, dynamic>>(
+      '/api/teams/$teamId/imports/voice',
+      data: formData,
+    );
+    return ImportReview.fromJson(res.data!);
+  }
+
   /// Re-fetch the current review state.
   Future<ImportReview> getImport(int sessionId) async {
     final res = await _dio.get<Map<String, dynamic>>('/api/imports/$sessionId');

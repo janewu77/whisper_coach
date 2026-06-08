@@ -185,3 +185,28 @@ def test_confirm_writes_to_database(imported_review, client, session):
 
 def test_unknown_session_404(client):
     assert client.get("/api/imports/999").status_code == 404
+
+
+def test_create_import_from_text(client, team, monkeypatch):
+    async def fake_text(text):
+        assert "New Guy" in text
+        return RosterResult(
+            players=[PlayerOut(name="New Guy", number=21, preferred_position="LB")]
+        )
+
+    monkeypatch.setattr("app.routers.imports.extract_players_from_text", fake_text)
+    r = client.post(
+        f"/api/teams/{team.id}/imports/text",
+        json={"text": "add New Guy, number 21, left back"},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert [p["name"] for p in body["new_players"]] == ["New Guy"]
+    assert body["new_players"][0]["number"] == 21
+
+
+def test_create_import_from_text_requires_text(client, team):
+    assert (
+        client.post(f"/api/teams/{team.id}/imports/text", json={"text": "  "}).status_code
+        == 422
+    )
