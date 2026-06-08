@@ -34,14 +34,40 @@ class WebAuth0Client implements Auth0Client {
     // third-party cookies that auth0-spa-js's default iframe silent-auth relies
     // on, which otherwise breaks login and token renewal. Refresh-token rotation
     // (via the requested `offline_access` scope) avoids the iframe entirely, and
-    // localStorage persists the session across reloads. Requires the Auth0 SPA
-    // app to have Refresh Token Rotation enabled.
-    final creds = await _auth0.onLoad(
-      useRefreshTokens: true,
-      cacheLocation: CacheLocation.localStorage,
-    );
-    if (creds == null) return null;
-    return AuthSession(accessToken: creds.accessToken, userName: creds.user.name);
+    // localStorage persists the session across reloads.
+    //
+    // audience + scopes must be passed here too so the SDK's silent token
+    // request targets the API (otherwise the audience is empty and the access
+    // token isn't valid for the backend). Requires, on the Auth0 side: the API
+    // to "Allow Offline Access" and the SPA app to have Refresh Token Rotation.
+    try {
+      final creds = await _auth0.onLoad(
+        audience: _audience,
+        scopes: Config.auth0Scopes,
+        useRefreshTokens: true,
+        cacheLocation: CacheLocation.localStorage,
+      );
+      if (creds == null) return null;
+      return AuthSession(
+          accessToken: creds.accessToken, userName: creds.user.name);
+    } catch (e) {
+      // No stored session yet — on a first visit (before login) the SDK throws
+      // `login_required` / `MISSING_REFRESH_TOKEN` because there's nothing
+      // cached. That's not an error to show the user: just fall through to the
+      // login screen. A genuine login still works via the redirect flow.
+      if (_isNoSessionError(e)) return null;
+      rethrow;
+    }
+  }
+
+  /// Whether an exception just means "not signed in yet" (vs a real failure).
+  bool _isNoSessionError(Object e) {
+    final msg = e.toString().toLowerCase();
+    return msg.contains('login_required') ||
+        msg.contains('missing_refresh_token') ||
+        msg.contains('missing refresh token') ||
+        msg.contains('consent_required') ||
+        msg.contains('interaction_required');
   }
 
   @override
