@@ -13,7 +13,19 @@ COPY frontend/pubspec.yaml frontend/pubspec.lock ./
 RUN flutter pub get
 # Then the rest of the app and build. base-href must match the serve path (/app/).
 COPY frontend ./
-RUN flutter build web --release --base-href /app/
+# Auth0 config is compiled into the web bundle via --dart-define. Provide these
+# as build args (in Coolify: Build Variables) so the deployed app sends tokens;
+# leave them blank to build with login disabled. They must match the backend's
+# AUTH0_DOMAIN / AUTH0_AUDIENCE.
+ARG AUTH0_DOMAIN=""
+ARG AUTH0_CLIENT_ID=""
+ARG AUTH0_AUDIENCE=""
+ARG API_BASE_URL="https://whisper-coach.dacheng.dev"
+RUN flutter build web --release --base-href /app/ \
+    --dart-define=API_BASE_URL="$API_BASE_URL" \
+    --dart-define=AUTH0_DOMAIN="$AUTH0_DOMAIN" \
+    --dart-define=AUTH0_CLIENT_ID="$AUTH0_CLIENT_ID" \
+    --dart-define=AUTH0_AUDIENCE="$AUTH0_AUDIENCE"
 
 # --- Stage 2: Python runtime ---
 FROM python:3.12-slim

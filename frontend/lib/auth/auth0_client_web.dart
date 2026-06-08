@@ -16,14 +16,10 @@ class WebAuth0Client implements Auth0Client {
 
   @override
   Future<AuthSession?> init() async {
-    // Completes the redirect callback if we're returning from Auth0, and
-    // hydrates the SPA session from the Auth0 cookie/refresh token.
-    await _auth0.onLoad();
-    if (!await _auth0.isAuthenticated()) return null;
-    final creds = await _auth0.credentials(
-      audience: _audience,
-      scopes: Config.auth0Scopes,
-    );
+    // Completes the redirect callback (if returning from Auth0) and hydrates the
+    // SPA session. onLoad returns the credentials when authenticated, else null.
+    final creds = await _auth0.onLoad();
+    if (creds == null) return null;
     return AuthSession(accessToken: creds.accessToken, userName: creds.user.name);
   }
 
