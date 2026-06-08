@@ -28,7 +28,18 @@ class WebAuth0Client implements Auth0Client {
   Future<AuthSession?> init() async {
     // Completes the redirect callback (if returning from Auth0) and hydrates the
     // SPA session. onLoad returns the credentials when authenticated, else null.
-    final creds = await _auth0.onLoad();
+    //
+    // useRefreshTokens + localStorage cache are required for iOS / Safari (and
+    // every iOS browser, since they all run on WebKit): WebKit's ITP blocks the
+    // third-party cookies that auth0-spa-js's default iframe silent-auth relies
+    // on, which otherwise breaks login and token renewal. Refresh-token rotation
+    // (via the requested `offline_access` scope) avoids the iframe entirely, and
+    // localStorage persists the session across reloads. Requires the Auth0 SPA
+    // app to have Refresh Token Rotation enabled.
+    final creds = await _auth0.onLoad(
+      useRefreshTokens: true,
+      cacheLocation: CacheLocation.localStorage,
+    );
     if (creds == null) return null;
     return AuthSession(accessToken: creds.accessToken, userName: creds.user.name);
   }
