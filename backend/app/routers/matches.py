@@ -4,8 +4,9 @@ from sqlmodel import Session, select
 from app.agents.analyst import summarize_match
 from app.agents.lineup import adjust_lineup, generate_lineup
 from app.agents.transcribe import transcribe_audio
+from app.auth import current_user_id
 from app.db import get_session
-from app.models import Lineup, Match, Note, Player
+from app.models import Lineup, Match, Note, Player, Team
 from app.schemas import (
     AdjustResult,
     LineupRequest,
@@ -24,9 +25,10 @@ from app.schemas import (
 router = APIRouter(prefix="/api/matches", tags=["matches"])
 
 
-def _match_or_404(session: Session, match_id: int) -> Match:
+def _owned_match_or_404(session: Session, match_id: int, user_id: str) -> Match:
+    """Fetch a match the user owns, else 404 (we don't reveal others' matches)."""
     match = session.get(Match, match_id)
-    if not match:
+    if not match or match.owner_id != user_id:
         raise HTTPException(status_code=404, detail="match not found")
     return match
 
@@ -48,9 +50,16 @@ def _to_lineup_result(row: Lineup) -> LineupResult:
 
 
 @router.post("", response_model=MatchResponse, status_code=201)
-def create_match(body: MatchInput, session: Session = Depends(get_session)):
-    # team existence is not strictly required for the MVP
-    match = Match(**body.model_dump())
+def create_match(
+    body: MatchInput,
+    session: Session = Depends(get_session),
+    user_id: str = Depends(current_user_id),
+):
+    # The match may only be created against a team the caller owns.
+    team = session.get(Team, body.team_id)
+    if not team or team.owner_id != user_id:
+        raise HTTPException(status_code=404, detail="team not found")
+    match = Match(**body.model_dump(), owner_id=user_id)
     session.add(match)
     session.commit()
     session.refresh(match)
@@ -58,14 +67,25 @@ def create_match(body: MatchInput, session: Session = Depends(get_session)):
 
 
 @router.get("", response_model=list[MatchResponse])
-def list_matches(session: Session = Depends(get_session)):
-    matches = session.exec(select(Match).order_by(Match.created_at.desc())).all()
+def list_matches(
+    session: Session = Depends(get_session),
+    user_id: str = Depends(current_user_id),
+):
+    matches = session.exec(
+        select(Match)
+        .where(Match.owner_id == user_id)
+        .order_by(Match.created_at.desc())
+    ).all()
     return [MatchResponse(**m.model_dump()) for m in matches]
 
 
 @router.get("/{match_id}")
-def get_match(match_id: int, session: Session = Depends(get_session)):
-    match = _match_or_404(session, match_id)
+def get_match(
+    match_id: int,
+    session: Session = Depends(get_session),
+    user_id: str = Depends(current_user_id),
+):
+    match = _owned_match_or_404(session, match_id, user_id)
     lineup = _latest_lineup(session, match_id)
     notes = session.exec(select(Note).where(Note.match_id == match_id)).all()
     return {
@@ -83,8 +103,9 @@ async def make_lineup(
     match_id: int,
     body: LineupRequest | None = None,
     session: Session = Depends(get_session),
+    user_id: str = Depends(current_user_id),
 ):
-    match = _match_or_404(session, match_id)
+    match = _owned_match_or_404(session, match_id, user_id)
     players = session.exec(select(Player).where(Player.team_id == match.team_id)).all()
     if not players:
         raise HTTPException(status_code=409, detail="team has no players")
@@ -112,10 +133,10 @@ async def make_lineup(
 
 
 async def _adjust_and_store(
-    session: Session, match_id: int, kind: str, content: str
+    session: Session, match_id: int, user_id: str, kind: str, content: str
 ) -> tuple[Note, AdjustResult]:
     """Shared path for text and voice notes: run the adjust agent + persist."""
-    _match_or_404(session, match_id)
+    _owned_match_or_404(session, match_id, user_id)
     lineup_row = _latest_lineup(session, match_id)
     if not lineup_row:
         raise HTTPException(
@@ -141,17 +162,24 @@ async def _adjust_and_store(
 
 @router.post("/{match_id}/notes", response_model=NoteResponse)
 async def add_note(
-    match_id: int, body: NoteInput, session: Session = Depends(get_session)
+    match_id: int,
+    body: NoteInput,
+    session: Session = Depends(get_session),
+    user_id: str = Depends(current_user_id),
 ):
     note, suggestion = await _adjust_and_store(
-        session, match_id, body.kind, body.content
+        session, match_id, user_id, body.kind, body.content
     )
     return NoteResponse(note_id=note.id, suggestion=suggestion)
 
 
 @router.get("/{match_id}/notes", response_model=list[NoteOut])
-def list_notes(match_id: int, session: Session = Depends(get_session)):
-    _match_or_404(session, match_id)
+def list_notes(
+    match_id: int,
+    session: Session = Depends(get_session),
+    user_id: str = Depends(current_user_id),
+):
+    _owned_match_or_404(session, match_id, user_id)
     notes = session.exec(
         select(Note).where(Note.match_id == match_id).order_by(Note.created_at)
     ).all()
@@ -166,9 +194,10 @@ async def add_voice_note(
     match_id: int,
     audio: UploadFile = File(...),
     session: Session = Depends(get_session),
+    user_id: str = Depends(current_user_id),
 ):
     """Upload an audio clip; it is transcribed, then treated like a text note."""
-    _match_or_404(session, match_id)
+    _owned_match_or_404(session, match_id, user_id)
     if not (audio.content_type or "").startswith("audio/"):
         raise HTTPException(status_code=422, detail="audio must be an audio file")
 
@@ -178,15 +207,19 @@ async def add_voice_note(
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"transcription failed: {exc}")
 
-    note, suggestion = await _adjust_and_store(session, match_id, "voice", text)
+    note, suggestion = await _adjust_and_store(session, match_id, user_id, "voice", text)
     return VoiceNoteResponse(
         note_id=note.id, transcription=text, suggestion=suggestion
     )
 
 
 @router.post("/{match_id}/summary", response_model=SummaryResult)
-async def make_summary(match_id: int, session: Session = Depends(get_session)):
-    match = _match_or_404(session, match_id)
+async def make_summary(
+    match_id: int,
+    session: Session = Depends(get_session),
+    user_id: str = Depends(current_user_id),
+):
+    match = _owned_match_or_404(session, match_id, user_id)
     lineup_row = _latest_lineup(session, match_id)
     lineup = _to_lineup_result(lineup_row) if lineup_row else None
     notes = session.exec(select(Note).where(Note.match_id == match_id)).all()
@@ -203,9 +236,13 @@ async def make_summary(match_id: int, session: Session = Depends(get_session)):
 
 
 @router.get("/{match_id}/summary", response_model=SummaryResult)
-def get_summary(match_id: int, session: Session = Depends(get_session)):
+def get_summary(
+    match_id: int,
+    session: Session = Depends(get_session),
+    user_id: str = Depends(current_user_id),
+):
     """Return the stored summary; 404 if it hasn't been generated yet (POST first)."""
-    match = _match_or_404(session, match_id)
+    match = _owned_match_or_404(session, match_id, user_id)
     if not match.summary:
         raise HTTPException(status_code=404, detail="summary not generated yet")
     return SummaryResult(**match.summary)

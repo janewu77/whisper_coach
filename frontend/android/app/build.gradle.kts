@@ -28,6 +28,12 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        // Auth0 login callback. `auth0_flutter` merges a redirect intent-filter
+        // from these placeholders. `auth0Scheme` must match Config.auth0Scheme
+        // (default = applicationId); set `auth0Domain` to your Auth0 tenant.
+        manifestPlaceholders["auth0Domain"] = "YOUR_TENANT.eu.auth0.com"
+        manifestPlaceholders["auth0Scheme"] = applicationId ?: "com.example.whisper_coach"
     }
 
     buildTypes {

@@ -89,8 +89,50 @@ uv run uvicorn app.main:app --reload
 cd frontend
 flutter pub get
 flutter run -d chrome --web-port 3000
-# change API base URL in lib/config.dart if using a local backend
+# Point at a local backend and (optionally) enable Auth0 login via --dart-define:
+#   flutter run -d chrome --web-port 3000 \
+#     --dart-define=API_BASE_URL=http://localhost:8000 \
+#     --dart-define=AUTH0_DOMAIN=your-tenant.eu.auth0.com \
+#     --dart-define=AUTH0_CLIENT_ID=xxxx \
+#     --dart-define=AUTH0_AUDIENCE=https://whisper-coach.dacheng.dev/api
 ```
+
+## Authentication (Auth0)
+
+Login is **required** — every `/api/*` route needs a valid Auth0 access token,
+and all data is **scoped per user**: you only ever see and act on your own
+teams, matches, lineups, and notes. If the backend's `AUTH0_*` vars are unset it
+cannot verify anyone and returns **503** (it never falls back to open).
+
+**How it works:** the Flutter app logs in through Auth0's hosted page
+(Authorization Code + PKCE) and sends the resulting **access token** as
+`Authorization: Bearer <jwt>` on every request. FastAPI verifies that JWT
+locally against Auth0's public keys (JWKS) — no secret, no per-request call to
+Auth0 — and uses the token's `sub` as the owner key for every row. The token
+must be minted for the API **audience**, which has to match on both sides.
+
+**Auth0 dashboard** — create three things:
+
+| Item | For | Notes |
+|---|---|---|
+| **API** | the audience | Identifier e.g. `https://whisper-coach.dacheng.dev/api`, signing alg `RS256` |
+| **Native** application | iOS + Android | add the platform callback URLs |
+| **Single Page** application | Flutter web | add your web origin to Allowed Callback / Logout / Web Origins |
+
+**Backend** — set both in `backend/.env` (see `.env.example`):
+
+```bash
+AUTH0_DOMAIN=your-tenant.eu.auth0.com
+AUTH0_AUDIENCE=https://whisper-coach.dacheng.dev/api
+```
+
+**Frontend** — pass at build/run time with `--dart-define` (`AUTH0_DOMAIN`,
+`AUTH0_CLIENT_ID`, `AUTH0_AUDIENCE`). Native also needs:
+
+- **iOS** — `ios/Runner/Info.plist` registers the bundle-id URL scheme (done).
+- **Android** — set `auth0Domain` in `android/app/build.gradle.kts`
+  `manifestPlaceholders` to your tenant; `auth0Scheme` defaults to the app id.
+- **Web** — `web/index.html` loads the auth0-spa-js SDK (done).
 
 ## Further reading
 

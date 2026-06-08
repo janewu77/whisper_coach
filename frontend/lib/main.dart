@@ -1,12 +1,18 @@
 import 'package:flutter/material.dart';
 import 'theme.dart';
+import 'auth/auth_service.dart';
 import 'screens/home_screen.dart';
+import 'screens/login_screen.dart';
 import 'screens/match_list_screen.dart';
 import 'screens/pitch_screen.dart';
 import 'screens/live_screen.dart';
 import 'models/lineup.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // Restore any existing session (and complete the web login redirect) before
+  // the first frame so we don't flash the login screen for signed-in users.
+  await AuthService.instance.init();
   runApp(const WhisperCoachApp());
 }
 
@@ -24,7 +30,7 @@ class WhisperCoachApp extends StatelessWidget {
         switch (settings.name) {
           case '/':
             return MaterialPageRoute(
-              builder: (_) => const MatchListScreen(),
+              builder: (_) => const AuthGate(),
             );
           case '/new':
             return MaterialPageRoute(
@@ -43,6 +49,33 @@ class WhisperCoachApp extends StatelessWidget {
           default:
             return null;
         }
+      },
+    );
+  }
+}
+
+// ── Auth gate ────────────────────────────────────────────────────────────────
+
+/// Routes between the login screen and the app based on auth state. When login
+/// is disabled (no Auth0 config) the user is always treated as authenticated,
+/// so this transparently shows the match list.
+class AuthGate extends StatelessWidget {
+  const AuthGate({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: AuthService.instance,
+      builder: (context, _) {
+        final auth = AuthService.instance;
+        if (!auth.isReady) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator(color: kBrand)),
+          );
+        }
+        return auth.isAuthenticated
+            ? const MatchListScreen()
+            : const LoginScreen();
       },
     );
   }

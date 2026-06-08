@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import '../auth/auth_service.dart';
 import '../config.dart';
 
 /// Singleton Dio instance with base URL, JSON content-type, and error logging.
@@ -11,6 +12,19 @@ Dio _buildDio() {
       connectTimeout: const Duration(seconds: 30),
       receiveTimeout: const Duration(seconds: 60),
       headers: {'Accept': 'application/json'},
+    ),
+  );
+
+  // Attach the Auth0 access token to every request (no-op when login is off).
+  d.interceptors.add(
+    InterceptorsWrapper(
+      onRequest: (options, handler) async {
+        final token = await AuthService.instance.accessToken();
+        if (token != null && token.isNotEmpty) {
+          options.headers['Authorization'] = 'Bearer $token';
+        }
+        handler.next(options);
+      },
     ),
   );
 

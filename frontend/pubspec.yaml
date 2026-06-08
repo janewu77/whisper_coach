@@ -14,6 +14,9 @@ dependencies:
   dio: ^5.4.3
   http_parser: ^4.0.2
 
+  # Auth — Auth0 login (web via auth0-spa-js, native via system browser)
+  auth0_flutter: ^1.7.0
+
   # Media
   image_picker: ^1.1.2      # camera / gallery for roster photo
   record: ^6.2.1             # audio recording for voice notes

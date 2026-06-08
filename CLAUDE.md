@@ -26,11 +26,33 @@ The plan deliberately keeps the stack minimal for a 1–2 day hackathon build.
 ## Explicitly out of scope (do not build)
 
 The planning doc cuts these on purpose to protect the timeline — do not add them unless the user explicitly asks:
-- Auth / Auth0, permission systems
+- Permission / role systems (beyond authentication)
 - Full/normalized database schema design
 - LangGraph (use PydanticAI instead — it was chosen specifically for speed)
 - WebSocket live system
 - Full stats system, tactical history analysis
+
+## Authentication & ownership
+
+The project moved past the hackathon MVP and now has **mandatory Auth0 login**
+with **per-user data ownership**.
+
+- **Auth is required** on every `/api` route. `app/auth.py` verifies Auth0
+  access tokens (JWT/JWKS); `current_user_id` injects the token `sub` into each
+  endpoint. If `AUTH0_DOMAIN` + `AUTH0_AUDIENCE` are unset the API returns 503
+  (never open). See `backend/.env.example`.
+- **Ownership:** `Team` and `Match` carry an `owner_id` (the Auth0 `sub`).
+  Endpoints scope every read/write to the caller and 404 on cross-user access;
+  lineups/notes are guarded via their parent match. Migration:
+  `alembic/versions/c2d3e4f5a6b7_add_owner_id.py` — **deletes all pre-auth data**
+  (it has no owner) then adds the NOT NULL `owner_id` columns.
+- **Tests** override `get_current_user` (see `conftest.py` `TEST_USER` +
+  `unauth_client`); enforcement and isolation are covered in `tests/test_auth.py`.
+- **Frontend** uses `auth0_flutter` via `lib/auth/` (conditional import:
+  `Auth0Web` on web, `Auth0` on native). Config comes from `--dart-define`
+  (`AUTH0_DOMAIN` / `AUTH0_CLIENT_ID` / `AUTH0_AUDIENCE`); a Dio interceptor
+  attaches the bearer token. Web is the priority platform.
+- Setup details (Auth0 dashboard, native config) live in the root `README.md`.
 
 ## Notes
 

@@ -3,6 +3,8 @@ import 'package:intl/intl.dart';
 
 import '../api/api.dart';
 import '../api/client.dart';
+import '../auth/auth_service.dart';
+import '../config.dart';
 import '../main.dart';
 import '../models/match.dart';
 import '../theme.dart';
@@ -98,6 +100,12 @@ class _MatchListScreenState extends State<MatchListScreen> {
             onPressed: _refresh,
             icon: const Icon(Icons.refresh_outlined),
           ),
+          if (Config.authEnabled)
+            IconButton(
+              tooltip: 'Log out',
+              onPressed: () => AuthService.instance.logout(),
+              icon: const Icon(Icons.logout_outlined),
+            ),
           const SizedBox(width: 4),
         ],
         bottom: PreferredSize(
