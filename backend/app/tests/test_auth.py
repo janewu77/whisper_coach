@@ -60,6 +60,21 @@ def test_valid_token_accepted(unauth_client, monkeypatch):
     assert r.json() == []  # this user owns nothing yet
 
 
+# ── /api/me ──────────────────────────────────────────────────────────────────
+
+def test_me_returns_current_user(client):
+    r = client.get("/api/me")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["sub"] == TEST_USER["sub"]
+    assert body["email"] == TEST_USER["email"]
+
+
+def test_me_requires_auth(unauth_client, monkeypatch):
+    _enable_auth(monkeypatch)
+    assert unauth_client.get("/api/me").status_code == 401
+
+
 # ── Ownership isolation ──────────────────────────────────────────────────────
 
 def test_cannot_list_other_users_matches(client, session):

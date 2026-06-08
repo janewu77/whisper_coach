@@ -10,6 +10,16 @@ from typing import Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 
+# ---- Auth ----
+class MeResponse(BaseModel):
+    """The current authenticated user (from the Auth0 access-token claims)."""
+
+    sub: str
+    email: Optional[str] = None
+    name: Optional[str] = None
+    picture: Optional[str] = None
+
+
 # ---- Players / teams ----
 class PlayerOut(BaseModel):
     name: str

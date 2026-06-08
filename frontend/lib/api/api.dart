@@ -21,6 +21,15 @@ class Api {
 
   Api([Dio? dio]) : _dio = dio ?? wc_client.dio;
 
+  // ── Auth ──────────────────────────────────────────────────────────────────
+
+  /// The current authenticated user. Also a cheap way to verify the token is
+  /// accepted by the backend (401/503 otherwise).
+  Future<Map<String, dynamic>> getMe() async {
+    final res = await _dio.get<Map<String, dynamic>>('/api/me');
+    return res.data!;
+  }
+
   // ── Roster ──────────────────────────────────────────────────────────────
 
   /// Upload a team photo and extract player names via AI.
