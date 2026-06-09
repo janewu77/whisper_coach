@@ -30,20 +30,22 @@ _ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
 def upgrade() -> None:
     op.create_table(
-        'user',
+        'users',
+        sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
         sa.Column('auth0_id', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
         sa.Column('email', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
         sa.Column('name', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
         sa.Column('created_at', sa.DateTime(), nullable=False),
-        sa.PrimaryKeyConstraint('auth0_id'),
+        sa.PrimaryKeyConstraint('id'),
+        sa.UniqueConstraint('auth0_id'),
     )
     op.create_table(
-        'userteam',
+        'user_team',
         sa.Column('user_id', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
         sa.Column('team_id', sa.Integer(), nullable=False),
         sa.Column('created_at', sa.DateTime(), nullable=False),
         sa.ForeignKeyConstraint(['team_id'], ['team.id']),
-        sa.ForeignKeyConstraint(['user_id'], ['user.auth0_id']),
+        sa.ForeignKeyConstraint(['user_id'], ['users.auth0_id']),
         sa.PrimaryKeyConstraint('user_id', 'team_id'),
     )
     op.add_column(
@@ -71,7 +73,7 @@ def upgrade() -> None:
             if owner not in seen_users:
                 bind.execute(
                     sa.text(
-                        'INSERT INTO "user" (auth0_id, created_at) '
+                        "INSERT INTO users (auth0_id, created_at) "
                         "VALUES (:a, :t)"
                     ),
                     {"a": owner, "t": now},
@@ -79,7 +81,7 @@ def upgrade() -> None:
                 seen_users.add(owner)
             bind.execute(
                 sa.text(
-                    "INSERT INTO userteam (user_id, team_id, created_at) "
+                    "INSERT INTO user_team (user_id, team_id, created_at) "
                     "VALUES (:u, :tid, :t)"
                 ),
                 {"u": owner, "tid": team_id, "t": now},
@@ -113,7 +115,7 @@ def downgrade() -> None:
     # Best-effort: pick one member per team as the restored owner.
     bind = op.get_bind()
     rows = bind.execute(
-        sa.text("SELECT team_id, user_id FROM userteam ORDER BY created_at")
+        sa.text("SELECT team_id, user_id FROM user_team ORDER BY created_at")
     ).fetchall()
     owner_by_team: dict[int, str] = {}
     for team_id, user_id in rows:
@@ -132,5 +134,5 @@ def downgrade() -> None:
     op.create_index(op.f('ix_match_owner_id'), 'match', ['owner_id'])
     op.drop_index(op.f('ix_team_join_code'), table_name='team')
     op.drop_column('team', 'join_code')
-    op.drop_table('userteam')
-    op.drop_table('user')
+    op.drop_table('user_team')
+    op.drop_table('users')

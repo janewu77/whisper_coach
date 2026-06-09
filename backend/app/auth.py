@@ -15,7 +15,7 @@ from __future__ import annotations
 import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from app.config import settings
 from app.db import get_session
@@ -87,7 +87,7 @@ def current_user_id(
     their email/name from the token) so memberships can reference them.
     """
     sub = user["sub"]
-    record = session.get(User, sub)
+    record = session.exec(select(User).where(User.auth0_id == sub)).first()
     if record is None:
         session.add(
             User(auth0_id=sub, email=user.get("email"), name=user.get("name"))

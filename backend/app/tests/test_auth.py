@@ -6,6 +6,8 @@ live tenant. The `client` fixture runs as TEST_USER (auth overridden).
 """
 
 import app.auth as auth
+from sqlmodel import select
+
 from app.config import settings
 from app.models import Match, Team, User, UserTeam
 
@@ -14,7 +16,7 @@ from .conftest import TEST_USER
 
 def _seed_other_team(session) -> Team:
     """A team belonging to someone else (TEST_USER is not a member)."""
-    if session.get(User, "someone-else") is None:
+    if session.exec(select(User).where(User.auth0_id == "someone-else")).first() is None:
         session.add(User(auth0_id="someone-else"))
     team = Team(name="Other FC")
     session.add(team)

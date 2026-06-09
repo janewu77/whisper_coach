@@ -1,6 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session, SQLModel, create_engine, select
 from sqlmodel.pool import StaticPool
 
 from app.auth import get_current_user
@@ -47,7 +47,10 @@ def unauth_client_fixture(session):
 @pytest.fixture(name="team")
 def team_fixture(session):
     """A seeded team with two players, with TEST_USER as a member."""
-    if session.get(User, TEST_USER["sub"]) is None:
+    existing = session.exec(
+        select(User).where(User.auth0_id == TEST_USER["sub"])
+    ).first()
+    if existing is None:
         session.add(User(auth0_id=TEST_USER["sub"], email=TEST_USER["email"]))
     team = Team(name="Test FC")
     session.add(team)

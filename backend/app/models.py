@@ -19,9 +19,15 @@ def _join_code() -> str:
 
 
 class User(SQLModel, table=True):
-    """A registered user, keyed by the Auth0 ``sub``. Created on first request."""
+    """A registered user. Surrogate ``id`` PK; ``auth0_id`` (the Auth0 ``sub``)
+    is the unique business key. Created on first request."""
 
-    auth0_id: str = Field(primary_key=True)
+    __tablename__ = "users"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    # unique=True (not index=True) → a UNIQUE *constraint*, which Postgres
+    # requires for user_team.user_id to reference it as a foreign key.
+    auth0_id: str = Field(unique=True)
     email: Optional[str] = None
     name: Optional[str] = None
     created_at: datetime = Field(default_factory=_now)
@@ -37,9 +43,12 @@ class Team(SQLModel, table=True):
 
 class UserTeam(SQLModel, table=True):
     """Membership: which users belong to which teams (many-to-many). Access to a
-    team and its matches/roster is granted to every member (no roles)."""
+    team and its matches/roster is granted to every member (no roles).
+    ``user_id`` is the Auth0 ``sub`` (FK to users.auth0_id)."""
 
-    user_id: str = Field(foreign_key="user.auth0_id", primary_key=True)
+    __tablename__ = "user_team"
+
+    user_id: str = Field(foreign_key="users.auth0_id", primary_key=True)
     team_id: int = Field(foreign_key="team.id", primary_key=True)
     created_at: datetime = Field(default_factory=_now)
 
