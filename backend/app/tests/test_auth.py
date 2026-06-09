@@ -22,7 +22,7 @@ def _seed_other_team(session) -> Team:
     session.add(team)
     session.commit()
     session.refresh(team)
-    session.add(UserTeam(user_id="someone-else", team_id=team.id))
+    session.add(UserTeam(auth0_id="someone-else", team_id=team.id))
     session.commit()
     return team
 

@@ -26,7 +26,7 @@ class User(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     # unique=True (not index=True) → a UNIQUE *constraint*, which Postgres
-    # requires for user_team.user_id to reference it as a foreign key.
+    # requires for user_team.auth0_id to reference it as a foreign key.
     auth0_id: str = Field(unique=True)
     email: Optional[str] = None
     name: Optional[str] = None
@@ -44,11 +44,11 @@ class Team(SQLModel, table=True):
 class UserTeam(SQLModel, table=True):
     """Membership: which users belong to which teams (many-to-many). Access to a
     team and its matches/roster is granted to every member (no roles).
-    ``user_id`` is the Auth0 ``sub`` (FK to users.auth0_id)."""
+    ``auth0_id`` is the Auth0 ``sub`` (FK to users.auth0_id)."""
 
     __tablename__ = "user_team"
 
-    user_id: str = Field(foreign_key="users.auth0_id", primary_key=True)
+    auth0_id: str = Field(foreign_key="users.auth0_id", primary_key=True)
     team_id: int = Field(foreign_key="team.id", primary_key=True)
     created_at: datetime = Field(default_factory=_now)
 

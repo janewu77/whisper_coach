@@ -73,7 +73,7 @@ def test_join_team_by_code_shares_it(client, session):
     session.add(t)
     session.commit()
     session.refresh(t)
-    session.add(UserTeam(user_id="owner-x", team_id=t.id))
+    session.add(UserTeam(auth0_id="owner-x", team_id=t.id))
     session.commit()
 
     # TEST_USER can't see it until they join.
@@ -93,7 +93,7 @@ def test_join_team_invalid_code_404(client):
 def test_list_team_members(client, session, team):
     # Add a second member to the shared team.
     session.add(User(auth0_id="mate-1", name="Mate", email="mate@x.io"))
-    session.add(UserTeam(user_id="mate-1", team_id=team.id))
+    session.add(UserTeam(auth0_id="mate-1", team_id=team.id))
     session.commit()
 
     members = client.get(f"/api/teams/{team.id}/members").json()
@@ -109,7 +109,7 @@ def test_cannot_list_members_of_foreign_team(client, session):
     session.add(t)
     session.commit()
     session.refresh(t)
-    session.add(UserTeam(user_id="stranger", team_id=t.id))
+    session.add(UserTeam(auth0_id="stranger", team_id=t.id))
     session.commit()
     assert client.get(f"/api/teams/{t.id}/members").status_code == 404
 

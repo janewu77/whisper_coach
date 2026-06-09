@@ -12,7 +12,7 @@ from sqlmodel import Session, select
 from app.agents.import_editor import parse_command
 from app.agents.roster import extract_players_from_text, extract_roster
 from app.agents.transcribe import transcribe_audio
-from app.auth import current_user_id
+from app.auth import current_auth0_id
 from app.db import get_session
 from app.membership import is_member
 from app.models import Player, Team
@@ -37,16 +37,16 @@ router = APIRouter(prefix="/api", tags=["imports"])
 # ── helpers ──────────────────────────────────────────────────────────────────
 
 
-def _owned_team_or_404(db: Session, team_id: int, user_id: str) -> Team:
+def _owned_team_or_404(db: Session, team_id: int, auth0_id: str) -> Team:
     team = db.get(Team, team_id)
-    if not team or not is_member(db, user_id, team_id):
+    if not team or not is_member(db, auth0_id, team_id):
         raise HTTPException(status_code=404, detail="team not found")
     return team
 
 
-def _owned_session_or_404(session_id: int, user_id: str) -> MemSession:
+def _owned_session_or_404(session_id: int, auth0_id: str) -> MemSession:
     imp = store.get(session_id)
-    if not imp or imp.owner_id != user_id:
+    if not imp or imp.owner_id != auth0_id:
         raise HTTPException(status_code=404, detail="import session not found")
     return imp
 
@@ -77,9 +77,9 @@ async def create_import(
     team_id: int,
     image: UploadFile = File(...),
     db: Session = Depends(get_session),
-    user_id: str = Depends(current_user_id),
+    auth0_id: str = Depends(current_auth0_id),
 ):
-    _owned_team_or_404(db, team_id, user_id)
+    _owned_team_or_404(db, team_id, auth0_id)
     if not (image.content_type or "").startswith("image/"):
         raise HTTPException(status_code=422, detail="image must be an image file")
 
@@ -89,15 +89,15 @@ async def create_import(
     except Exception as exc:  # noqa: BLE001 — surface any LLM/agent failure
         raise HTTPException(status_code=502, detail=f"roster extraction failed: {exc}")
 
-    imp = await _stage_players(db, team_id, user_id, extracted.players)
+    imp = await _stage_players(db, team_id, auth0_id, extracted.players)
     return _review(db, imp)
 
 
-async def _stage_players(db: Session, team_id: int, user_id: str, players):
+async def _stage_players(db: Session, team_id: int, auth0_id: str, players):
     """Supersede any pending session for the team and stage `players` for review."""
-    for stale in store.pending_for_team(user_id, team_id):
+    for stale in store.pending_for_team(auth0_id, team_id):
         stale.status = "discarded"
-    imp = store.create(owner_id=user_id, team_id=team_id)
+    imp = store.create(owner_id=auth0_id, team_id=team_id)
     existing = _existing_players(db, team_id)
     imp.items = await classify_imported(players, existing, store.new_item_id)
     return imp
@@ -108,17 +108,17 @@ async def create_import_from_text(
     team_id: int,
     body: CommandRequest,
     db: Session = Depends(get_session),
-    user_id: str = Depends(current_user_id),
+    auth0_id: str = Depends(current_auth0_id),
 ):
     """Stage players the coach describes in free text (e.g. dictated names)."""
-    _owned_team_or_404(db, team_id, user_id)
+    _owned_team_or_404(db, team_id, auth0_id)
     if not body.text.strip():
         raise HTTPException(status_code=422, detail="text is required")
     try:
         extracted = await extract_players_from_text(body.text)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"player extraction failed: {exc}")
-    imp = await _stage_players(db, team_id, user_id, extracted.players)
+    imp = await _stage_players(db, team_id, auth0_id, extracted.players)
     return _review(db, imp)
 
 
@@ -128,10 +128,10 @@ async def create_import_from_voice(
     audio: UploadFile = File(...),
     language: str | None = Form(None),
     db: Session = Depends(get_session),
-    user_id: str = Depends(current_user_id),
+    auth0_id: str = Depends(current_auth0_id),
 ):
     """Stage players from a spoken description (audio → transcribe → extract)."""
-    _owned_team_or_404(db, team_id, user_id)
+    _owned_team_or_404(db, team_id, auth0_id)
     if not (audio.content_type or "").startswith("audio/"):
         raise HTTPException(status_code=422, detail="audio must be an audio file")
     data = await audio.read()
@@ -143,7 +143,7 @@ async def create_import_from_voice(
         extracted = await extract_players_from_text(text)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"player extraction failed: {exc}")
-    imp = await _stage_players(db, team_id, user_id, extracted.players)
+    imp = await _stage_players(db, team_id, auth0_id, extracted.players)
     return _review(db, imp)
 
 
@@ -154,9 +154,9 @@ async def create_import_from_voice(
 def get_import(
     session_id: int,
     db: Session = Depends(get_session),
-    user_id: str = Depends(current_user_id),
+    auth0_id: str = Depends(current_auth0_id),
 ):
-    imp = _owned_session_or_404(session_id, user_id)
+    imp = _owned_session_or_404(session_id, auth0_id)
     return _review(db, imp)
 
 
@@ -181,9 +181,9 @@ def edit_item(
     item_id: int,
     body: ImportItemEdit,
     db: Session = Depends(get_session),
-    user_id: str = Depends(current_user_id),
+    auth0_id: str = Depends(current_auth0_id),
 ):
-    imp = _owned_session_or_404(session_id, user_id)
+    imp = _owned_session_or_404(session_id, auth0_id)
     item = _item_or_404(imp, item_id)
     if body.name is not None:
         item.name = body.name
@@ -200,9 +200,9 @@ def delete_item(
     session_id: int,
     item_id: int,
     db: Session = Depends(get_session),
-    user_id: str = Depends(current_user_id),
+    auth0_id: str = Depends(current_auth0_id),
 ):
-    imp = _owned_session_or_404(session_id, user_id)
+    imp = _owned_session_or_404(session_id, auth0_id)
     item = _item_or_404(imp, item_id)
     item.deleted = True
     return _review(db, imp)
@@ -217,9 +217,9 @@ def merge_item(
     item_id: int,
     body: MergeRequest,
     db: Session = Depends(get_session),
-    user_id: str = Depends(current_user_id),
+    auth0_id: str = Depends(current_auth0_id),
 ):
-    imp = _owned_session_or_404(session_id, user_id)
+    imp = _owned_session_or_404(session_id, auth0_id)
     item = _item_or_404(imp, item_id)
     _apply_merge(db, imp, item, body.target_player_id, body.target_item_id)
     return _review(db, imp)
@@ -312,9 +312,9 @@ async def run_command(
     session_id: int,
     body: CommandRequest,
     db: Session = Depends(get_session),
-    user_id: str = Depends(current_user_id),
+    auth0_id: str = Depends(current_auth0_id),
 ):
-    imp = _owned_session_or_404(session_id, user_id)
+    imp = _owned_session_or_404(session_id, auth0_id)
     return await _run_command(db, imp, body.text)
 
 
@@ -324,9 +324,9 @@ async def run_voice_command(
     audio: UploadFile = File(...),
     language: str | None = Form(None),
     db: Session = Depends(get_session),
-    user_id: str = Depends(current_user_id),
+    auth0_id: str = Depends(current_auth0_id),
 ):
-    imp = _owned_session_or_404(session_id, user_id)
+    imp = _owned_session_or_404(session_id, auth0_id)
     if not (audio.content_type or "").startswith("audio/"):
         raise HTTPException(status_code=422, detail="audio must be an audio file")
     data = await audio.read()
@@ -344,9 +344,9 @@ async def run_voice_command(
 def confirm_import(
     session_id: int,
     db: Session = Depends(get_session),
-    user_id: str = Depends(current_user_id),
+    auth0_id: str = Depends(current_auth0_id),
 ):
-    imp = _owned_session_or_404(session_id, user_id)
+    imp = _owned_session_or_404(session_id, auth0_id)
     if imp.status != "pending":
         raise HTTPException(status_code=409, detail="import already finalized")
 

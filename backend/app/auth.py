@@ -77,7 +77,7 @@ def get_current_user(
     return claims
 
 
-def current_user_id(
+def current_auth0_id(
     user: dict = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> str:

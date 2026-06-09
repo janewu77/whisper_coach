@@ -56,7 +56,7 @@ def team_fixture(session):
     session.add(team)
     session.commit()
     session.refresh(team)
-    session.add(UserTeam(user_id=TEST_USER["sub"], team_id=team.id))
+    session.add(UserTeam(auth0_id=TEST_USER["sub"], team_id=team.id))
     session.add(Player(team_id=team.id, name="John", number=9, preferred_position="ST"))
     session.add(Player(team_id=team.id, name="David", number=8, preferred_position="CM"))
     session.commit()

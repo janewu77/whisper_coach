@@ -4,7 +4,7 @@ from sqlmodel import Session, select
 from app.agents.player_profile import extract_profile
 from app.agents.roster import extract_roster
 from app.agents.transcribe import transcribe_audio
-from app.auth import current_user_id
+from app.auth import current_auth0_id
 from app.db import get_session
 from app.membership import add_member, is_member, team_ids_for
 from app.models import Player, Team, User, UserTeam
@@ -28,17 +28,17 @@ def _absences(p: Player) -> list[Absence]:
     return [Absence.model_validate(a) for a in (p.absences or [])]
 
 
-def _member_team_or_404(session: Session, team_id: int, user_id: str) -> Team:
+def _member_team_or_404(session: Session, team_id: int, auth0_id: str) -> Team:
     team = session.get(Team, team_id)
-    if not team or not is_member(session, user_id, team_id):
+    if not team or not is_member(session, auth0_id, team_id):
         raise HTTPException(status_code=404, detail="team not found")
     return team
 
 
 def _owned_player_or_404(
-    session: Session, team_id: int, player_id: int, user_id: str
+    session: Session, team_id: int, player_id: int, auth0_id: str
 ) -> Player:
-    if not is_member(session, user_id, team_id):
+    if not is_member(session, auth0_id, team_id):
         raise HTTPException(status_code=404, detail="team not found")
     player = session.get(Player, player_id)
     if not player or player.team_id != team_id:
@@ -107,9 +107,9 @@ router = APIRouter(prefix="/api", tags=["roster"])
 @router.get("/teams", response_model=list[TeamSummary])
 def list_teams(
     session: Session = Depends(get_session),
-    user_id: str = Depends(current_user_id),
+    auth0_id: str = Depends(current_auth0_id),
 ):
-    team_ids = team_ids_for(session, user_id)
+    team_ids = team_ids_for(session, auth0_id)
     teams = (
         session.exec(
             select(Team).where(Team.id.in_(team_ids)).order_by(Team.created_at)
@@ -126,7 +126,7 @@ def list_teams(
 def create_team(
     body: TeamCreate,
     session: Session = Depends(get_session),
-    user_id: str = Depends(current_user_id),
+    auth0_id: str = Depends(current_auth0_id),
 ):
     name = body.name.strip()
     if not name:
@@ -135,7 +135,7 @@ def create_team(
     session.add(team)
     session.commit()
     session.refresh(team)
-    add_member(session, user_id, team.id)  # creator joins their new team
+    add_member(session, auth0_id, team.id)  # creator joins their new team
     session.commit()
     return TeamSummary(id=team.id, name=team.name, join_code=team.join_code)
 
@@ -144,14 +144,14 @@ def create_team(
 def join_team(
     body: JoinRequest,
     session: Session = Depends(get_session),
-    user_id: str = Depends(current_user_id),
+    auth0_id: str = Depends(current_auth0_id),
 ):
     """Join an existing (shared) team by its join code."""
     code = body.code.strip().upper()
     team = session.exec(select(Team).where(Team.join_code == code)).first()
     if not team:
         raise HTTPException(status_code=404, detail="invalid join code")
-    add_member(session, user_id, team.id)
+    add_member(session, auth0_id, team.id)
     session.commit()
     return TeamSummary(id=team.id, name=team.name, join_code=team.join_code)
 
@@ -160,14 +160,14 @@ def join_team(
 def list_team_members(
     team_id: int,
     session: Session = Depends(get_session),
-    user_id: str = Depends(current_user_id),
+    auth0_id: str = Depends(current_auth0_id),
 ):
     """List the OTHER users who share this team (excludes the caller)."""
-    _member_team_or_404(session, team_id, user_id)
+    _member_team_or_404(session, team_id, auth0_id)
     members = session.exec(
         select(User)
-        .join(UserTeam, UserTeam.user_id == User.auth0_id)
-        .where(UserTeam.team_id == team_id, User.auth0_id != user_id)
+        .join(UserTeam, UserTeam.auth0_id == User.auth0_id)
+        .where(UserTeam.team_id == team_id, User.auth0_id != auth0_id)
         .order_by(UserTeam.created_at)
     ).all()
     return [
@@ -182,20 +182,20 @@ async def roster_extract(
     team_name: str = Form("My Team"),
     team_id: int | None = Form(None),
     session: Session = Depends(get_session),
-    user_id: str = Depends(current_user_id),
+    auth0_id: str = Depends(current_auth0_id),
 ):
     if not (image.content_type or "").startswith("image/"):
         raise HTTPException(status_code=422, detail="image must be an image file")
 
     # Append to an existing team the caller belongs to, or create a fresh one.
     if team_id is not None:
-        team = _member_team_or_404(session, team_id, user_id)
+        team = _member_team_or_404(session, team_id, auth0_id)
     else:
         team = Team(name=team_name)
         session.add(team)
         session.commit()
         session.refresh(team)
-        add_member(session, user_id, team.id)
+        add_member(session, auth0_id, team.id)
         session.commit()
 
     data = await image.read()
@@ -222,9 +222,9 @@ async def roster_extract(
 def get_team(
     team_id: int,
     session: Session = Depends(get_session),
-    user_id: str = Depends(current_user_id),
+    auth0_id: str = Depends(current_auth0_id),
 ):
-    team = _member_team_or_404(session, team_id, user_id)
+    team = _member_team_or_404(session, team_id, auth0_id)
     players = session.exec(select(Player).where(Player.team_id == team_id)).all()
     return TeamResponse(
         id=team.id,
@@ -248,9 +248,9 @@ def get_player(
     team_id: int,
     player_id: int,
     session: Session = Depends(get_session),
-    user_id: str = Depends(current_user_id),
+    auth0_id: str = Depends(current_auth0_id),
 ):
-    return _to_detail(_owned_player_or_404(session, team_id, player_id, user_id))
+    return _to_detail(_owned_player_or_404(session, team_id, player_id, auth0_id))
 
 
 @router.patch("/teams/{team_id}/players/{player_id}", response_model=PlayerDetail)
@@ -259,10 +259,10 @@ def update_player(
     player_id: int,
     body: PlayerUpdate,
     session: Session = Depends(get_session),
-    user_id: str = Depends(current_user_id),
+    auth0_id: str = Depends(current_auth0_id),
 ):
     """Manually edit a player's profile (only provided fields change)."""
-    player = _owned_player_or_404(session, team_id, player_id, user_id)
+    player = _owned_player_or_404(session, team_id, player_id, auth0_id)
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(player, field, value)
     session.add(player)
@@ -276,10 +276,10 @@ def delete_player(
     team_id: int,
     player_id: int,
     session: Session = Depends(get_session),
-    user_id: str = Depends(current_user_id),
+    auth0_id: str = Depends(current_auth0_id),
 ):
     """Remove a single player from a team's roster (owner-scoped)."""
-    player = _owned_player_or_404(session, team_id, player_id, user_id)
+    player = _owned_player_or_404(session, team_id, player_id, auth0_id)
     session.delete(player)
     session.commit()
 
@@ -293,11 +293,11 @@ async def describe_player(
     player_id: int,
     body: DescribeRequest,
     session: Session = Depends(get_session),
-    user_id: str = Depends(current_user_id),
+    auth0_id: str = Depends(current_auth0_id),
 ):
     """Merge a typed description into the profile and return it (NO save — the
     client drops the result into the form, then PATCHes to persist)."""
-    player = _owned_player_or_404(session, team_id, player_id, user_id)
+    player = _owned_player_or_404(session, team_id, player_id, auth0_id)
     if not body.text.strip():
         raise HTTPException(status_code=422, detail="text is required")
     try:
@@ -317,10 +317,10 @@ async def describe_player_voice(
     audio: UploadFile = File(...),
     language: str | None = Form(None),
     session: Session = Depends(get_session),
-    user_id: str = Depends(current_user_id),
+    auth0_id: str = Depends(current_auth0_id),
 ):
     """Like /describe, but from a spoken description (audio → transcribe → extract)."""
-    player = _owned_player_or_404(session, team_id, player_id, user_id)
+    player = _owned_player_or_404(session, team_id, player_id, auth0_id)
     if not (audio.content_type or "").startswith("audio/"):
         raise HTTPException(status_code=422, detail="audio must be an audio file")
     data = await audio.read()
