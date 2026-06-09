@@ -3,6 +3,10 @@ from sqlmodel import Session, select
 
 from app.agents.analyst import summarize_match
 from app.agents.lineup import adjust_lineup, generate_lineup
+from app.agents.match_extract import (
+    extract_matches_from_image,
+    extract_matches_from_text,
+)
 from app.agents.transcribe import transcribe_audio
 from app.auth import current_auth0_id
 from app.db import get_session
@@ -13,8 +17,10 @@ from app.schemas import (
     LineupRequest,
     LineupResult,
     LineupSlot,
+    MatchExtractResult,
     MatchInput,
     MatchResponse,
+    MatchUpdate,
     NoteInput,
     NoteOut,
     NoteResponse,
@@ -82,6 +88,49 @@ def list_matches(
     return [MatchResponse(**m.model_dump()) for m in matches]
 
 
+@router.post("/extract", response_model=MatchExtractResult)
+async def extract_matches(
+    image: UploadFile = File(...),
+    team_id: int = Form(...),
+    session: Session = Depends(get_session),
+    auth0_id: str = Depends(current_auth0_id),
+):
+    """Parse a fixtures photo into matches (not saved — the app reviews them)."""
+    if not is_member(session, auth0_id, team_id):
+        raise HTTPException(status_code=404, detail="team not found")
+    if not (image.content_type or "").startswith("image/"):
+        raise HTTPException(status_code=422, detail="image must be an image file")
+    data = await image.read()
+    try:
+        return await extract_matches_from_image(data, image.content_type)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"match extraction failed: {exc}")
+
+
+@router.post("/extract/voice", response_model=MatchExtractResult)
+async def extract_matches_voice(
+    audio: UploadFile = File(...),
+    team_id: int = Form(...),
+    language: str | None = Form(None),
+    session: Session = Depends(get_session),
+    auth0_id: str = Depends(current_auth0_id),
+):
+    """Parse a spoken schedule into matches (not saved)."""
+    if not is_member(session, auth0_id, team_id):
+        raise HTTPException(status_code=404, detail="team not found")
+    if not (audio.content_type or "").startswith("audio/"):
+        raise HTTPException(status_code=422, detail="audio must be an audio file")
+    data = await audio.read()
+    try:
+        text = await transcribe_audio(data, audio.filename or "matches.webm", language)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"transcription failed: {exc}")
+    try:
+        return await extract_matches_from_text(text)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"match extraction failed: {exc}")
+
+
 @router.get("/{match_id}")
 def get_match(
     match_id: int,
@@ -99,6 +148,23 @@ def get_match(
             for n in notes
         ],
     }
+
+
+@router.patch("/{match_id}", response_model=MatchResponse)
+def update_match(
+    match_id: int,
+    body: MatchUpdate,
+    session: Session = Depends(get_session),
+    auth0_id: str = Depends(current_auth0_id),
+):
+    """Edit an existing match's fields (only provided fields change)."""
+    match = _owned_match_or_404(session, match_id, auth0_id)
+    for field, value in body.model_dump(exclude_unset=True).items():
+        setattr(match, field, value)
+    session.add(match)
+    session.commit()
+    session.refresh(match)
+    return MatchResponse(**match.model_dump())
 
 
 @router.post("/{match_id}/lineup", response_model=LineupResult)

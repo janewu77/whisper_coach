@@ -24,6 +24,7 @@ The plan deliberately keeps the stack minimal for a 1–2 day hackathon build.
 5. **import command parser** (`agents/import_editor.py`) — turns a coach's natural-language / voice command into structured edit/delete/merge actions
 6. **text roster extractor** (`agents/roster.py::extract_players_from_text`) — spoken/typed player list → `players` (powers the Players tab's "add by voice")
 7. **player profiler** (`agents/player_profile.py`) — a spoken/typed description → a structured player profile (positions, foot, height, traits, bio) for the player detail screen
+8. **match extractor** (`agents/match_extract.py`) — a fixtures photo or spoken/typed schedule → a list of match drafts (opponent, date, location, strength) for the Matches tab create-review and the match detail screen
 
 **Frontend** (`frontend/`): Flutter. After login the user picks/creates a
 **team** (`TeamGate` → `CreateTeamScreen` on first run; otherwise `HomeShell`).
@@ -43,8 +44,12 @@ team / "Create new team…" / "Join team…" by code) and a bottom
   (`ImportReviewScreen`) instead of saving directly: "add from photo" (crop via
   `CropScreen` → image) and "add by voice" (record → transcribe → extract). See
   "Roster import review" below.
-- **Matches tab** (`MatchesTab`) — the current team's matches; "New match"
-  (`HomeScreen`) → Pitch Screen (2D pitch, clickable icons) → Live/Notes Screen
+- **Matches tab** (`MatchesTab`) — the current team's matches. "New match" opens
+  a menu: enter manually (`HomeScreen`), **from a fixtures photo**, or **by
+  voice** — the last two extract match drafts (match-extractor agent) into an
+  editable **`MatchReviewScreen`** that creates them on Confirm. Each row also
+  has **edit** → `MatchDetailScreen` (edit fields, or fill them via photo/voice).
+  Tapping a match → Pitch Screen (2D pitch, clickable icons) → Live/Notes Screen
   (text + voice input, AI response cards).
 - **Profile tab** (`ProfileTab`) — user info, the current team's **join code**
   (copyable, to share the team) + **speaker language** preference

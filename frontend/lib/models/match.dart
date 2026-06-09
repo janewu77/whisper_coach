@@ -44,6 +44,25 @@ class Match {
       };
 }
 
+/// One match parsed from a photo/voice, shown in the create-review list.
+class MatchDraft {
+  String opponent;
+  String? date;
+  String? location;
+  String? strength;
+  String? notes;
+
+  MatchDraft({this.opponent = '', this.date, this.location, this.strength, this.notes});
+
+  factory MatchDraft.fromJson(Map<String, dynamic> j) => MatchDraft(
+        opponent: (j['opponent'] as String?) ?? '',
+        date: j['date'] as String?,
+        location: j['location'] as String?,
+        strength: j['strength'] as String?,
+        notes: j['notes'] as String?,
+      );
+}
+
 class MatchDetails {
   final Match match;
   final Lineup? lineup;

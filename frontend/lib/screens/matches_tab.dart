@@ -1,11 +1,17 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:record/record.dart';
 
 import '../api/api.dart';
 import '../api/client.dart';
 import '../main.dart';
 import '../models/match.dart';
 import '../theme.dart';
+import 'match_detail_screen.dart';
+import 'match_review_screen.dart';
 
 /// Match list for the currently selected team. Lives inside the [HomeShell]
 /// tab scaffold (no app bar of its own). The "New match" FAB creates a match
@@ -23,8 +29,16 @@ class MatchesTab extends StatefulWidget {
 class _MatchesTabState extends State<MatchesTab> {
   late Future<List<Match>> _matches;
   final Set<int> _openingMatchIds = {};
+  final _recorder = AudioRecorder();
+  bool _busy = false; // extracting from photo/voice
 
   Api get _api => widget.apiClient ?? api;
+
+  @override
+  void dispose() {
+    _recorder.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -88,17 +102,181 @@ class _MatchesTabState extends State<MatchesTab> {
     if (mounted) await _refresh();
   }
 
+  Future<void> _editMatch(Match match) async {
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => MatchDetailScreen(match: match)),
+    );
+    if (changed == true && mounted) await _refresh();
+  }
+
+  /// Bottom sheet: choose how to add match(es).
+  Future<void> _newMatchMenu() async {
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: kSurfaceCard,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(kRadiusSheet)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            ListTile(
+              leading: const Icon(Icons.edit_outlined, color: kTextBrand),
+              title: const Text('Enter manually'),
+              onTap: () => Navigator.pop(ctx, 'manual'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_camera_back_outlined, color: kTextBrand),
+              title: const Text('From a fixtures photo'),
+              subtitle: const Text('Scan a schedule — review before saving'),
+              onTap: () => Navigator.pop(ctx, 'photo'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.mic_none_outlined, color: kTextBrand),
+              title: const Text('By voice'),
+              subtitle: const Text('Say the fixtures — review before saving'),
+              onTap: () => Navigator.pop(ctx, 'voice'),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || choice == null) return;
+    switch (choice) {
+      case 'manual':
+        await _createMatch();
+      case 'photo':
+        await _fromPhoto();
+      case 'voice':
+        await _fromVoice();
+    }
+  }
+
+  Future<void> _openReview(List<MatchDraft> drafts) async {
+    if (!mounted) return;
+    if (drafts.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No matches recognised.')),
+      );
+      return;
+    }
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => MatchReviewScreen(teamId: widget.teamId, drafts: drafts),
+      ),
+    );
+    if (saved == true && mounted) await _refresh();
+  }
+
+  Future<void> _fromPhoto() async {
+    final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
+    if (picked == null) return;
+    setState(() => _busy = true);
+    try {
+      final drafts = await _api.extractMatches(widget.teamId, picked);
+      await _openReview(drafts);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(dioErrorMessage(e))));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _fromVoice() async {
+    // Record, then extract. Uses a simple dialog with a stop button.
+    if (!await _recorder.hasPermission()) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Microphone permission denied.')),
+        );
+      }
+      return;
+    }
+    final ts = DateTime.now().millisecondsSinceEpoch;
+    late final RecordConfig config;
+    String filename;
+    String mime;
+    String path;
+    if (kIsWeb) {
+      if (await _recorder.isEncoderSupported(AudioEncoder.opus)) {
+        config = const RecordConfig(encoder: AudioEncoder.opus);
+        filename = 'matches_$ts.webm';
+        mime = 'audio/webm';
+      } else {
+        config = const RecordConfig(encoder: AudioEncoder.aacLc);
+        filename = 'matches_$ts.m4a';
+        mime = 'audio/mp4';
+      }
+      path = '';
+    } else {
+      final dir = await getTemporaryDirectory();
+      filename = 'matches_$ts.m4a';
+      mime = 'audio/mp4';
+      path = '${dir.path}/$filename';
+      config = const RecordConfig(encoder: AudioEncoder.aacLc);
+    }
+    await _recorder.start(config, path: path);
+
+    // Show a "recording… stop" dialog.
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Listening…'),
+        content: const Text('Say the fixtures, e.g. "Rivals at home on Saturday, '
+            'United away next week."'),
+        actions: [
+          ElevatedButton.icon(
+            onPressed: () => Navigator.pop(ctx),
+            icon: const Icon(Icons.stop_rounded, size: 18),
+            label: const Text('Stop'),
+          ),
+        ],
+      ),
+    );
+
+    final result = await _recorder.stop();
+    if (!mounted || result == null) return;
+    final file = XFile(result, name: filename, mimeType: mime);
+    setState(() => _busy = true);
+    try {
+      final drafts = await _api.extractMatchesVoice(widget.teamId, file);
+      await _openReview(drafts);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(dioErrorMessage(e))));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kSurfacePage,
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _createMatch,
+        onPressed: _busy ? null : _newMatchMenu,
         backgroundColor: kBrand,
         foregroundColor: kTextOnBrand,
         elevation: 0,
-        icon: const Icon(Icons.add, size: 20),
-        label: const Text('New match'),
+        icon: _busy
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                    color: Colors.white, strokeWidth: 2),
+              )
+            : const Icon(Icons.add, size: 20),
+        label: Text(_busy ? 'Reading…' : 'New match'),
       ),
       body: FutureBuilder<List<Match>>(
         future: _matches,
@@ -144,6 +322,7 @@ class _MatchesTabState extends State<MatchesTab> {
                   match: match,
                   opening: _openingMatchIds.contains(match.id),
                   onTap: () => _openMatch(match),
+                  onEdit: () => _editMatch(match),
                 );
               },
             ),
@@ -158,11 +337,13 @@ class _MatchCard extends StatelessWidget {
   final Match match;
   final bool opening;
   final VoidCallback onTap;
+  final VoidCallback onEdit;
 
   const _MatchCard({
     required this.match,
     required this.opening,
     required this.onTap,
+    required this.onEdit,
   });
 
   @override
@@ -229,7 +410,13 @@ class _MatchCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 12),
+              IconButton(
+                tooltip: 'Edit match',
+                onPressed: onEdit,
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(Icons.edit_outlined,
+                    size: 18, color: kTextSecondary),
+              ),
               if (opening)
                 const SizedBox(
                   width: 20,

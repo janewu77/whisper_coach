@@ -263,6 +263,32 @@ class MatchResponse(BaseModel):
     strength: Optional[str] = None
 
 
+class MatchUpdate(BaseModel):
+    """Edit an existing match — every field optional (PATCH)."""
+
+    opponent: Optional[str] = None
+    location: Optional[str] = None
+    date: Optional[str] = None
+    notes: Optional[str] = None
+    strength: Optional[str] = None
+
+
+class MatchDraft(BaseModel):
+    """One match parsed from a photo/voice, for the create-review step."""
+
+    opponent: str = ""
+    date: Optional[str] = None  # YYYY-MM-DD when determinable
+    location: Optional[str] = None
+    strength: Optional[str] = None  # "strong" | "weak" | None
+    notes: Optional[str] = None
+
+
+class MatchExtractResult(BaseModel):
+    """Match extractor agent output (a fixtures photo / spoken schedule)."""
+
+    matches: list[MatchDraft] = []
+
+
 # ---- Lineup (Agent 2, generate) ----
 class LineupSlot(BaseModel):
     player: str

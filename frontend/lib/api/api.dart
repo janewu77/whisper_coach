@@ -346,6 +346,66 @@ class Api {
     return Match.fromJson(res.data!);
   }
 
+  /// Update an existing match's fields. Returns the updated match.
+  Future<Match> updateMatch(
+    int matchId, {
+    String? opponent,
+    String? location,
+    String? date,
+    String? notes,
+    String? strength,
+  }) async {
+    final res = await _dio.patch<Map<String, dynamic>>(
+      '/api/matches/$matchId',
+      data: {
+        if (opponent != null) 'opponent': opponent,
+        if (location != null) 'location': location,
+        if (date != null) 'date': date,
+        if (notes != null) 'notes': notes,
+        if (strength != null) 'strength': strength,
+      },
+    );
+    return Match.fromJson(res.data!);
+  }
+
+  /// Parse a fixtures photo into match drafts (not saved — reviewed in-app).
+  Future<List<MatchDraft>> extractMatches(int teamId, XFile image) async {
+    final bytes = await image.readAsBytes();
+    final formData = FormData.fromMap({
+      'image': MultipartFile.fromBytes(bytes, filename: image.name),
+      'team_id': teamId,
+    });
+    final res = await _dio.post<Map<String, dynamic>>(
+      '/api/matches/extract',
+      data: formData,
+    );
+    return (res.data!['matches'] as List<dynamic>)
+        .map((m) => MatchDraft.fromJson(Map<String, dynamic>.from(m as Map)))
+        .toList();
+  }
+
+  /// Parse a spoken schedule into match drafts (not saved).
+  Future<List<MatchDraft>> extractMatchesVoice(int teamId, XFile audio) async {
+    final bytes = await audio.readAsBytes();
+    final formData = FormData.fromMap({
+      'audio': MultipartFile.fromBytes(
+        bytes,
+        filename: audio.name,
+        contentType: MediaType.parse(audio.mimeType ?? 'audio/mpeg'),
+      ),
+      'team_id': teamId,
+      if (SettingsService.instance.speakerLanguage.isNotEmpty)
+        'language': SettingsService.instance.speakerLanguage,
+    });
+    final res = await _dio.post<Map<String, dynamic>>(
+      '/api/matches/extract/voice',
+      data: formData,
+    );
+    return (res.data!['matches'] as List<dynamic>)
+        .map((m) => MatchDraft.fromJson(Map<String, dynamic>.from(m as Map)))
+        .toList();
+  }
+
   /// Fetch a match (includes latest lineup and notes).
   Future<MatchDetails> getMatch(int matchId) async {
     final res = await _dio.get<Map<String, dynamic>>('/api/matches/$matchId');
