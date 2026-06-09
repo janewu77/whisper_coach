@@ -56,27 +56,17 @@ class ProfileTab extends StatelessWidget {
                 style: kStyleSecondary,
               ),
               const SizedBox(height: 10),
-              Container(
-                decoration: BoxDecoration(
-                  color: kSurfaceCard,
-                  borderRadius: BorderRadius.circular(kRadiusCard),
-                  border: Border.all(color: kBorderHairline, width: 0.5),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: Column(
-                  children: [
-                    for (var i = 0; i < kSpeakerLanguages.length; i++) ...[
-                      if (i > 0) const Divider(height: 1),
-                      _LangRow(
-                        lang: kSpeakerLanguages[i],
-                        selected:
-                            settings.speakerLanguage == kSpeakerLanguages[i].code,
-                        onTap: () => settings
-                            .setSpeakerLanguage(kSpeakerLanguages[i].code),
-                      ),
-                    ],
-                  ],
-                ),
+              DropdownButtonFormField<String>(
+                value: settings.speakerLanguage,
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: 'Speaker language'),
+                items: [
+                  for (final l in kSpeakerLanguages)
+                    DropdownMenuItem(value: l.code, child: Text(l.label)),
+                ],
+                onChanged: (code) {
+                  if (code != null) settings.setSpeakerLanguage(code);
+                },
               ),
               if (Config.authEnabled) ...[
                 const SizedBox(height: 24),
@@ -136,42 +126,6 @@ class ProfileTab extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _LangRow extends StatelessWidget {
-  final SpeakerLanguage lang;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _LangRow({
-    required this.lang,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                lang.label,
-                style: kStyleBody.copyWith(
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                  color: selected ? kTextBrand : kTextPrimary,
-                ),
-              ),
-            ),
-            if (selected) const Icon(Icons.check, size: 18, color: kBrand),
-          ],
-        ),
       ),
     );
   }
