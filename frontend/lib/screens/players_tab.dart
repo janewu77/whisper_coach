@@ -35,10 +35,31 @@ String _sortLabel(_PlayerSort s) => switch (s) {
       _PlayerSort.number => 'Number',
     };
 
+// Map each position code to a line (back/mid/front) and a side
+// (left/center/right) so the list can be filtered by both.
+const _kPosLine = <String, String>{
+  'GK': 'back', 'CB': 'back', 'LB': 'back', 'RB': 'back',
+  'LWB': 'back', 'RWB': 'back',
+  'CDM': 'mid', 'CM': 'mid', 'CAM': 'mid', 'LM': 'mid', 'RM': 'mid',
+  'LW': 'front', 'RW': 'front', 'ST': 'front',
+};
+const _kPosSide = <String, String>{
+  'GK': 'center', 'CB': 'center', 'CDM': 'center', 'CM': 'center',
+  'CAM': 'center', 'ST': 'center',
+  'LB': 'left', 'LWB': 'left', 'LM': 'left', 'LW': 'left',
+  'RB': 'right', 'RWB': 'right', 'RM': 'right', 'RW': 'right',
+};
+const _kLineFilters = [('back', 'Back'), ('mid', 'Midfield'), ('front', 'Front')];
+const _kSideFilters = [('left', 'Left'), ('center', 'Center'), ('right', 'Right')];
+
 class _PlayersTabState extends State<PlayersTab> {
   late Future<Team> _team;
   bool _extracting = false;
   _PlayerSort _sort = _PlayerSort.lastName;
+  final Set<String> _lineFilter = {};
+  final Set<String> _sideFilter = {};
+
+  bool get _filterActive => _lineFilter.isNotEmpty || _sideFilter.isNotEmpty;
 
   // Voice "add player" recording state.
   final _recorder = AudioRecorder();
@@ -97,6 +118,101 @@ class _PlayersTabState extends State<PlayersTab> {
     if (ae) return 1;
     if (be) return -1;
     return a.toLowerCase().compareTo(b.toLowerCase());
+  }
+
+  List<String> _playerPositions(Player p) => p.positions.isNotEmpty
+      ? p.positions
+      : (p.preferredPosition == null ? const [] : [p.preferredPosition!]);
+
+  /// A player passes if any of their positions matches every active group
+  /// (line AND side); an empty group means "any".
+  bool _matchesFilter(Player p) {
+    if (!_filterActive) return true;
+    for (final raw in _playerPositions(p)) {
+      final code = raw.toUpperCase();
+      final lineOk =
+          _lineFilter.isEmpty || _lineFilter.contains(_kPosLine[code]);
+      final sideOk =
+          _sideFilter.isEmpty || _sideFilter.contains(_kPosSide[code]);
+      if (lineOk && sideOk) return true;
+    }
+    return false;
+  }
+
+  List<Player> _filtered(List<Player> players) =>
+      _filterActive ? players.where(_matchesFilter).toList() : players;
+
+  Future<void> _openFilter() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: kSurfaceCard,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(kRadiusSheet)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setSheet) {
+            Widget group(List<(String, String)> opts, Set<String> sel) => Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final (key, label) in opts)
+                      FilterChip(
+                        label: Text(label),
+                        selected: sel.contains(key),
+                        onSelected: (v) => setSheet(
+                            () => v ? sel.add(key) : sel.remove(key)),
+                        selectedColor: kBrandSubtle,
+                        checkmarkColor: kTextBrand,
+                      ),
+                  ],
+                );
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Text('Filter by position',
+                            style: kStyleScreenTitle),
+                        const Spacer(),
+                        TextButton(
+                          onPressed: () => setSheet(() {
+                            _lineFilter.clear();
+                            _sideFilter.clear();
+                          }),
+                          child: const Text('Clear'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    const Text('LINE', style: kStyleLabel),
+                    const SizedBox(height: 8),
+                    group(_kLineFilters, _lineFilter),
+                    const SizedBox(height: 16),
+                    const Text('SIDE', style: kStyleLabel),
+                    const SizedBox(height: 8),
+                    group(_kSideFilters, _sideFilter),
+                    const SizedBox(height: 18),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        child: const Text('Done'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+    if (mounted) setState(() {}); // re-filter the list with the new selection
   }
 
   List<Player> _sorted(List<Player> players) {
@@ -357,8 +473,8 @@ class _PlayersTabState extends State<PlayersTab> {
               onAction: _refresh,
             );
           }
-          final players = _sorted(snapshot.data?.players ?? const []);
-          if (players.isEmpty) {
+          final all = snapshot.data?.players ?? const <Player>[];
+          if (all.isEmpty) {
             return _Message(
               icon: Icons.person_add_alt_outlined,
               title: 'No players yet',
@@ -368,13 +484,14 @@ class _PlayersTabState extends State<PlayersTab> {
               onAction: _addFromPhoto,
             );
           }
+          final players = _sorted(_filtered(all));
           return RefreshIndicator(
             color: kBrand,
             onRefresh: _refresh,
             child: ListView.separated(
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
-              itemCount: players.length + 1,
+              itemCount: players.isEmpty ? 2 : players.length + 1,
               separatorBuilder: (_, __) => const SizedBox(height: 8),
               itemBuilder: (context, index) {
                 if (index == 0) {
@@ -388,6 +505,12 @@ class _PlayersTabState extends State<PlayersTab> {
                           style: kStyleLabel,
                         ),
                         const Spacer(),
+                        _FilterButton(
+                          active: _filterActive,
+                          count: _lineFilter.length + _sideFilter.length,
+                          onTap: _openFilter,
+                        ),
+                        const SizedBox(width: 4),
                         PopupMenuButton<_PlayerSort>(
                           tooltip: 'Sort players',
                           initialValue: _sort,
@@ -426,6 +549,15 @@ class _PlayersTabState extends State<PlayersTab> {
                     ),
                   );
                 }
+                if (players.isEmpty) {
+                  return const Padding(
+                    padding: EdgeInsets.only(top: 40),
+                    child: Center(
+                      child: Text('No players match the filter.',
+                          style: kStyleSecondary),
+                    ),
+                  );
+                }
                 final p = players[index - 1];
                 return _PlayerTile(
                   name: p.name,
@@ -444,6 +576,44 @@ class _PlayersTabState extends State<PlayersTab> {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _FilterButton extends StatelessWidget {
+  final bool active;
+  final int count;
+  final VoidCallback onTap;
+
+  const _FilterButton({
+    required this.active,
+    required this.count,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = active ? kBrand : kTextSecondary;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(100),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.filter_list, size: 16, color: color),
+            const SizedBox(width: 4),
+            Text(
+              active ? 'Filter ($count)' : 'Filter',
+              style: kStyleSecondary.copyWith(
+                color: color,
+                fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
