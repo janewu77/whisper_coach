@@ -13,6 +13,7 @@ import '../main.dart';
 import '../models/match.dart';
 import '../services/team_service.dart';
 import '../theme.dart';
+import '../widgets/empty_create_hint.dart';
 import 'crop_screen.dart';
 import 'match_detail_screen.dart';
 import 'match_review_screen.dart';
@@ -103,11 +104,6 @@ class _MatchesTabState extends State<MatchesTab> {
         setState(() => _openingMatchIds.remove(match.id));
       }
     }
-  }
-
-  Future<void> _createMatch() async {
-    await Navigator.pushNamed(context, '/new');
-    if (mounted) await _refresh();
   }
 
   Future<void> _editMatch(Match match) async {
@@ -333,12 +329,10 @@ class _MatchesTabState extends State<MatchesTab> {
 
           final matches = snapshot.data ?? const [];
           if (matches.isEmpty) {
-            return _MessageState(
-              icon: Icons.sports_soccer_outlined,
+            return const EmptyCreateHint(
               title: 'No matches yet',
-              message: 'Create your first match to generate a lineup.',
-              actionLabel: 'Create match',
-              onAction: _createMatch,
+              message: 'Tap the mic to say your fixtures, or the camera to '
+                  'upload a schedule — AI adds your matches.',
             );
           }
 

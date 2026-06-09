@@ -13,6 +13,7 @@ import '../models/import_review.dart';
 import '../models/player.dart';
 import '../models/team.dart';
 import '../theme.dart';
+import '../widgets/empty_create_hint.dart';
 import 'crop_screen.dart';
 import 'import_review_screen.dart';
 import 'player_detail_screen.dart';
@@ -544,13 +545,11 @@ class _PlayersTabState extends State<PlayersTab> {
           }
           final all = snapshot.data?.players ?? const <Player>[];
           if (all.isEmpty) {
-            return _Message(
-              icon: Icons.person_add_alt_outlined,
+            return const EmptyCreateHint(
               title: 'No players yet',
               message:
-                  'Upload a team photo and AI will extract the player names.',
-              actionLabel: 'Add from photo',
-              onAction: _addFromPhoto,
+                  'Tap the mic to describe your players, or the camera to '
+                  'upload a team photo — AI builds your roster.',
             );
           }
           final players = _sorted(_filtered(all));
