@@ -8,6 +8,7 @@ import '../theme.dart';
 import 'create_team_screen.dart';
 import 'matches_tab.dart';
 import 'players_tab.dart';
+import 'profile_tab.dart';
 
 /// The main authenticated app: a team selector in the header plus the bottom
 /// tab bar (Players, Matches). More tabs can be added to [_tabs] later.
@@ -47,12 +48,11 @@ class _HomeShellState extends State<HomeShell> {
       builder: (context, _) {
         final teamId = TeamService.instance.currentTeamId;
         final current = TeamService.instance.current;
-        final tabs = teamId == null
-            ? const [SizedBox.shrink(), SizedBox.shrink()]
-            : [
-                PlayersTab(teamId: teamId),
-                MatchesTab(teamId: teamId),
-              ];
+        final tabs = <Widget>[
+          teamId == null ? const SizedBox.shrink() : PlayersTab(teamId: teamId),
+          teamId == null ? const SizedBox.shrink() : MatchesTab(teamId: teamId),
+          const ProfileTab(),
+        ];
 
         return Scaffold(
           appBar: AppBar(
@@ -90,6 +90,11 @@ class _HomeShellState extends State<HomeShell> {
                 icon: Icon(Icons.sports_soccer_outlined),
                 activeIcon: Icon(Icons.sports_soccer),
                 label: 'Matches',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.person_outline),
+                activeIcon: Icon(Icons.person),
+                label: 'Profile',
               ),
             ],
           ),

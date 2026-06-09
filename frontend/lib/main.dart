@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'theme.dart';
 import 'auth/auth_service.dart';
+import 'services/settings_service.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/team_gate.dart';
@@ -13,6 +14,7 @@ Future<void> main() async {
   // Restore any existing session (and complete the web login redirect) before
   // the first frame so we don't flash the login screen for signed-in users.
   await AuthService.instance.init();
+  await SettingsService.instance.load();
   runApp(const WhisperCoachApp());
 }
 

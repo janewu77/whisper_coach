@@ -41,6 +41,11 @@ team / "Create new team…") and a bottom `BottomNavigationBar`:
 - **Matches tab** (`MatchesTab`) — the current team's matches; "New match"
   (`HomeScreen`) → Pitch Screen (2D pitch, clickable icons) → Live/Notes Screen
   (text + voice input, AI response cards).
+- **Profile tab** (`ProfileTab`) — user info + **speaker language** preference
+  (English/Chinese/German/… or auto). The app UI is English-only; the language
+  is an ISO-639-1 code persisted by `services/settings_service.dart`
+  (shared_preferences) and sent as a `language` form field on every voice upload
+  to steer Whisper transcription.
 
 Current team state lives in `lib/services/team_service.dart` (a `ChangeNotifier`
 singleton, like `AuthService`). More tabs can be added to `HomeShell`.

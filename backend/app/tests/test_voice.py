@@ -22,7 +22,7 @@ def stub_voice(monkeypatch):
             reason=f"because: {note}",
         )
 
-    async def fake_transcribe(data, filename):
+    async def fake_transcribe(data, filename, language=None):
         return "John is tired"
 
     monkeypatch.setattr(matches_router, "generate_lineup", fake_generate)

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlmodel import Session, select
 
 from app.agents.analyst import summarize_match
@@ -193,6 +193,7 @@ def list_notes(
 async def add_voice_note(
     match_id: int,
     audio: UploadFile = File(...),
+    language: str | None = Form(None),
     session: Session = Depends(get_session),
     user_id: str = Depends(current_user_id),
 ):
@@ -203,7 +204,7 @@ async def add_voice_note(
 
     data = await audio.read()
     try:
-        text = await transcribe_audio(data, audio.filename or "note.webm")
+        text = await transcribe_audio(data, audio.filename or "note.webm", language)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"transcription failed: {exc}")
 

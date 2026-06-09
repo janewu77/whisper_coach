@@ -6,7 +6,7 @@ is only read here (Team/Player) and written once, on POST .../confirm. All route
 are owner-scoped (a session is reachable only by its owner).
 """
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlmodel import Session, select
 
 from app.agents.import_editor import parse_command
@@ -125,6 +125,7 @@ async def create_import_from_text(
 async def create_import_from_voice(
     team_id: int,
     audio: UploadFile = File(...),
+    language: str | None = Form(None),
     db: Session = Depends(get_session),
     user_id: str = Depends(current_user_id),
 ):
@@ -134,7 +135,7 @@ async def create_import_from_voice(
         raise HTTPException(status_code=422, detail="audio must be an audio file")
     data = await audio.read()
     try:
-        text = await transcribe_audio(data, audio.filename or "players.webm")
+        text = await transcribe_audio(data, audio.filename or "players.webm", language)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"transcription failed: {exc}")
     try:
@@ -320,6 +321,7 @@ async def run_command(
 async def run_voice_command(
     session_id: int,
     audio: UploadFile = File(...),
+    language: str | None = Form(None),
     db: Session = Depends(get_session),
     user_id: str = Depends(current_user_id),
 ):
@@ -328,7 +330,7 @@ async def run_voice_command(
         raise HTTPException(status_code=422, detail="audio must be an audio file")
     data = await audio.read()
     try:
-        text = await transcribe_audio(data, audio.filename or "command.webm")
+        text = await transcribe_audio(data, audio.filename or "command.webm", language)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"transcription failed: {exc}")
     return await _run_command(db, imp, text)

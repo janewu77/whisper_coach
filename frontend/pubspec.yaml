@@ -26,6 +26,7 @@ dependencies:
   # State & utils
   provider: ^6.1.2
   intl: ^0.19.0
+  shared_preferences: ^2.2.2  # persist profile settings (speaker language)
 
 dev_dependencies:
   flutter_test:

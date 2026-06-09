@@ -255,6 +255,7 @@ async def describe_player_voice(
     team_id: int,
     player_id: int,
     audio: UploadFile = File(...),
+    language: str | None = Form(None),
     session: Session = Depends(get_session),
     user_id: str = Depends(current_user_id),
 ):
@@ -264,7 +265,7 @@ async def describe_player_voice(
         raise HTTPException(status_code=422, detail="audio must be an audio file")
     data = await audio.read()
     try:
-        text = await transcribe_audio(data, audio.filename or "profile.webm")
+        text = await transcribe_audio(data, audio.filename or "profile.webm", language)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"transcription failed: {exc}")
     try:

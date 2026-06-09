@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:http_parser/http_parser.dart';
 import 'package:image_picker/image_picker.dart';
 import 'client.dart' as wc_client;
+import '../services/settings_service.dart';
 import '../models/player.dart';
 import '../models/team.dart';
 import '../models/match.dart';
@@ -151,6 +152,9 @@ class Api {
         filename: audio.name,
         contentType: MediaType.parse(audio.mimeType ?? 'audio/mpeg'),
       ),
+      // Speaker language from the Profile tab improves transcription accuracy.
+      if (SettingsService.instance.speakerLanguage.isNotEmpty)
+        'language': SettingsService.instance.speakerLanguage,
     });
     final res = await _dio.post<Map<String, dynamic>>(
       '/api/teams/$teamId/players/$playerId/describe/voice',
@@ -184,6 +188,9 @@ class Api {
         filename: audio.name,
         contentType: MediaType.parse(audio.mimeType ?? 'audio/mpeg'),
       ),
+      // Speaker language from the Profile tab improves transcription accuracy.
+      if (SettingsService.instance.speakerLanguage.isNotEmpty)
+        'language': SettingsService.instance.speakerLanguage,
     });
     final res = await _dio.post<Map<String, dynamic>>(
       '/api/teams/$teamId/imports/voice',
@@ -263,6 +270,9 @@ class Api {
         filename: audio.name,
         contentType: MediaType.parse(audio.mimeType ?? 'audio/mpeg'),
       ),
+      // Speaker language from the Profile tab improves transcription accuracy.
+      if (SettingsService.instance.speakerLanguage.isNotEmpty)
+        'language': SettingsService.instance.speakerLanguage,
     });
     final res = await _dio.post<Map<String, dynamic>>(
       '/api/imports/$sessionId/command/voice',
@@ -359,6 +369,9 @@ class Api {
         filename: audio.name,
         contentType: MediaType.parse(audio.mimeType ?? 'audio/mpeg'),
       ),
+      // Speaker language from the Profile tab improves transcription accuracy.
+      if (SettingsService.instance.speakerLanguage.isNotEmpty)
+        'language': SettingsService.instance.speakerLanguage,
     });
     final res = await _dio.post<Map<String, dynamic>>(
       '/api/matches/$matchId/notes/voice',
