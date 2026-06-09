@@ -52,7 +52,7 @@ class _HomeShellState extends State<HomeShell> {
           textCapitalization: TextCapitalization.characters,
           decoration: const InputDecoration(
             labelText: 'Join code',
-            hintText: 'e.g. J6QTUP',
+            hintText: 'e.g. J6QTUP4M',
           ),
           onSubmitted: (v) => Navigator.pop(ctx, v),
         ),

@@ -15,7 +15,7 @@ _CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
 
 def _join_code() -> str:
-    return "".join(secrets.choice(_CODE_ALPHABET) for _ in range(6))
+    return "".join(secrets.choice(_CODE_ALPHABET) for _ in range(8))
 
 
 class User(SQLModel, table=True):

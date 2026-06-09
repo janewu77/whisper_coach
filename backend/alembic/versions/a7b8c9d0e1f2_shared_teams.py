@@ -63,7 +63,7 @@ def upgrade() -> None:
 
     def _code() -> str:
         while True:
-            c = "".join(secrets.choice(_ALPHABET) for _ in range(6))
+            c = "".join(secrets.choice(_ALPHABET) for _ in range(8))
             if c not in used_codes:
                 used_codes.add(c)
                 return c
