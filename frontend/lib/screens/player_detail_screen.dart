@@ -409,23 +409,56 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      floatingActionButton: (_loading || _loadError != null)
+          ? null
+          : Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                FloatingActionButton(
+                  heroTag: 'playerFillVoice',
+                  onPressed: _photoBusy ? null : _toggleVoice,
+                  backgroundColor: _recording ? kRedFg : kBrand,
+                  foregroundColor: kTextOnBrand,
+                  elevation: 0,
+                  shape: const CircleBorder(),
+                  tooltip: _recording ? 'Stop & review' : 'Fill by voice',
+                  child: _voiceBusy
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                              color: Colors.white, strokeWidth: 2),
+                        )
+                      : Icon(
+                          _recording
+                              ? Icons.stop_rounded
+                              : Icons.mic_none_outlined,
+                          size: 22),
+                ),
+                const SizedBox(width: 12),
+                FloatingActionButton(
+                  heroTag: 'playerFillPhoto',
+                  onPressed: _busy || _recording ? null : _fillFromPhoto,
+                  backgroundColor: kBrand,
+                  foregroundColor: kTextOnBrand,
+                  elevation: 0,
+                  shape: const CircleBorder(),
+                  tooltip: 'Fill from photo',
+                  child: _photoBusy
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                              color: Colors.white, strokeWidth: 2),
+                        )
+                      : const Icon(Icons.add_a_photo_outlined, size: 22),
+                ),
+              ],
+            ),
       appBar: AppBar(
         title: Text(_nameCtrl.text.isEmpty ? 'Player' : _nameCtrl.text),
         actions: [
-          if (!_loading && _loadError == null) ...[
-            // Fill the profile from a photo (vision) — shows a diff to confirm.
-            IconButton(
-              tooltip: 'Fill from photo',
-              onPressed: (_busy) ? null : _fillFromPhoto,
-              icon: const Icon(Icons.photo_camera_back_outlined),
-            ),
-            // Fill the profile by voice — tap to record, tap to stop.
-            IconButton(
-              tooltip: _recording ? 'Stop & review' : 'Fill by voice',
-              onPressed: _photoBusy ? null : _toggleVoice,
-              color: _recording ? kRedFg : null,
-              icon: Icon(_recording ? Icons.stop_rounded : Icons.mic_none_rounded),
-            ),
+          if (!_loading && _loadError == null)
             TextButton(
               onPressed: _saving ? null : _save,
               child: _saving
@@ -438,7 +471,6 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
                   : const Text('Save',
                       style: TextStyle(fontWeight: FontWeight.w600)),
             ),
-          ],
         ],
         bottom: PreferredSize(
           preferredSize: Size.fromHeight(_busy ? 2.5 : 0.5),
@@ -458,13 +490,13 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
                   ),
                 )
               : ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
                   children: [
                     Text(
                       _recording
-                          ? 'Listening… tap the stop button (top right).'
-                          : 'Tap the photo or mic in the top right to fill the '
-                              'profile — review the changes before saving.',
+                          ? 'Listening… tap the stop button (bottom right).'
+                          : 'Tap the photo or mic in the bottom right to fill '
+                              'the profile — review the changes before saving.',
                       style: kStyleSecondary,
                     ),
                     const SizedBox(height: 12),
@@ -490,19 +522,22 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
                       for (final line in _kPositionLines)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 8),
-                          child: Wrap(
-                            alignment: WrapAlignment.center,
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: line
-                                .map((c) => FilterChip(
-                                      label: Text(c),
-                                      selected: _positions.contains(c),
-                                      onSelected: (_) => _togglePosition(c),
-                                      selectedColor: kBrandSubtle,
-                                      checkmarkColor: kTextBrand,
-                                    ))
-                                .toList(),
+                          child: SizedBox(
+                            width: double.infinity,
+                            child: Wrap(
+                              alignment: WrapAlignment.center,
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: line
+                                  .map((c) => FilterChip(
+                                        label: Text(c),
+                                        selected: _positions.contains(c),
+                                        onSelected: (_) => _togglePosition(c),
+                                        selectedColor: kBrandSubtle,
+                                        checkmarkColor: kTextBrand,
+                                      ))
+                                  .toList(),
+                            ),
                           ),
                         ),
                     ]),
