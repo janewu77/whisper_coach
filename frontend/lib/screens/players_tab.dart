@@ -489,23 +489,17 @@ class _PlayersTabState extends State<PlayersTab> {
           FloatingActionButton(
             heroTag: 'addByVoice',
             onPressed: _extracting ? null : _toggleVoice,
-            backgroundColor: _recording ? kRedFg : kSurfaceCard,
-            foregroundColor: _recording ? Colors.white : kTextBrand,
+            backgroundColor: _recording ? kRedFg : kBrand,
+            foregroundColor: kTextOnBrand,
             elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(
-                color: _recording ? kRedFg : kBorderStrong,
-                width: 0.5,
-              ),
-            ),
+            shape: const CircleBorder(),
             tooltip: _recording ? 'Stop & add' : 'Add by voice',
             child: _voiceBusy
                 ? const SizedBox(
                     width: 18,
                     height: 18,
                     child: CircularProgressIndicator(
-                        color: kBrand, strokeWidth: 2),
+                        color: Colors.white, strokeWidth: 2),
                   )
                 : Icon(_recording ? Icons.stop_rounded : Icons.mic_none_outlined,
                     size: 22),

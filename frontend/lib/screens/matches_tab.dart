@@ -31,6 +31,10 @@ class _MatchesTabState extends State<MatchesTab> {
   final Set<int> _openingMatchIds = {};
   final _recorder = AudioRecorder();
   bool _busy = false; // extracting from photo/voice
+  bool _recording = false;
+  String _recFilename = 'matches.m4a';
+  String _recMime = 'audio/mp4';
+  String? _recPath;
 
   Api get _api => widget.apiClient ?? api;
 
@@ -109,52 +113,6 @@ class _MatchesTabState extends State<MatchesTab> {
     if (changed == true && mounted) await _refresh();
   }
 
-  /// Bottom sheet: choose how to add match(es).
-  Future<void> _newMatchMenu() async {
-    final choice = await showModalBottomSheet<String>(
-      context: context,
-      backgroundColor: kSurfaceCard,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(kRadiusSheet)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 8),
-            ListTile(
-              leading: const Icon(Icons.edit_outlined, color: kTextBrand),
-              title: const Text('Enter manually'),
-              onTap: () => Navigator.pop(ctx, 'manual'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_camera_back_outlined, color: kTextBrand),
-              title: const Text('From a fixtures photo'),
-              subtitle: const Text('Scan a schedule — review before saving'),
-              onTap: () => Navigator.pop(ctx, 'photo'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.mic_none_outlined, color: kTextBrand),
-              title: const Text('By voice'),
-              subtitle: const Text('Say the fixtures — review before saving'),
-              onTap: () => Navigator.pop(ctx, 'voice'),
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-    if (!mounted || choice == null) return;
-    switch (choice) {
-      case 'manual':
-        await _createMatch();
-      case 'photo':
-        await _fromPhoto();
-      case 'voice':
-        await _fromVoice();
-    }
-  }
-
   Future<void> _openReview(List<MatchDraft> drafts) async {
     if (!mounted) return;
     if (drafts.isEmpty) {
@@ -171,7 +129,9 @@ class _MatchesTabState extends State<MatchesTab> {
     if (saved == true && mounted) await _refresh();
   }
 
-  Future<void> _fromPhoto() async {
+  // ── Add from photo ─────────────────────────────────────────────────────
+
+  Future<void> _addFromPhoto() async {
     final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
     if (picked == null) return;
     setState(() => _busy = true);
@@ -179,83 +139,84 @@ class _MatchesTabState extends State<MatchesTab> {
       final drafts = await _api.extractMatches(widget.teamId, picked);
       await _openReview(drafts);
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(dioErrorMessage(e))));
-      }
+      _snack(dioErrorMessage(e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
-  Future<void> _fromVoice() async {
-    // Record, then extract. Uses a simple dialog with a stop button.
-    if (!await _recorder.hasPermission()) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Microphone permission denied.')),
-        );
+  // ── Add by voice (tap to record, tap to stop) ──────────────────────────
+
+  Future<void> _toggleVoice() async {
+    if (_busy) return;
+    try {
+      if (_recording) {
+        await _stopVoiceAndReview();
+      } else {
+        await _startVoice();
       }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _recording = false);
+        _snack('Recording error: $e');
+      }
+    }
+  }
+
+  Future<void> _startVoice() async {
+    if (!await _recorder.hasPermission()) {
+      _snack('Microphone permission denied.');
       return;
     }
     final ts = DateTime.now().millisecondsSinceEpoch;
     late final RecordConfig config;
-    String filename;
-    String mime;
-    String path;
     if (kIsWeb) {
       if (await _recorder.isEncoderSupported(AudioEncoder.opus)) {
         config = const RecordConfig(encoder: AudioEncoder.opus);
-        filename = 'matches_$ts.webm';
-        mime = 'audio/webm';
+        _recFilename = 'matches_$ts.webm';
+        _recMime = 'audio/webm';
       } else {
         config = const RecordConfig(encoder: AudioEncoder.aacLc);
-        filename = 'matches_$ts.m4a';
-        mime = 'audio/mp4';
+        _recFilename = 'matches_$ts.m4a';
+        _recMime = 'audio/mp4';
       }
-      path = '';
+      _recPath = '';
     } else {
       final dir = await getTemporaryDirectory();
-      filename = 'matches_$ts.m4a';
-      mime = 'audio/mp4';
-      path = '${dir.path}/$filename';
+      _recFilename = 'matches_$ts.m4a';
+      _recMime = 'audio/mp4';
+      _recPath = '${dir.path}/$_recFilename';
       config = const RecordConfig(encoder: AudioEncoder.aacLc);
     }
-    await _recorder.start(config, path: path);
+    await _recorder.start(config, path: _recPath!);
+    if (mounted) setState(() => _recording = true);
+  }
 
-    // Show a "recording… stop" dialog.
+  Future<void> _stopVoiceAndReview() async {
+    final path = await _recorder.stop();
     if (!mounted) return;
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Listening…'),
-        content: const Text('Say the fixtures, e.g. "Rivals at home on Saturday, '
-            'United away next week."'),
-        actions: [
-          ElevatedButton.icon(
-            onPressed: () => Navigator.pop(ctx),
-            icon: const Icon(Icons.stop_rounded, size: 18),
-            label: const Text('Stop'),
-          ),
-        ],
-      ),
-    );
-
-    final result = await _recorder.stop();
-    if (!mounted || result == null) return;
-    final file = XFile(result, name: filename, mimeType: mime);
-    setState(() => _busy = true);
+    setState(() {
+      _recording = false;
+      _busy = true;
+    });
+    if (path == null) {
+      setState(() => _busy = false);
+      return;
+    }
+    final file = XFile(path, name: _recFilename, mimeType: _recMime);
     try {
       final drafts = await _api.extractMatchesVoice(widget.teamId, file);
       await _openReview(drafts);
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(dioErrorMessage(e))));
-      }
+      _snack(dioErrorMessage(e));
     } finally {
       if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  void _snack(String m) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
     }
   }
 
@@ -263,20 +224,47 @@ class _MatchesTabState extends State<MatchesTab> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kSurfacePage,
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _busy ? null : _newMatchMenu,
-        backgroundColor: kBrand,
-        foregroundColor: kTextOnBrand,
-        elevation: 0,
-        icon: _busy
-            ? const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(
-                    color: Colors.white, strokeWidth: 2),
-              )
-            : const Icon(Icons.add, size: 20),
-        label: Text(_busy ? 'Reading…' : 'New match'),
+      floatingActionButton: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Add by voice — same brand colour as the photo button, circle shape.
+          FloatingActionButton(
+            heroTag: 'matchByVoice',
+            onPressed: _busy ? null : _toggleVoice,
+            backgroundColor: _recording ? kRedFg : kBrand,
+            foregroundColor: kTextOnBrand,
+            elevation: 0,
+            shape: const CircleBorder(),
+            tooltip: _recording ? 'Stop & review' : 'Add by voice',
+            child: (_busy && !_recording)
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                        color: Colors.white, strokeWidth: 2),
+                  )
+                : Icon(_recording ? Icons.stop_rounded : Icons.mic_none_outlined,
+                    size: 22),
+          ),
+          const SizedBox(width: 12),
+          // Add from photo.
+          FloatingActionButton.extended(
+            heroTag: 'matchFromPhoto',
+            onPressed: (_busy || _recording) ? null : _addFromPhoto,
+            backgroundColor: kBrand,
+            foregroundColor: kTextOnBrand,
+            elevation: 0,
+            icon: _busy && !_recording
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                        color: Colors.white, strokeWidth: 2),
+                  )
+                : const Icon(Icons.add_a_photo_outlined, size: 20),
+            label: Text(_busy && !_recording ? 'Reading…' : 'Add from photo'),
+          ),
+        ],
       ),
       body: FutureBuilder<List<Match>>(
         future: _matches,
