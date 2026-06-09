@@ -27,9 +27,11 @@ class Config {
       String.fromEnvironment('AUTH0_AUDIENCE', defaultValue: '');
 
   /// Custom URL scheme for the native (iOS/Android) login callback. Must match
-  /// the iOS Info.plist URL scheme and the Android `auth0Scheme` placeholder.
+  /// the iOS Info.plist `CFBundleURLSchemes` (which uses the bundle id,
+  /// `com.example.whisperCoach`) and the Android `auth0Scheme` manifest
+  /// placeholder. Override per build with `--dart-define=AUTH0_SCHEME=...`.
   static const String auth0Scheme =
-      String.fromEnvironment('AUTH0_SCHEME', defaultValue: 'com.example.whisper_coach');
+      String.fromEnvironment('AUTH0_SCHEME', defaultValue: 'com.example.whisperCoach');
 
   /// OAuth scopes. `offline_access` yields a refresh token on native.
   static const Set<String> auth0Scopes = {
