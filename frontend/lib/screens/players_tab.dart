@@ -430,7 +430,11 @@ class _PlayersTabState extends State<PlayersTab> {
                 return _PlayerTile(
                   name: p.name,
                   number: p.number,
-                  position: p.preferredPosition,
+                  positions: p.positions.isNotEmpty
+                      ? p.positions
+                      : (p.preferredPosition == null
+                          ? const []
+                          : [p.preferredPosition!]),
                   onEdit: p.id == null ? null : () => _editPlayer(p),
                   onDelete: p.id == null
                       ? null
@@ -448,23 +452,21 @@ class _PlayersTabState extends State<PlayersTab> {
 class _PlayerTile extends StatelessWidget {
   final String name;
   final int? number;
-  final String? position;
+  final List<String> positions;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
 
   const _PlayerTile({
     required this.name,
     this.number,
-    this.position,
+    this.positions = const [],
     this.onEdit,
     this.onDelete,
   });
 
   @override
   Widget build(BuildContext context) {
-    final subtitle = [
-      if (position != null && position!.isNotEmpty) position!,
-    ].join(' · ');
+    final subtitle = positions.join(' · ');
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(

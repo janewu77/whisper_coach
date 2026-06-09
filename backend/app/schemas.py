@@ -46,6 +46,7 @@ class TeamPlayer(BaseModel):
     name: str
     number: Optional[int] = None
     preferred_position: Optional[str] = None
+    positions: list[str] = []
 
 
 class TeamResponse(BaseModel):

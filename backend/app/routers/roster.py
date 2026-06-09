@@ -177,6 +177,7 @@ def get_team(
                 name=p.name,
                 number=p.number,
                 preferred_position=p.preferred_position,
+                positions=p.positions or [],
             )
             for p in players
         ],
