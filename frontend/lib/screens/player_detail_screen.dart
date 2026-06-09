@@ -9,17 +9,22 @@ import '../api/client.dart';
 import '../models/player.dart';
 import '../theme.dart';
 
-const _kPositions = [
-  'GK', 'CB', 'LB', 'RB', 'LWB', 'RWB',
-  'CDM', 'CM', 'CAM', 'LM', 'RM', 'LW', 'RW', 'ST',
+// Positions laid out like a formation board: first line = attackers,
+// last line = goalkeeper.
+const _kPositionLines = [
+  ['LW', 'ST', 'RW'], // attackers
+  ['CAM'], // attacking midfield
+  ['LM', 'CM', 'RM'], // midfield
+  ['CDM'], // defensive midfield
+  ['LWB', 'RWB'], // wing backs
+  ['LB', 'CB', 'RB'], // defenders
+  ['GK'], // goalkeeper
 ];
 
 const _kTraits = [
   'Strong', 'Fast', 'Good ball control', 'Good passing', 'Good finishing',
   'Good vision', 'Stamina', 'Aerial', 'Leadership', 'Tackling', 'Composure',
 ];
-
-const _kFeet = ['left', 'right', 'both'];
 
 /// Detail / edit view for one player. Fields are grouped (identity, positions,
 /// physical, strengths, notes). The coach can also speak a description and the
@@ -49,7 +54,8 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
 
   final List<String> _positions = [];
   final List<String> _traits = [];
-  String? _foot;
+  bool _leftFoot = false;
+  bool _rightFoot = false;
 
   bool _loading = true;
   bool _saving = false;
@@ -115,11 +121,29 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
         ..clear()
         ..addAll(p.traits);
     }
-    if (p.preferredFoot != null) _foot = p.preferredFoot;
+    if (p.preferredFoot != null) {
+      _leftFoot = p.preferredFoot == 'left' || p.preferredFoot == 'both';
+      _rightFoot = p.preferredFoot == 'right' || p.preferredFoot == 'both';
+    }
     if (p.description != null && p.description!.isNotEmpty) {
       _descCtrl.text = p.description!;
     }
   }
+
+  /// Map the two foot toggles back to the stored value (both → "both").
+  String? _footValue() {
+    if (_leftFoot && _rightFoot) return 'both';
+    if (_leftFoot) return 'left';
+    if (_rightFoot) return 'right';
+    return null;
+  }
+
+  static String _footLabel(String? code) => switch (code) {
+        'left' => 'Left',
+        'right' => 'Right',
+        'both' => 'Left & Right',
+        _ => '',
+      };
 
   // ── Voice describe ───────────────────────────────────────────────────────
 
@@ -236,7 +260,7 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
     add('Jersey number', _numberCtrl.text.trim(),
         p.number?.toString() ?? '');
     add('Positions', _positions.join(', '), p.positions.join(', '));
-    add('Preferred foot', _foot ?? '', p.preferredFoot ?? '');
+    add('Preferred foot', _footLabel(_footValue()), _footLabel(p.preferredFoot));
     add('Height', _heightCtrl.text.trim(),
         p.heightCm != null ? '${p.heightCm} cm' : '');
     add('Traits', _traits.join(', '), p.traits.join(', '));
@@ -262,7 +286,7 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
         number: int.tryParse(_numberCtrl.text.trim()),
         positions: _positions,
         preferredPosition: _positions.isNotEmpty ? _positions.first : null,
-        preferredFoot: _foot,
+        preferredFoot: _footValue(),
         heightCm: int.tryParse(_heightCtrl.text.trim()),
         traits: _traits,
         description: _descCtrl.text.trim(),
@@ -367,19 +391,27 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
                     ]),
                     const SizedBox(height: 12),
                     _group('POSITIONS THEY CAN PLAY', [
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: _kPositions
-                            .map((c) => FilterChip(
-                                  label: Text(c),
-                                  selected: _positions.contains(c),
-                                  onSelected: (_) => _togglePosition(c),
-                                  selectedColor: kBrandSubtle,
-                                  checkmarkColor: kTextBrand,
-                                ))
-                            .toList(),
-                      ),
+                      Text('Attackers at the top → goalkeeper at the bottom.',
+                          style: kStyleSecondary),
+                      const SizedBox(height: 10),
+                      for (final line in _kPositionLines)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Wrap(
+                            alignment: WrapAlignment.center,
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: line
+                                .map((c) => FilterChip(
+                                      label: Text(c),
+                                      selected: _positions.contains(c),
+                                      onSelected: (_) => _togglePosition(c),
+                                      selectedColor: kBrandSubtle,
+                                      checkmarkColor: kTextBrand,
+                                    ))
+                                .toList(),
+                          ),
+                        ),
                     ]),
                     const SizedBox(height: 12),
                     _group('PHYSICAL', [
@@ -387,15 +419,22 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
                       const SizedBox(height: 8),
                       Wrap(
                         spacing: 8,
-                        children: _kFeet
-                            .map((f) => ChoiceChip(
-                                  label: Text(f[0].toUpperCase() + f.substring(1)),
-                                  selected: _foot == f,
-                                  onSelected: (_) =>
-                                      setState(() => _foot = _foot == f ? null : f),
-                                  selectedColor: kBrandSubtle,
-                                ))
-                            .toList(),
+                        children: [
+                          FilterChip(
+                            label: const Text('Left'),
+                            selected: _leftFoot,
+                            onSelected: (v) => setState(() => _leftFoot = v),
+                            selectedColor: kBrandSubtle,
+                            checkmarkColor: kTextBrand,
+                          ),
+                          FilterChip(
+                            label: const Text('Right'),
+                            selected: _rightFoot,
+                            onSelected: (v) => setState(() => _rightFoot = v),
+                            selectedColor: kBrandSubtle,
+                            checkmarkColor: kTextBrand,
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 12),
                       TextField(

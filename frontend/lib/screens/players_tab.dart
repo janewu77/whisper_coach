@@ -27,9 +27,18 @@ class PlayersTab extends StatefulWidget {
   State<PlayersTab> createState() => _PlayersTabState();
 }
 
+enum _PlayerSort { lastName, firstName, number }
+
+String _sortLabel(_PlayerSort s) => switch (s) {
+      _PlayerSort.lastName => 'Last name',
+      _PlayerSort.firstName => 'First name',
+      _PlayerSort.number => 'Number',
+    };
+
 class _PlayersTabState extends State<PlayersTab> {
   late Future<Team> _team;
   bool _extracting = false;
+  _PlayerSort _sort = _PlayerSort.lastName;
 
   // Voice "add player" recording state.
   final _recorder = AudioRecorder();
@@ -63,6 +72,49 @@ class _PlayersTabState extends State<PlayersTab> {
     final team = api.getTeam(widget.teamId);
     setState(() => _team = team);
     await team;
+  }
+
+  // ── Sorting ────────────────────────────────────────────────────────────
+
+  static List<String> _nameParts(String n) =>
+      n.trim().isEmpty ? const [] : n.trim().split(RegExp(r'\s+'));
+
+  static String _firstName(String n) {
+    final p = _nameParts(n);
+    return p.isEmpty ? '' : p.first;
+  }
+
+  static String _lastName(String n) {
+    final p = _nameParts(n);
+    return p.isEmpty ? '' : p.last;
+  }
+
+  /// Empty keys always sort last (so unnamed/null players go to the bottom).
+  static int _cmpStr(String a, String b) {
+    final ae = a.trim().isEmpty;
+    final be = b.trim().isEmpty;
+    if (ae && be) return 0;
+    if (ae) return 1;
+    if (be) return -1;
+    return a.toLowerCase().compareTo(b.toLowerCase());
+  }
+
+  List<Player> _sorted(List<Player> players) {
+    final list = [...players];
+    switch (_sort) {
+      case _PlayerSort.firstName:
+        list.sort((a, b) => _cmpStr(_firstName(a.name), _firstName(b.name)));
+      case _PlayerSort.lastName:
+        list.sort((a, b) => _cmpStr(_lastName(a.name), _lastName(b.name)));
+      case _PlayerSort.number:
+        list.sort((a, b) {
+          if (a.number == null && b.number == null) return 0;
+          if (a.number == null) return 1; // null number last
+          if (b.number == null) return -1;
+          return a.number!.compareTo(b.number!);
+        });
+    }
+    return list;
   }
 
   Future<void> _editPlayer(Player p) async {
@@ -305,7 +357,7 @@ class _PlayersTabState extends State<PlayersTab> {
               onAction: _refresh,
             );
           }
-          final players = snapshot.data?.players ?? const [];
+          final players = _sorted(snapshot.data?.players ?? const []);
           if (players.isEmpty) {
             return _Message(
               icon: Icons.person_add_alt_outlined,
@@ -328,10 +380,49 @@ class _PlayersTabState extends State<PlayersTab> {
                 if (index == 0) {
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 4),
-                    child: Text(
-                      '${players.length} '
-                      '${players.length == 1 ? 'PLAYER' : 'PLAYERS'}',
-                      style: kStyleLabel,
+                    child: Row(
+                      children: [
+                        Text(
+                          '${players.length} '
+                          '${players.length == 1 ? 'PLAYER' : 'PLAYERS'}',
+                          style: kStyleLabel,
+                        ),
+                        const Spacer(),
+                        PopupMenuButton<_PlayerSort>(
+                          tooltip: 'Sort players',
+                          initialValue: _sort,
+                          onSelected: (s) => setState(() => _sort = s),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(kRadiusInput),
+                          ),
+                          itemBuilder: (_) => [
+                            for (final s in _PlayerSort.values)
+                              PopupMenuItem(
+                                value: s,
+                                child: Row(
+                                  children: [
+                                    Expanded(child: Text(_sortLabel(s))),
+                                    if (s == _sort)
+                                      const Icon(Icons.check,
+                                          size: 16, color: kBrand),
+                                  ],
+                                ),
+                              ),
+                          ],
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.swap_vert,
+                                  size: 16, color: kTextSecondary),
+                              const SizedBox(width: 4),
+                              Text('Sort: ${_sortLabel(_sort)}',
+                                  style: kStyleSecondary),
+                              const Icon(Icons.expand_more,
+                                  size: 16, color: kTextSecondary),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   );
                 }
