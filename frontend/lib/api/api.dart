@@ -171,6 +171,23 @@ class Api {
     return Player.fromJson(res.data!);
   }
 
+  /// Extract a structured profile from a player image (no save).
+  Future<Player> describePlayerPhoto(
+    int teamId,
+    int playerId,
+    XFile image,
+  ) async {
+    final bytes = await image.readAsBytes();
+    final formData = FormData.fromMap({
+      'image': MultipartFile.fromBytes(bytes, filename: image.name),
+    });
+    final res = await _dio.post<Map<String, dynamic>>(
+      '/api/teams/$teamId/players/$playerId/describe/photo',
+      data: formData,
+    );
+    return Player.fromJson(res.data!);
+  }
+
   /// Extract a structured profile from a spoken description (no save).
   Future<Player> describePlayerVoice(
     int teamId,

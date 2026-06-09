@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlmodel import Session, select
 
-from app.agents.player_profile import extract_profile
+from app.agents.player_profile import extract_profile, extract_profile_from_image
 from app.agents.roster import extract_roster
 from app.agents.transcribe import transcribe_audio
 from app.auth import current_auth0_id
@@ -330,6 +330,31 @@ async def describe_player_voice(
         raise HTTPException(status_code=502, detail=f"transcription failed: {exc}")
     try:
         prof = await extract_profile(text, _profile_dict(player))
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"profiling failed: {exc}")
+    return _merge_detail(player, prof)
+
+
+@router.post(
+    "/teams/{team_id}/players/{player_id}/describe/photo",
+    response_model=PlayerDetail,
+)
+async def describe_player_photo(
+    team_id: int,
+    player_id: int,
+    image: UploadFile = File(...),
+    session: Session = Depends(get_session),
+    auth0_id: str = Depends(current_auth0_id),
+):
+    """Like /describe, but read the profile from an image (vision)."""
+    player = _owned_player_or_404(session, team_id, player_id, auth0_id)
+    if not (image.content_type or "").startswith("image/"):
+        raise HTTPException(status_code=422, detail="image must be an image file")
+    data = await image.read()
+    try:
+        prof = await extract_profile_from_image(
+            data, image.content_type, _profile_dict(player)
+        )
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"profiling failed: {exc}")
     return _merge_detail(player, prof)

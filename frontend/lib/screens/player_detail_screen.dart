@@ -1,6 +1,8 @@
+import 'dart:typed_data';
+
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart' show XFile;
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
@@ -9,6 +11,7 @@ import '../api/api.dart';
 import '../api/client.dart';
 import '../models/player.dart';
 import '../theme.dart';
+import 'crop_screen.dart';
 
 // Positions laid out like a formation board: first line = attackers,
 // last line = goalkeeper.
@@ -63,10 +66,12 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
   bool _saving = false;
   String? _loadError;
 
-  // Voice profiling.
+  // Voice / photo profiling.
   final _recorder = AudioRecorder();
   bool _recording = false;
   bool _voiceBusy = false;
+  bool _photoBusy = false;
+  bool get _busy => _voiceBusy || _photoBusy;
   String _recFilename = 'profile.m4a';
   String _recMime = 'audio/mp4';
   String? _recPath;
@@ -156,8 +161,40 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
 
   // ── Voice describe ───────────────────────────────────────────────────────
 
+  Future<void> _fillFromPhoto() async {
+    final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
+    if (picked == null) return;
+    final bytes = await picked.readAsBytes();
+    if (!mounted) return;
+    final cropped = await Navigator.of(context).push<Uint8List>(
+      MaterialPageRoute(builder: (_) => CropScreen(bytes: bytes)),
+    );
+    if (cropped == null) return;
+    final file = XFile.fromData(
+      cropped,
+      name: 'player_crop.jpg',
+      mimeType: 'image/jpeg',
+    );
+    setState(() => _photoBusy = true);
+    try {
+      final p = await api.describePlayerPhoto(
+        widget.teamId,
+        widget.playerId,
+        file,
+      );
+      if (!mounted) return;
+      setState(() => _photoBusy = false);
+      await _reviewProposal(p);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _photoBusy = false);
+        _snack(dioErrorMessage(e));
+      }
+    }
+  }
+
   Future<void> _toggleVoice() async {
-    if (_voiceBusy) return;
+    if (_voiceBusy || _photoBusy) return;
     try {
       if (_recording) {
         await _stopAndDescribe();
@@ -375,7 +412,20 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
       appBar: AppBar(
         title: Text(_nameCtrl.text.isEmpty ? 'Player' : _nameCtrl.text),
         actions: [
-          if (!_loading && _loadError == null)
+          if (!_loading && _loadError == null) ...[
+            // Fill the profile from a photo (vision) — shows a diff to confirm.
+            IconButton(
+              tooltip: 'Fill from photo',
+              onPressed: (_busy) ? null : _fillFromPhoto,
+              icon: const Icon(Icons.photo_camera_back_outlined),
+            ),
+            // Fill the profile by voice — tap to record, tap to stop.
+            IconButton(
+              tooltip: _recording ? 'Stop & review' : 'Fill by voice',
+              onPressed: _photoBusy ? null : _toggleVoice,
+              color: _recording ? kRedFg : null,
+              icon: Icon(_recording ? Icons.stop_rounded : Icons.mic_none_rounded),
+            ),
             TextButton(
               onPressed: _saving ? null : _save,
               child: _saving
@@ -388,10 +438,14 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
                   : const Text('Save',
                       style: TextStyle(fontWeight: FontWeight.w600)),
             ),
+          ],
         ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(0.5),
-          child: Container(height: 0.5, color: kBorderHairline),
+          preferredSize: Size.fromHeight(_busy ? 2.5 : 0.5),
+          child: _busy
+              ? const LinearProgressIndicator(
+                  minHeight: 2.5, color: kBrand, backgroundColor: kBrandSubtle)
+              : Container(height: 0.5, color: kBorderHairline),
         ),
       ),
       body: _loading
@@ -406,7 +460,13 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
               : ListView(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
                   children: [
-                    _voiceCard(),
+                    Text(
+                      _recording
+                          ? 'Listening… tap the stop button (top right).'
+                          : 'Tap the photo or mic in the top right to fill the '
+                              'profile — review the changes before saving.',
+                      style: kStyleSecondary,
+                    ),
                     const SizedBox(height: 12),
                     _group('IDENTITY', [
                       TextField(
@@ -610,67 +670,6 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
       if (!opts.any((x) => x.toLowerCase() == t.toLowerCase())) opts.add(t);
     }
     return opts;
-  }
-
-  Widget _voiceCard() {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: kBrandSubtle,
-        borderRadius: BorderRadius.circular(kRadiusCard),
-        border: Border.all(color: kBrandBorder.withValues(alpha: 0.5), width: 0.5),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Describe this player',
-                    style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: kTextBrand)),
-                const SizedBox(height: 2),
-                Text(
-                  _recording
-                      ? 'Listening… tap to stop'
-                      : 'Speak their positions, foot, height and strengths — AI fills the form.',
-                  style: kStyleSecondary,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          GestureDetector(
-            onTap: _voiceBusy ? null : _toggleVoice,
-            child: Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: _recording ? kRedFg : kBrand,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: (_recording ? kRedFg : kBrand).withValues(alpha: 0.25),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: _voiceBusy
-                  ? const Padding(
-                      padding: EdgeInsets.all(18),
-                      child: CircularProgressIndicator(
-                          color: Colors.white, strokeWidth: 2),
-                    )
-                  : Icon(_recording ? Icons.stop_rounded : Icons.mic_rounded,
-                      color: Colors.white, size: 26),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   Widget _group(String title, List<Widget> children) {
