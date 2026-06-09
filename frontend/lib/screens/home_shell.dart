@@ -122,23 +122,28 @@ class _HomeShellState extends State<HomeShell> {
             ),
           ),
           body: IndexedStack(index: _index, children: tabs),
-          bottomNavigationBar: BottomNavigationBar(
-            currentIndex: _index,
-            onTap: (i) => setState(() => _index = i),
-            items: const [
-              BottomNavigationBarItem(
+          bottomNavigationBar: NavigationBar(
+            selectedIndex: _index,
+            onDestinationSelected: (i) => setState(() => _index = i),
+            backgroundColor: kSurfaceCard,
+            surfaceTintColor: Colors.transparent,
+            // Primary-colour pill behind the current tab (white icon on it).
+            indicatorColor: kBrand,
+            elevation: 0,
+            destinations: const [
+              NavigationDestination(
                 icon: Icon(Icons.groups_2_outlined),
-                activeIcon: Icon(Icons.groups_2),
+                selectedIcon: Icon(Icons.groups_2, color: kTextOnBrand),
                 label: 'Players',
               ),
-              BottomNavigationBarItem(
+              NavigationDestination(
                 icon: Icon(Icons.sports_soccer_outlined),
-                activeIcon: Icon(Icons.sports_soccer),
+                selectedIcon: Icon(Icons.sports_soccer, color: kTextOnBrand),
                 label: 'Matches',
               ),
-              BottomNavigationBarItem(
+              NavigationDestination(
                 icon: Icon(Icons.person_outline),
-                activeIcon: Icon(Icons.person),
+                selectedIcon: Icon(Icons.person, color: kTextOnBrand),
                 label: 'Profile',
               ),
             ],
