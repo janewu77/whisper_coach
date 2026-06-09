@@ -118,10 +118,16 @@ class TeamCreate(BaseModel):
 
 
 class TeamSummary(BaseModel):
-    """A team in the user's team list (without the roster)."""
+    """A team in the user's team list (without the roster). `join_code` is the
+    code other users enter to join this (shared) team."""
 
     id: int
     name: str
+    join_code: str
+
+
+class JoinRequest(BaseModel):
+    code: str
 
 
 # ---- Roster import review ----

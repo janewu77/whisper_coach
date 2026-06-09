@@ -2,6 +2,7 @@ import io
 
 import pytest
 
+from app.models import Team, User, UserTeam
 from app.routers import roster as roster_router
 from app.schemas import PlayerOut, PlayerProfileResult, RosterResult
 
@@ -58,6 +59,35 @@ def test_create_and_list_teams(client):
 
 def test_create_team_requires_name(client):
     assert client.post("/api/teams", json={"name": "   "}).status_code == 422
+
+
+def test_create_team_returns_join_code(client):
+    body = client.post("/api/teams", json={"name": "Sunday FC"}).json()
+    assert isinstance(body["join_code"], str) and len(body["join_code"]) >= 4
+
+
+def test_join_team_by_code_shares_it(client, session):
+    # A team that belongs to another user.
+    session.add(User(auth0_id="owner-x"))
+    t = Team(name="Shared FC")
+    session.add(t)
+    session.commit()
+    session.refresh(t)
+    session.add(UserTeam(user_id="owner-x", team_id=t.id))
+    session.commit()
+
+    # TEST_USER can't see it until they join.
+    assert client.get(f"/api/teams/{t.id}").status_code == 404
+    r = client.post("/api/teams/join", json={"code": t.join_code})
+    assert r.status_code == 200 and r.json()["id"] == t.id
+
+    # Now it's in their team list and readable.
+    assert any(x["id"] == t.id for x in client.get("/api/teams").json())
+    assert client.get(f"/api/teams/{t.id}").status_code == 200
+
+
+def test_join_team_invalid_code_404(client):
+    assert client.post("/api/teams/join", json={"code": "ZZZZZZ"}).status_code == 404
 
 
 def test_get_team_includes_player_ids(client, team):

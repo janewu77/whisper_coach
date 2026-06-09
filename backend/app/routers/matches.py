@@ -6,6 +6,7 @@ from app.agents.lineup import adjust_lineup, generate_lineup
 from app.agents.transcribe import transcribe_audio
 from app.auth import current_user_id
 from app.db import get_session
+from app.membership import is_member, team_ids_for
 from app.models import Lineup, Match, Note, Player, Team
 from app.schemas import (
     AdjustResult,
@@ -26,9 +27,9 @@ router = APIRouter(prefix="/api/matches", tags=["matches"])
 
 
 def _owned_match_or_404(session: Session, match_id: int, user_id: str) -> Match:
-    """Fetch a match the user owns, else 404 (we don't reveal others' matches)."""
+    """Fetch a match on a team the user belongs to, else 404."""
     match = session.get(Match, match_id)
-    if not match or match.owner_id != user_id:
+    if not match or not is_member(session, user_id, match.team_id):
         raise HTTPException(status_code=404, detail="match not found")
     return match
 
@@ -55,11 +56,10 @@ def create_match(
     session: Session = Depends(get_session),
     user_id: str = Depends(current_user_id),
 ):
-    # The match may only be created against a team the caller owns.
-    team = session.get(Team, body.team_id)
-    if not team or team.owner_id != user_id:
+    # The match may only be created against a team the caller belongs to.
+    if not is_member(session, user_id, body.team_id):
         raise HTTPException(status_code=404, detail="team not found")
-    match = Match(**body.model_dump(), owner_id=user_id)
+    match = Match(**body.model_dump())
     session.add(match)
     session.commit()
     session.refresh(match)
@@ -72,7 +72,10 @@ def list_matches(
     session: Session = Depends(get_session),
     user_id: str = Depends(current_user_id),
 ):
-    query = select(Match).where(Match.owner_id == user_id)
+    team_ids = team_ids_for(session, user_id)
+    if not team_ids:
+        return []
+    query = select(Match).where(Match.team_id.in_(team_ids))
     if team_id is not None:
         query = query.where(Match.team_id == team_id)
     matches = session.exec(query.order_by(Match.created_at.desc())).all()

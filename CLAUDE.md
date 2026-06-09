@@ -28,7 +28,8 @@ The plan deliberately keeps the stack minimal for a 1–2 day hackathon build.
 **Frontend** (`frontend/`): Flutter. After login the user picks/creates a
 **team** (`TeamGate` → `CreateTeamScreen` on first run; otherwise `HomeShell`).
 `HomeShell` is a tabbed scaffold with a **team selector** in the app bar (switch
-team / "Create new team…") and a bottom `BottomNavigationBar`:
+team / "Create new team…" / "Join team…" by code) and a bottom
+`BottomNavigationBar`:
 - **Players tab** (`PlayersTab`) — the current team's roster (each row has
   **edit** → `PlayerDetailScreen` and delete actions). The detail screen edits a
   player's full profile (number, positions, preferred foot, height, traits, bio,
@@ -45,7 +46,8 @@ team / "Create new team…") and a bottom `BottomNavigationBar`:
 - **Matches tab** (`MatchesTab`) — the current team's matches; "New match"
   (`HomeScreen`) → Pitch Screen (2D pitch, clickable icons) → Live/Notes Screen
   (text + voice input, AI response cards).
-- **Profile tab** (`ProfileTab`) — user info + **speaker language** preference
+- **Profile tab** (`ProfileTab`) — user info, the current team's **join code**
+  (copyable, to share the team) + **speaker language** preference
   (English/Chinese/German/… or auto). The app UI is English-only; the language
   is an ISO-639-1 code persisted by `services/settings_service.dart`
   (shared_preferences) and sent as a `language` form field on every voice upload
@@ -63,22 +65,30 @@ The planning doc cuts these on purpose to protect the timeline — do not add th
 - WebSocket live system
 - Full stats system, tactical history analysis
 
-## Authentication & ownership
+## Authentication & membership (shared teams)
 
 The project moved past the hackathon MVP and now has **mandatory Auth0 login**
-with **per-user data ownership**.
+with **shared teams** (a team can belong to several users).
 
 - **Auth is required** on every `/api` route. `app/auth.py` verifies Auth0
-  access tokens (JWT/JWKS); `current_user_id` injects the token `sub` into each
-  endpoint. If `AUTH0_DOMAIN` + `AUTH0_AUDIENCE` are unset the API returns 503
-  (never open). See `backend/.env.example`.
-- **Ownership:** `Team` and `Match` carry an `owner_id` (the Auth0 `sub`).
-  Endpoints scope every read/write to the caller and 404 on cross-user access;
-  lineups/notes are guarded via their parent match. Migration:
-  `alembic/versions/c2d3e4f5a6b7_add_owner_id.py` — **deletes all pre-auth data**
-  (it has no owner) then adds the NOT NULL `owner_id` columns.
+  access tokens (JWT/JWKS); `current_user_id` injects the token `sub` **and
+  registers the user** in the `users` table on first sight (auth0 `sub` is the
+  PK). If `AUTH0_DOMAIN` + `AUTH0_AUDIENCE` are unset the API returns 503 (never
+  open). See `backend/.env.example`.
+- **Membership, not ownership:** `users` + a `user_team` join table govern
+  access. A `Team` has a unique `join_code`; access to a team and its
+  matches/roster is granted to **every member** (no roles). Helpers in
+  `app/membership.py` (`is_member`, `team_ids_for`, `add_member`); endpoints 404
+  on non-members. Sharing: `POST /api/teams/join {code}` adds the caller as a
+  member; `POST /api/teams` creates a team and joins the creator. `Team`/`Match`
+  no longer have `owner_id`. Migration
+  `alembic/versions/a7b8c9d0e1f2_shared_teams.py` creates `user`/`userteam`,
+  backfills each team's old `owner_id` into a user + membership + join code, then
+  drops the `owner_id` columns (existing users keep access).
 - **Tests** override `get_current_user` (see `conftest.py` `TEST_USER` +
-  `unauth_client`); enforcement and isolation are covered in `tests/test_auth.py`.
+  `unauth_client`); the `team` fixture seeds a `User` + `UserTeam`. Enforcement,
+  isolation, and join-by-code are covered in `tests/test_auth.py` /
+  `tests/test_roster.py`.
 - **Frontend** uses `auth0_flutter` via `lib/auth/` (conditional import:
   `Auth0Web` on web, `Auth0` on native). Config comes from `--dart-define`
   (`AUTH0_DOMAIN` / `AUTH0_CLIENT_ID` / `AUTH0_AUDIENCE`); a Dio interceptor

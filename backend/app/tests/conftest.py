@@ -6,7 +6,7 @@ from sqlmodel.pool import StaticPool
 from app.auth import get_current_user
 from app.db import get_session
 from app.main import app
-from app.models import Player, Team
+from app.models import Player, Team, User, UserTeam
 
 # The identity all `client` requests run as. Auth verification is bypassed in
 # tests by overriding get_current_user; enforcement itself is covered in
@@ -46,11 +46,14 @@ def unauth_client_fixture(session):
 
 @pytest.fixture(name="team")
 def team_fixture(session):
-    """A seeded team with two players, owned by TEST_USER."""
-    team = Team(name="Test FC", owner_id=TEST_USER["sub"])
+    """A seeded team with two players, with TEST_USER as a member."""
+    if session.get(User, TEST_USER["sub"]) is None:
+        session.add(User(auth0_id=TEST_USER["sub"], email=TEST_USER["email"]))
+    team = Team(name="Test FC")
     session.add(team)
     session.commit()
     session.refresh(team)
+    session.add(UserTeam(user_id=TEST_USER["sub"], team_id=team.id))
     session.add(Player(team_id=team.id, name="John", number=9, preferred_position="ST"))
     session.add(Player(team_id=team.id, name="David", number=8, preferred_position="CM"))
     session.commit()

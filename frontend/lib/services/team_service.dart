@@ -64,6 +64,17 @@ class TeamService extends ChangeNotifier {
     return team;
   }
 
+  /// Join a shared team by code, add it to the list, and make it current.
+  Future<Team> joinTeam(String code) async {
+    final team = await api.joinTeam(code);
+    if (!_teams.any((t) => t.id == team.id)) {
+      _teams = [..._teams, team];
+    }
+    _current = team;
+    notifyListeners();
+    return team;
+  }
+
   /// Reset on logout so the next user starts clean.
   void reset() {
     _teams = const [];

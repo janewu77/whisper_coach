@@ -51,6 +51,15 @@ class Api {
     return Team.fromJson(res.data!);
   }
 
+  /// Join an existing shared team by its join code.
+  Future<Team> joinTeam(String code) async {
+    final res = await _dio.post<Map<String, dynamic>>(
+      '/api/teams/join',
+      data: {'code': code},
+    );
+    return Team.fromJson(res.data!);
+  }
+
   // ── Roster ──────────────────────────────────────────────────────────────
 
   /// Upload a team photo and extract player names via AI. When [teamId] is

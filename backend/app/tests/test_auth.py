@@ -7,9 +7,22 @@ live tenant. The `client` fixture runs as TEST_USER (auth overridden).
 
 import app.auth as auth
 from app.config import settings
-from app.models import Match, Team
+from app.models import Match, Team, User, UserTeam
 
 from .conftest import TEST_USER
+
+
+def _seed_other_team(session) -> Team:
+    """A team belonging to someone else (TEST_USER is not a member)."""
+    if session.get(User, "someone-else") is None:
+        session.add(User(auth0_id="someone-else"))
+    team = Team(name="Other FC")
+    session.add(team)
+    session.commit()
+    session.refresh(team)
+    session.add(UserTeam(user_id="someone-else", team_id=team.id))
+    session.commit()
+    return team
 
 
 def _enable_auth(monkeypatch):
@@ -78,14 +91,10 @@ def test_me_requires_auth(unauth_client, monkeypatch):
 # ── Ownership isolation ──────────────────────────────────────────────────────
 
 def test_cannot_list_other_users_matches(client, session):
-    """A match owned by someone else never shows up in /api/matches."""
-    other = Team(name="Other FC", owner_id="someone-else")
-    session.add(other)
-    session.commit()
-    session.refresh(other)
+    """A match on a team you don't belong to never shows up in /api/matches."""
+    other = _seed_other_team(session)
     session.add(
-        Match(owner_id="someone-else", team_id=other.id, opponent="X",
-              location="Away", date="2026-06-10")
+        Match(team_id=other.id, opponent="X", location="Away", date="2026-06-10")
     )
     session.commit()
 
@@ -93,10 +102,7 @@ def test_cannot_list_other_users_matches(client, session):
 
 
 def test_cannot_create_match_against_foreign_team(client, session):
-    other = Team(name="Other FC", owner_id="someone-else")
-    session.add(other)
-    session.commit()
-    session.refresh(other)
+    other = _seed_other_team(session)
 
     r = client.post(
         "/api/matches",
@@ -107,12 +113,9 @@ def test_cannot_create_match_against_foreign_team(client, session):
 
 
 def test_cannot_read_foreign_match(client, session):
-    other = Team(name="Other FC", owner_id="someone-else")
-    session.add(other)
-    session.commit()
-    session.refresh(other)
-    foreign = Match(owner_id="someone-else", team_id=other.id, opponent="X",
-                    location="Away", date="2026-06-10")
+    other = _seed_other_team(session)
+    foreign = Match(team_id=other.id, opponent="X", location="Away",
+                    date="2026-06-10")
     session.add(foreign)
     session.commit()
     session.refresh(foreign)

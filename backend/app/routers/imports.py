@@ -14,6 +14,7 @@ from app.agents.roster import extract_players_from_text, extract_roster
 from app.agents.transcribe import transcribe_audio
 from app.auth import current_user_id
 from app.db import get_session
+from app.membership import is_member
 from app.models import Player, Team
 from app.schemas import (
     CommandRequest,
@@ -38,7 +39,7 @@ router = APIRouter(prefix="/api", tags=["imports"])
 
 def _owned_team_or_404(db: Session, team_id: int, user_id: str) -> Team:
     team = db.get(Team, team_id)
-    if not team or team.owner_id != user_id:
+    if not team or not is_member(db, user_id, team_id):
         raise HTTPException(status_code=404, detail="team not found")
     return team
 

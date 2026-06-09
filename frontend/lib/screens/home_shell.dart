@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../api/client.dart';
 import '../models/team.dart';
 import '../services/team_service.dart';
 import '../theme.dart';
@@ -21,6 +22,7 @@ class _HomeShellState extends State<HomeShell> {
   int _index = 0;
 
   static const _menuCreate = -1;
+  static const _menuJoin = -2;
 
   Future<void> _onMenuSelected(int value) async {
     if (value == _menuCreate) {
@@ -29,9 +31,53 @@ class _HomeShellState extends State<HomeShell> {
       );
       return;
     }
+    if (value == _menuJoin) {
+      await _joinTeam();
+      return;
+    }
     final team =
         TeamService.instance.teams.firstWhere((t) => t.id == value);
     TeamService.instance.select(team);
+  }
+
+  Future<void> _joinTeam() async {
+    final ctrl = TextEditingController();
+    final code = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Join a team'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          textCapitalization: TextCapitalization.characters,
+          decoration: const InputDecoration(
+            labelText: 'Join code',
+            hintText: 'e.g. J6QTUP',
+          ),
+          onSubmitted: (v) => Navigator.pop(ctx, v),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, ctrl.text),
+            child: const Text('Join'),
+          ),
+        ],
+      ),
+    );
+    final trimmed = code?.trim() ?? '';
+    if (trimmed.isEmpty) return;
+    try {
+      await TeamService.instance.joinTeam(trimmed);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(dioErrorMessage(e))));
+      }
+    }
   }
 
   @override
@@ -154,6 +200,17 @@ class _TeamSelector extends StatelessWidget {
               const Icon(Icons.add, size: 18, color: kTextBrand),
               const SizedBox(width: 8),
               Text('Create new team…',
+                  style: kStyleBody.copyWith(color: kTextBrand)),
+            ],
+          ),
+        ),
+        PopupMenuItem<int>(
+          value: _HomeShellState._menuJoin,
+          child: Row(
+            children: [
+              const Icon(Icons.group_add_outlined, size: 18, color: kTextBrand),
+              const SizedBox(width: 8),
+              Text('Join team…',
                   style: kStyleBody.copyWith(color: kTextBrand)),
             ],
           ),

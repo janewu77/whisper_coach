@@ -1,3 +1,5 @@
+import secrets
+import string
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -8,11 +10,37 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+# Unambiguous alphabet for team join codes (no O/0/I/1).
+_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+
+
+def _join_code() -> str:
+    return "".join(secrets.choice(_CODE_ALPHABET) for _ in range(6))
+
+
+class User(SQLModel, table=True):
+    """A registered user, keyed by the Auth0 ``sub``. Created on first request."""
+
+    auth0_id: str = Field(primary_key=True)
+    email: Optional[str] = None
+    name: Optional[str] = None
+    created_at: datetime = Field(default_factory=_now)
+
+
 class Team(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    # Auth0 user id ("sub") of the owner. Every team is scoped to one user.
-    owner_id: str = Field(index=True)
     name: str
+    # Short code another user enters to join (share a team across users).
+    join_code: str = Field(default_factory=_join_code, index=True, unique=True)
+    created_at: datetime = Field(default_factory=_now)
+
+
+class UserTeam(SQLModel, table=True):
+    """Membership: which users belong to which teams (many-to-many). Access to a
+    team and its matches/roster is granted to every member (no roles)."""
+
+    user_id: str = Field(foreign_key="user.auth0_id", primary_key=True)
+    team_id: int = Field(foreign_key="team.id", primary_key=True)
     created_at: datetime = Field(default_factory=_now)
 
 
@@ -36,9 +64,7 @@ class Player(SQLModel, table=True):
 
 class Match(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    # Denormalized owner ("sub") so matches can be listed/guarded without a join;
-    # set from the authenticated user (and validated against the team) at creation.
-    owner_id: str = Field(index=True)
+    # Access is via the team's membership (UserTeam) — no per-match owner.
     team_id: int = Field(foreign_key="team.id", index=True)
     opponent: str
     location: str

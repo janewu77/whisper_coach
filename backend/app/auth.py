@@ -15,8 +15,11 @@ from __future__ import annotations
 import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlmodel import Session
 
 from app.config import settings
+from app.db import get_session
+from app.models import User
 
 # auto_error=False: we craft the 401 ourselves (with a WWW-Authenticate header).
 _bearer = HTTPBearer(auto_error=False)
@@ -74,6 +77,25 @@ def get_current_user(
     return claims
 
 
-def current_user_id(user: dict = Depends(get_current_user)) -> str:
-    """The authenticated user's stable id (Auth0 ``sub``) — the owner key."""
-    return user["sub"]
+def current_user_id(
+    user: dict = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> str:
+    """The authenticated user's stable id (Auth0 ``sub``).
+
+    Also registers the user in the ``users`` table on first sight (and refreshes
+    their email/name from the token) so memberships can reference them.
+    """
+    sub = user["sub"]
+    record = session.get(User, sub)
+    if record is None:
+        session.add(
+            User(auth0_id=sub, email=user.get("email"), name=user.get("name"))
+        )
+        session.commit()
+    elif user.get("email") and record.email != user.get("email"):
+        record.email = user.get("email")
+        record.name = user.get("name") or record.name
+        session.add(record)
+        session.commit()
+    return sub

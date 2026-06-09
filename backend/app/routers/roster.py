@@ -6,10 +6,12 @@ from app.agents.roster import extract_roster
 from app.agents.transcribe import transcribe_audio
 from app.auth import current_user_id
 from app.db import get_session
+from app.membership import add_member, is_member, team_ids_for
 from app.models import Player, Team
 from app.schemas import (
     Absence,
     DescribeRequest,
+    JoinRequest,
     PlayerDetail,
     PlayerProfileResult,
     PlayerUpdate,
@@ -25,11 +27,17 @@ def _absences(p: Player) -> list[Absence]:
     return [Absence.model_validate(a) for a in (p.absences or [])]
 
 
+def _member_team_or_404(session: Session, team_id: int, user_id: str) -> Team:
+    team = session.get(Team, team_id)
+    if not team or not is_member(session, user_id, team_id):
+        raise HTTPException(status_code=404, detail="team not found")
+    return team
+
+
 def _owned_player_or_404(
     session: Session, team_id: int, player_id: int, user_id: str
 ) -> Player:
-    team = session.get(Team, team_id)
-    if not team or team.owner_id != user_id:
+    if not is_member(session, user_id, team_id):
         raise HTTPException(status_code=404, detail="team not found")
     player = session.get(Player, player_id)
     if not player or player.team_id != team_id:
@@ -100,10 +108,17 @@ def list_teams(
     session: Session = Depends(get_session),
     user_id: str = Depends(current_user_id),
 ):
-    teams = session.exec(
-        select(Team).where(Team.owner_id == user_id).order_by(Team.created_at)
-    ).all()
-    return [TeamSummary(id=t.id, name=t.name) for t in teams]
+    team_ids = team_ids_for(session, user_id)
+    teams = (
+        session.exec(
+            select(Team).where(Team.id.in_(team_ids)).order_by(Team.created_at)
+        ).all()
+        if team_ids
+        else []
+    )
+    return [
+        TeamSummary(id=t.id, name=t.name, join_code=t.join_code) for t in teams
+    ]
 
 
 @router.post("/teams", response_model=TeamSummary, status_code=201)
@@ -115,11 +130,29 @@ def create_team(
     name = body.name.strip()
     if not name:
         raise HTTPException(status_code=422, detail="team name is required")
-    team = Team(name=name, owner_id=user_id)
+    team = Team(name=name)
     session.add(team)
     session.commit()
     session.refresh(team)
-    return TeamSummary(id=team.id, name=team.name)
+    add_member(session, user_id, team.id)  # creator joins their new team
+    session.commit()
+    return TeamSummary(id=team.id, name=team.name, join_code=team.join_code)
+
+
+@router.post("/teams/join", response_model=TeamSummary)
+def join_team(
+    body: JoinRequest,
+    session: Session = Depends(get_session),
+    user_id: str = Depends(current_user_id),
+):
+    """Join an existing (shared) team by its join code."""
+    code = body.code.strip().upper()
+    team = session.exec(select(Team).where(Team.join_code == code)).first()
+    if not team:
+        raise HTTPException(status_code=404, detail="invalid join code")
+    add_member(session, user_id, team.id)
+    session.commit()
+    return TeamSummary(id=team.id, name=team.name, join_code=team.join_code)
 
 
 @router.post("/roster/extract", response_model=RosterResponse)
@@ -133,16 +166,16 @@ async def roster_extract(
     if not (image.content_type or "").startswith("image/"):
         raise HTTPException(status_code=422, detail="image must be an image file")
 
-    # Append to an existing team the caller owns, or create a fresh one.
+    # Append to an existing team the caller belongs to, or create a fresh one.
     if team_id is not None:
-        team = session.get(Team, team_id)
-        if not team or team.owner_id != user_id:
-            raise HTTPException(status_code=404, detail="team not found")
+        team = _member_team_or_404(session, team_id, user_id)
     else:
-        team = Team(name=team_name, owner_id=user_id)
+        team = Team(name=team_name)
         session.add(team)
         session.commit()
         session.refresh(team)
+        add_member(session, user_id, team.id)
+        session.commit()
 
     data = await image.read()
     try:
@@ -170,9 +203,7 @@ def get_team(
     session: Session = Depends(get_session),
     user_id: str = Depends(current_user_id),
 ):
-    team = session.get(Team, team_id)
-    if not team or team.owner_id != user_id:
-        raise HTTPException(status_code=404, detail="team not found")
+    team = _member_team_or_404(session, team_id, user_id)
     players = session.exec(select(Player).where(Player.team_id == team_id)).all()
     return TeamResponse(
         id=team.id,

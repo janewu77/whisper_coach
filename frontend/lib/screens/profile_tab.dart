@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../auth/auth_service.dart';
 import '../config.dart';
+import '../models/team.dart';
 import '../services/settings_service.dart';
+import '../services/team_service.dart';
 import '../theme.dart';
 
 /// Profile / settings tab. Currently the speaker language used for voice input.
@@ -13,16 +16,22 @@ class ProfileTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: SettingsService.instance,
+      listenable:
+          Listenable.merge([SettingsService.instance, TeamService.instance]),
       builder: (context, _) {
         final settings = SettingsService.instance;
         final name = AuthService.instance.userName;
+        final team = TeamService.instance.current;
         return Scaffold(
           backgroundColor: kSurfacePage,
           body: ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
             children: [
               _userCard(name),
+              if (team?.joinCode != null) ...[
+                const SizedBox(height: 12),
+                _teamCard(context, team!),
+              ],
               const SizedBox(height: 20),
               const Text('SPEAKER LANGUAGE', style: kStyleLabel),
               const SizedBox(height: 6),
@@ -67,6 +76,47 @@ class ProfileTab extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  /// Current team + its shareable join code (others enter it via "Join team…").
+  Widget _teamCard(BuildContext context, Team team) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: kSurfaceCard,
+        borderRadius: BorderRadius.circular(kRadiusCard),
+        border: Border.all(color: kBorderHairline, width: 0.5),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('CURRENT TEAM', style: kStyleLabel),
+                const SizedBox(height: 4),
+                Text(team.name,
+                    style: kStyleBody.copyWith(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 2),
+                Text('Share code: ${team.joinCode}', style: kStyleSecondary),
+              ],
+            ),
+          ),
+          TextButton.icon(
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: team.joinCode!));
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Join code copied')),
+                );
+              }
+            },
+            icon: const Icon(Icons.copy, size: 16),
+            label: const Text('Copy'),
+          ),
+        ],
+      ),
     );
   }
 
