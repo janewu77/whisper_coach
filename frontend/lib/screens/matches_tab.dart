@@ -117,6 +117,35 @@ class _MatchesTabState extends State<MatchesTab> {
     if (changed == true && mounted) await _refresh();
   }
 
+  Future<void> _deleteMatch(Match match) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete match?'),
+        content: Text('Delete the match vs ${match.opponent}? '
+            'Its lineup and notes are removed too.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: kRedFg),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await _api.deleteMatch(match.id);
+      await _refresh();
+    } catch (e) {
+      _snack(dioErrorMessage(e));
+    }
+  }
+
   Future<void> _openReview(List<MatchDraft> drafts) async {
     if (!mounted) return;
     if (drafts.isEmpty) {
@@ -329,6 +358,7 @@ class _MatchesTabState extends State<MatchesTab> {
                   opening: _openingMatchIds.contains(match.id),
                   onTap: () => _openMatch(match),
                   onEdit: () => _editMatch(match),
+                  onDelete: () => _deleteMatch(match),
                 );
               },
             ),
@@ -345,6 +375,7 @@ class _MatchCard extends StatelessWidget {
   final bool opening;
   final VoidCallback onTap;
   final VoidCallback onEdit;
+  final VoidCallback onDelete;
 
   const _MatchCard({
     required this.match,
@@ -352,6 +383,7 @@ class _MatchCard extends StatelessWidget {
     required this.opening,
     required this.onTap,
     required this.onEdit,
+    required this.onDelete,
   });
 
   @override
@@ -428,6 +460,13 @@ class _MatchCard extends StatelessWidget {
                 visualDensity: VisualDensity.compact,
                 icon: const Icon(Icons.edit_outlined,
                     size: 18, color: kTextSecondary),
+              ),
+              IconButton(
+                tooltip: 'Delete match',
+                onPressed: onDelete,
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(Icons.delete_outline,
+                    size: 18, color: kTextTertiary),
               ),
               if (opening)
                 const SizedBox(

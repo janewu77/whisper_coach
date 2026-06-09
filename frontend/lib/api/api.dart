@@ -415,6 +415,11 @@ class Api {
         .toList();
   }
 
+  /// Delete a match (and its lineups/notes).
+  Future<void> deleteMatch(int matchId) async {
+    await _dio.delete('/api/matches/$matchId');
+  }
+
   /// Fetch a match (includes latest lineup and notes).
   Future<MatchDetails> getMatch(int matchId) async {
     final res = await _dio.get<Map<String, dynamic>>('/api/matches/$matchId');

@@ -248,7 +248,7 @@ class MatchInput(BaseModel):
     team_id: int
     opponent: str
     is_home: bool = True
-    location: str = "TBD"
+    location: str = ""
     pitch: Optional[str] = None
     date: str
     kickoff_time: Optional[str] = None
@@ -261,7 +261,7 @@ class MatchResponse(BaseModel):
     team_id: int
     opponent: str
     is_home: bool = True
-    location: str = "TBD"
+    location: str = ""
     pitch: Optional[str] = None
     date: str
     kickoff_time: Optional[str] = None

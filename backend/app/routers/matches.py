@@ -150,6 +150,24 @@ def get_match(
     }
 
 
+@router.delete("/{match_id}", status_code=204)
+def delete_match(
+    match_id: int,
+    session: Session = Depends(get_session),
+    auth0_id: str = Depends(current_auth0_id),
+):
+    """Delete a match and its lineups/notes (owner-scoped via team membership)."""
+    match = _owned_match_or_404(session, match_id, auth0_id)
+    for note in session.exec(select(Note).where(Note.match_id == match_id)).all():
+        session.delete(note)
+    for lineup in session.exec(
+        select(Lineup).where(Lineup.match_id == match_id)
+    ).all():
+        session.delete(lineup)
+    session.delete(match)
+    session.commit()
+
+
 @router.patch("/{match_id}", response_model=MatchResponse)
 def update_match(
     match_id: int,

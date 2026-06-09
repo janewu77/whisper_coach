@@ -78,7 +78,7 @@ class Match(SQLModel, table=True):
     opponent: str
     # Whether OUR team plays at home. The home team is listed first in the UI.
     is_home: bool = True
-    location: str = "TBD"  # legacy free-text venue (kept for old rows)
+    location: str = ""  # legacy free-text venue (kept for old rows); use `pitch`
     pitch: Optional[str] = None  # ground / pitch name
     date: str
     kickoff_time: Optional[str] = None  # "HH:MM"

@@ -98,6 +98,16 @@ def test_update_match(client, team):
     assert client.get(f"/api/matches/{mid}").json()["opponent"] == "United"
 
 
+def test_delete_match(client, team):
+    mid = client.post(
+        "/api/matches",
+        json={"team_id": team.id, "opponent": "Rivals", "date": "2026-06-10"},
+    ).json()["id"]
+    assert client.delete(f"/api/matches/{mid}").status_code == 204
+    assert client.get(f"/api/matches/{mid}").status_code == 404
+    assert client.get("/api/matches").json() == []
+
+
 def test_extract_matches_from_image(client, team, monkeypatch):
     import io
 
