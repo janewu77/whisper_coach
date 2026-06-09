@@ -20,8 +20,7 @@ const _kPositionLines = [
   ['CAM'], // attacking midfield
   ['LM', 'CM', 'RM'], // midfield
   ['CDM'], // defensive midfield
-  ['LWB', 'RWB'], // wing backs
-  ['LB', 'CB', 'RB'], // defenders
+  ['LWB', 'LB', 'CB', 'RB', 'RWB'], // defenders (wing backs on the outside)
   ['GK'], // goalkeeper
 ];
 
