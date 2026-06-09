@@ -26,9 +26,11 @@ class MatchDetailScreen extends StatefulWidget {
 
 class _MatchDetailScreenState extends State<MatchDetailScreen> {
   final _opponentCtrl = TextEditingController();
-  final _locationCtrl = TextEditingController();
+  final _pitchCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
   String _date = '';
+  String? _kickoff; // "HH:MM"
+  bool _isHome = true;
   String? _strength;
 
   bool _saving = false;
@@ -45,8 +47,10 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
     super.initState();
     final m = widget.match;
     _opponentCtrl.text = m.opponent;
-    _locationCtrl.text = m.location;
+    _pitchCtrl.text = m.pitch ?? '';
+    _isHome = m.isHome;
     _date = m.date;
+    _kickoff = m.kickoffTime;
     _strength = m.strength;
     _notesCtrl.text = m.notes ?? '';
   }
@@ -54,7 +58,7 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
   @override
   void dispose() {
     _opponentCtrl.dispose();
-    _locationCtrl.dispose();
+    _pitchCtrl.dispose();
     _notesCtrl.dispose();
     _recorder.dispose();
     super.dispose();
@@ -63,10 +67,12 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
   void _applyDraft(MatchDraft d) {
     setState(() {
       if (d.opponent.trim().isNotEmpty) _opponentCtrl.text = d.opponent.trim();
-      if (d.location != null && d.location!.isNotEmpty) {
-        _locationCtrl.text = d.location!;
-      }
+      _isHome = d.isHome;
+      if (d.pitch != null && d.pitch!.isNotEmpty) _pitchCtrl.text = d.pitch!;
       if (d.date != null && d.date!.isNotEmpty) _date = d.date!;
+      if (d.kickoffTime != null && d.kickoffTime!.isNotEmpty) {
+        _kickoff = d.kickoffTime;
+      }
       if (d.strength != null) _strength = d.strength;
       if (d.notes != null && d.notes!.isNotEmpty) _notesCtrl.text = d.notes!;
     });
@@ -187,6 +193,20 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
     }
   }
 
+  Future<void> _pickTime() async {
+    final parts = (_kickoff ?? '').split(':');
+    final init = parts.length == 2
+        ? TimeOfDay(
+            hour: int.tryParse(parts[0]) ?? 15,
+            minute: int.tryParse(parts[1]) ?? 0)
+        : const TimeOfDay(hour: 15, minute: 0);
+    final picked = await showTimePicker(context: context, initialTime: init);
+    if (picked != null) {
+      setState(() => _kickoff =
+          '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}');
+    }
+  }
+
   Future<void> _save() async {
     if (_opponentCtrl.text.trim().isEmpty) {
       _snack('Enter the opponent.');
@@ -197,10 +217,10 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
       await api.updateMatch(
         widget.match.id,
         opponent: _opponentCtrl.text.trim(),
-        location: _locationCtrl.text.trim().isEmpty
-            ? 'TBD'
-            : _locationCtrl.text.trim(),
+        isHome: _isHome,
+        pitch: _pitchCtrl.text.trim(),
         date: _date,
+        kickoffTime: _kickoff ?? '',
         notes: _notesCtrl.text.trim(),
         strength: _strength,
       );
@@ -255,23 +275,65 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
             controller: _opponentCtrl,
             decoration: const InputDecoration(labelText: 'Opponent *'),
           ),
-          const SizedBox(height: 10),
-          InkWell(
-            onTap: _pickDate,
-            borderRadius: BorderRadius.circular(kRadiusInput),
-            child: InputDecorator(
-              decoration: const InputDecoration(
-                labelText: 'Date',
-                suffixIcon: Icon(Icons.calendar_today_outlined,
-                    size: 16, color: kTextTertiary),
+          const SizedBox(height: 12),
+          const Text('OUR TEAM PLAYS', style: kStyleLabel),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            children: [
+              ChoiceChip(
+                label: const Text('Home'),
+                selected: _isHome,
+                onSelected: (_) => setState(() => _isHome = true),
+                selectedColor: kBrandSubtle,
               ),
-              child: Text(dateLabel, style: kStyleBody),
-            ),
+              ChoiceChip(
+                label: const Text('Away'),
+                selected: !_isHome,
+                onSelected: (_) => setState(() => _isHome = false),
+                selectedColor: kBrandSubtle,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: InkWell(
+                  onTap: _pickDate,
+                  borderRadius: BorderRadius.circular(kRadiusInput),
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Date',
+                      suffixIcon: Icon(Icons.calendar_today_outlined,
+                          size: 16, color: kTextTertiary),
+                    ),
+                    child: Text(dateLabel, style: kStyleBody),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 110,
+                child: InkWell(
+                  onTap: _pickTime,
+                  borderRadius: BorderRadius.circular(kRadiusInput),
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Time',
+                      suffixIcon: Icon(Icons.schedule_outlined,
+                          size: 16, color: kTextTertiary),
+                    ),
+                    child: Text(_kickoff ?? '--:--', style: kStyleBody),
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 10),
           TextField(
-            controller: _locationCtrl,
-            decoration: const InputDecoration(labelText: 'Location'),
+            controller: _pitchCtrl,
+            decoration: const InputDecoration(labelText: 'Pitch / ground'),
           ),
           const SizedBox(height: 14),
           const Text('OPPONENT STRENGTH', style: kStyleLabel),

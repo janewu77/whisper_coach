@@ -10,10 +10,12 @@ from app.agents import build_agent
 from app.schemas import MatchExtractResult
 
 SYSTEM_PROMPT = (
-    "You extract upcoming football match fixtures. For each match return: "
-    "`opponent` (the OTHER team), `date` as YYYY-MM-DD when determinable, "
-    "`location` (e.g. Home / Away / a ground name) if shown, `strength` as "
-    "'strong' or 'weak' only when clearly implied (else null), and a short "
+    "You extract upcoming football match fixtures for the coach's own team. For "
+    "each match return: `opponent` (the OTHER team); `is_home` = true if OUR "
+    "team plays at home, false if away (from 'H'/'A', 'home'/'away', or 'vs' vs "
+    "'@'); `date` as YYYY-MM-DD when determinable; `kickoff_time` as 'HH:MM' "
+    "(24h) if shown; `pitch` (the ground/venue name) if shown; `strength` as "
+    "'strong' or 'weak' only when clearly implied (else null); and a short "
     "`note` if useful. Resolve relative dates ('Saturday', 'next week') against "
     "the given today's date. Extract EVERY match you find; if only one is "
     "described, return a single match."

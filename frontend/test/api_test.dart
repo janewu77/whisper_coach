@@ -170,7 +170,7 @@ void main() {
       final m = await apiClient.createMatch(
         teamId: 1,
         opponent: 'FC Riverside',
-        location: 'Home',
+        isHome: true,
         date: '2026-06-07',
       );
       expect(m.id, 42);
@@ -231,7 +231,6 @@ void main() {
         () => apiClient.createMatch(
           teamId: 999,
           opponent: 'X',
-          location: 'Y',
           date: '2026-06-07',
         ),
         throwsA(isA<DioException>()),

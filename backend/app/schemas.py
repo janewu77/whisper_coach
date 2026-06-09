@@ -247,8 +247,11 @@ class CommandResult(BaseModel):
 class MatchInput(BaseModel):
     team_id: int
     opponent: str
-    location: str
+    is_home: bool = True
+    location: str = "TBD"
+    pitch: Optional[str] = None
     date: str
+    kickoff_time: Optional[str] = None
     notes: Optional[str] = None
     strength: Optional[str] = None
 
@@ -257,8 +260,11 @@ class MatchResponse(BaseModel):
     id: int
     team_id: int
     opponent: str
-    location: str
+    is_home: bool = True
+    location: str = "TBD"
+    pitch: Optional[str] = None
     date: str
+    kickoff_time: Optional[str] = None
     notes: Optional[str] = None
     strength: Optional[str] = None
 
@@ -267,8 +273,11 @@ class MatchUpdate(BaseModel):
     """Edit an existing match — every field optional (PATCH)."""
 
     opponent: Optional[str] = None
+    is_home: Optional[bool] = None
     location: Optional[str] = None
+    pitch: Optional[str] = None
     date: Optional[str] = None
+    kickoff_time: Optional[str] = None
     notes: Optional[str] = None
     strength: Optional[str] = None
 
@@ -277,8 +286,10 @@ class MatchDraft(BaseModel):
     """One match parsed from a photo/voice, for the create-review step."""
 
     opponent: str = ""
+    is_home: Optional[bool] = None  # our team at home? (null → unknown)
     date: Optional[str] = None  # YYYY-MM-DD when determinable
-    location: Optional[str] = None
+    kickoff_time: Optional[str] = None  # "HH:MM"
+    pitch: Optional[str] = None
     strength: Optional[str] = None  # "strong" | "weak" | None
     notes: Optional[str] = None
 

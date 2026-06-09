@@ -47,6 +47,20 @@ class _MatchReviewScreenState extends State<MatchReviewScreen> {
     }
   }
 
+  Future<void> _pickTime(MatchDraft d) async {
+    final parts = (d.kickoffTime ?? '').split(':');
+    final init = parts.length == 2
+        ? TimeOfDay(
+            hour: int.tryParse(parts[0]) ?? 15,
+            minute: int.tryParse(parts[1]) ?? 0)
+        : const TimeOfDay(hour: 15, minute: 0);
+    final picked = await showTimePicker(context: context, initialTime: init);
+    if (picked != null) {
+      setState(() => d.kickoffTime =
+          '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}');
+    }
+  }
+
   Future<void> _confirm() async {
     final valid = _drafts.where((d) => d.opponent.trim().isNotEmpty).toList();
     if (valid.isEmpty) {
@@ -59,10 +73,10 @@ class _MatchReviewScreenState extends State<MatchReviewScreen> {
         await api.createMatch(
           teamId: widget.teamId,
           opponent: d.opponent.trim(),
-          location: (d.location?.trim().isNotEmpty ?? false)
-              ? d.location!.trim()
-              : 'TBD',
+          isHome: d.isHome,
+          pitch: d.pitch,
           date: d.date ?? DateFormat('yyyy-MM-dd').format(DateTime.now()),
+          kickoffTime: d.kickoffTime,
           notes: d.notes,
           strength: d.strength,
         );
@@ -177,6 +191,24 @@ class _MatchReviewScreenState extends State<MatchReviewScreen> {
           const SizedBox(height: 8),
           Row(
             children: [
+              ChoiceChip(
+                label: const Text('Home'),
+                selected: d.isHome,
+                onSelected: (_) => setState(() => d.isHome = true),
+                selectedColor: kBrandSubtle,
+              ),
+              const SizedBox(width: 6),
+              ChoiceChip(
+                label: const Text('Away'),
+                selected: !d.isHome,
+                onSelected: (_) => setState(() => d.isHome = false),
+                selectedColor: kBrandSubtle,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: () => _pickDate(d),
@@ -185,15 +217,21 @@ class _MatchReviewScreenState extends State<MatchReviewScreen> {
                 ),
               ),
               const SizedBox(width: 8),
-              Expanded(
-                child: TextFormField(
-                  initialValue: d.location,
-                  decoration: const InputDecoration(
-                      labelText: 'Location', isDense: true),
-                  onChanged: (v) => d.location = v,
+              SizedBox(
+                width: 96,
+                child: OutlinedButton(
+                  onPressed: () => _pickTime(d),
+                  child: Text(d.kickoffTime ?? '--:--'),
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 8),
+          TextFormField(
+            initialValue: d.pitch,
+            decoration:
+                const InputDecoration(labelText: 'Pitch / ground', isDense: true),
+            onChanged: (v) => d.pitch = v,
           ),
           const SizedBox(height: 8),
           Wrap(

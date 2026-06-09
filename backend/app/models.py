@@ -76,8 +76,12 @@ class Match(SQLModel, table=True):
     # Access is via the team's membership (UserTeam) — no per-match owner.
     team_id: int = Field(foreign_key="team.id", index=True)
     opponent: str
-    location: str
+    # Whether OUR team plays at home. The home team is listed first in the UI.
+    is_home: bool = True
+    location: str = "TBD"  # legacy free-text venue (kept for old rows)
+    pitch: Optional[str] = None  # ground / pitch name
     date: str
+    kickoff_time: Optional[str] = None  # "HH:MM"
     notes: Optional[str] = None
     strength: Optional[str] = None  # "strong" | "weak" | None
     # Last generated post-match summary (SummaryResult shape); null until made.

@@ -11,6 +11,7 @@ import '../api/api.dart';
 import '../api/client.dart';
 import '../main.dart';
 import '../models/match.dart';
+import '../services/team_service.dart';
 import '../theme.dart';
 import 'crop_screen.dart';
 import 'match_detail_screen.dart';
@@ -324,6 +325,7 @@ class _MatchesTabState extends State<MatchesTab> {
                 final match = matches[index];
                 return _MatchCard(
                   match: match,
+                  ourTeam: TeamService.instance.current?.name ?? 'Our team',
                   opening: _openingMatchIds.contains(match.id),
                   onTap: () => _openMatch(match),
                   onEdit: () => _editMatch(match),
@@ -339,12 +341,14 @@ class _MatchesTabState extends State<MatchesTab> {
 
 class _MatchCard extends StatelessWidget {
   final Match match;
+  final String ourTeam;
   final bool opening;
   final VoidCallback onTap;
   final VoidCallback onEdit;
 
   const _MatchCard({
     required this.match,
+    required this.ourTeam,
     required this.opening,
     required this.onTap,
     required this.onEdit,
@@ -393,18 +397,22 @@ class _MatchCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'vs ${match.opponent}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: kStyleBody.copyWith(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                      ),
+                    _MatchTitle(
+                      home: match.isHome ? ourTeam : match.opponent,
+                      away: match.isHome ? match.opponent : ourTeam,
+                      ourTeamIsHome: match.isHome,
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      '$dateLabel · ${match.location}',
+                      [
+                        dateLabel,
+                        if (match.kickoffTime != null &&
+                            match.kickoffTime!.isNotEmpty)
+                          match.kickoffTime!,
+                      ].join(' ') +
+                          (match.pitch != null && match.pitch!.isNotEmpty
+                              ? ' · ${match.pitch}'
+                              : ''),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: kStyleSecondary,
@@ -440,6 +448,37 @@ class _MatchCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// "Home vs Away" with our team shown in bold (home listed first).
+class _MatchTitle extends StatelessWidget {
+  final String home;
+  final String away;
+  final bool ourTeamIsHome;
+
+  const _MatchTitle({
+    required this.home,
+    required this.away,
+    required this.ourTeamIsHome,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    TextStyle s(bool ours) => kStyleBody.copyWith(
+          fontSize: 15,
+          fontWeight: ours ? FontWeight.w700 : FontWeight.w400,
+          color: ours ? kTextPrimary : kTextSecondary,
+        );
+    return Text.rich(
+      TextSpan(children: [
+        TextSpan(text: home, style: s(ourTeamIsHome)),
+        TextSpan(text: '  vs  ', style: kStyleSecondary.copyWith(fontSize: 13)),
+        TextSpan(text: away, style: s(!ourTeamIsHome)),
+      ]),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
     );
   }
 }

@@ -17,9 +17,11 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   // ── Match form ───────────────────────────────────────────────────────────
   final _opponentCtrl = TextEditingController();
-  final _locationCtrl = TextEditingController();
+  final _pitchCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
   String? _strength; // 'strong' | 'weak' | null
+  bool _isHome = true;
+  TimeOfDay? _time;
 
   DateTime _matchDate = DateTime.now();
 
@@ -29,10 +31,15 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     _opponentCtrl.dispose();
-    _locationCtrl.dispose();
+    _pitchCtrl.dispose();
     _notesCtrl.dispose();
     super.dispose();
   }
+
+  String? get _timeStr => _time == null
+      ? null
+      : '${_time!.hour.toString().padLeft(2, '0')}:'
+          '${_time!.minute.toString().padLeft(2, '0')}';
 
   // ── Actions ──────────────────────────────────────────────────────────────
 
@@ -53,6 +60,14 @@ class _HomeScreenState extends State<HomeScreen> {
     if (picked != null) setState(() => _matchDate = picked);
   }
 
+  Future<void> _pickTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _time ?? const TimeOfDay(hour: 15, minute: 0),
+    );
+    if (picked != null) setState(() => _time = picked);
+  }
+
   Future<void> _generateLineup() async {
     final teamId = TeamService.instance.currentTeamId;
     if (teamId == null) {
@@ -68,10 +83,10 @@ class _HomeScreenState extends State<HomeScreen> {
       final match = await api.createMatch(
         teamId: teamId,
         opponent: _opponentCtrl.text.trim(),
-        location: _locationCtrl.text.trim().isEmpty
-            ? 'TBD'
-            : _locationCtrl.text.trim(),
+        isHome: _isHome,
+        pitch: _pitchCtrl.text.trim().isEmpty ? null : _pitchCtrl.text.trim(),
         date: DateFormat('yyyy-MM-dd').format(_matchDate),
+        kickoffTime: _timeStr,
         notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
         strength: _strength,
       );
@@ -141,28 +156,71 @@ class _HomeScreenState extends State<HomeScreen> {
                   decoration:
                       const InputDecoration(labelText: 'Opponent *'),
                 ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _locationCtrl,
-                  decoration: const InputDecoration(
-                      labelText: 'Location', hintText: 'Home / Away / Ground name'),
+                const SizedBox(height: 12),
+                // Home / Away
+                const Text('OUR TEAM PLAYS', style: kStyleLabel),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    ChoiceChip(
+                      label: const Text('Home'),
+                      selected: _isHome,
+                      onSelected: (_) => setState(() => _isHome = true),
+                      selectedColor: kBrandSubtle,
+                    ),
+                    ChoiceChip(
+                      label: const Text('Away'),
+                      selected: !_isHome,
+                      onSelected: (_) => setState(() => _isHome = false),
+                      selectedColor: kBrandSubtle,
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 10),
-                // Date picker row
-                InkWell(
-                  onTap: _pickDate,
-                  borderRadius: BorderRadius.circular(kRadiusInput),
-                  child: InputDecorator(
-                    decoration: const InputDecoration(
-                      labelText: 'Date',
-                      suffixIcon: Icon(Icons.calendar_today_outlined,
-                          size: 16, color: kTextTertiary),
+                TextField(
+                  controller: _pitchCtrl,
+                  decoration: const InputDecoration(
+                      labelText: 'Pitch / ground', hintText: 'e.g. Home Park'),
+                ),
+                const SizedBox(height: 10),
+                // Date + time row
+                Row(
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        onTap: _pickDate,
+                        borderRadius: BorderRadius.circular(kRadiusInput),
+                        child: InputDecorator(
+                          decoration: const InputDecoration(
+                            labelText: 'Date',
+                            suffixIcon: Icon(Icons.calendar_today_outlined,
+                                size: 16, color: kTextTertiary),
+                          ),
+                          child: Text(
+                            DateFormat('EEE, d MMM yyyy').format(_matchDate),
+                            style: kStyleBody,
+                          ),
+                        ),
+                      ),
                     ),
-                    child: Text(
-                      DateFormat('EEEE, d MMMM yyyy').format(_matchDate),
-                      style: kStyleBody,
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      width: 110,
+                      child: InkWell(
+                        onTap: _pickTime,
+                        borderRadius: BorderRadius.circular(kRadiusInput),
+                        child: InputDecorator(
+                          decoration: const InputDecoration(
+                            labelText: 'Time',
+                            suffixIcon: Icon(Icons.schedule_outlined,
+                                size: 16, color: kTextTertiary),
+                          ),
+                          child: Text(_timeStr ?? '--:--', style: kStyleBody),
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
                 const SizedBox(height: 10),
                 TextField(

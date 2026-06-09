@@ -4,8 +4,11 @@ class Match {
   final int id;
   final int teamId;
   final String opponent;
+  final bool isHome; // our team plays at home?
   final String location;
+  final String? pitch;
   final String date;
+  final String? kickoffTime; // "HH:MM"
   final String? notes;
   final String? strength; // 'strong' | 'weak' | null
 
@@ -13,8 +16,11 @@ class Match {
     required this.id,
     required this.teamId,
     required this.opponent,
-    required this.location,
+    this.isHome = true,
+    this.location = 'TBD',
+    this.pitch,
     required this.date,
+    this.kickoffTime,
     this.notes,
     this.strength,
   });
@@ -25,39 +31,45 @@ class Match {
       id: j['id'] as int,
       teamId: j['team_id'] as int,
       opponent: j['opponent'] as String,
-      location: j['location'] as String,
+      isHome: (j['is_home'] as bool?) ?? true,
+      location: (j['location'] as String?) ?? 'TBD',
+      pitch: j['pitch'] as String?,
       date: j['date'] as String,
+      kickoffTime: j['kickoff_time'] as String?,
       // Match detail responses use "notes" for the event list, while list and
       // create responses use it for the optional setup note.
       notes: notes is String ? notes : null,
       strength: j['strength'] as String?,
     );
   }
-
-  Map<String, dynamic> toJson() => {
-        'team_id': teamId,
-        'opponent': opponent,
-        'location': location,
-        'date': date,
-        if (notes != null) 'notes': notes,
-        if (strength != null) 'strength': strength,
-      };
 }
 
 /// One match parsed from a photo/voice, shown in the create-review list.
 class MatchDraft {
   String opponent;
+  bool isHome;
   String? date;
-  String? location;
+  String? kickoffTime;
+  String? pitch;
   String? strength;
   String? notes;
 
-  MatchDraft({this.opponent = '', this.date, this.location, this.strength, this.notes});
+  MatchDraft({
+    this.opponent = '',
+    this.isHome = true,
+    this.date,
+    this.kickoffTime,
+    this.pitch,
+    this.strength,
+    this.notes,
+  });
 
   factory MatchDraft.fromJson(Map<String, dynamic> j) => MatchDraft(
         opponent: (j['opponent'] as String?) ?? '',
+        isHome: (j['is_home'] as bool?) ?? true,
         date: j['date'] as String?,
-        location: j['location'] as String?,
+        kickoffTime: j['kickoff_time'] as String?,
+        pitch: j['pitch'] as String?,
         strength: j['strength'] as String?,
         notes: j['notes'] as String?,
       );

@@ -327,8 +327,10 @@ class Api {
   Future<Match> createMatch({
     required int teamId,
     required String opponent,
-    required String location,
     required String date,
+    bool isHome = true,
+    String? pitch,
+    String? kickoffTime,
     String? notes,
     String? strength,
   }) async {
@@ -337,8 +339,11 @@ class Api {
       data: {
         'team_id': teamId,
         'opponent': opponent,
-        'location': location,
+        'is_home': isHome,
         'date': date,
+        if (pitch != null && pitch.isNotEmpty) 'pitch': pitch,
+        if (kickoffTime != null && kickoffTime.isNotEmpty)
+          'kickoff_time': kickoffTime,
         if (notes != null && notes.isNotEmpty) 'notes': notes,
         if (strength != null) 'strength': strength,
       },
@@ -350,8 +355,10 @@ class Api {
   Future<Match> updateMatch(
     int matchId, {
     String? opponent,
-    String? location,
+    bool? isHome,
+    String? pitch,
     String? date,
+    String? kickoffTime,
     String? notes,
     String? strength,
   }) async {
@@ -359,8 +366,10 @@ class Api {
       '/api/matches/$matchId',
       data: {
         if (opponent != null) 'opponent': opponent,
-        if (location != null) 'location': location,
+        if (isHome != null) 'is_home': isHome,
+        if (pitch != null) 'pitch': pitch,
         if (date != null) 'date': date,
+        if (kickoffTime != null) 'kickoff_time': kickoffTime,
         if (notes != null) 'notes': notes,
         if (strength != null) 'strength': strength,
       },
