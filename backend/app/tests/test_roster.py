@@ -90,6 +90,30 @@ def test_join_team_invalid_code_404(client):
     assert client.post("/api/teams/join", json={"code": "ZZZZZZ"}).status_code == 404
 
 
+def test_list_team_members(client, session, team):
+    # Add a second member to the shared team.
+    session.add(User(auth0_id="mate-1", name="Mate", email="mate@x.io"))
+    session.add(UserTeam(user_id="mate-1", team_id=team.id))
+    session.commit()
+
+    members = client.get(f"/api/teams/{team.id}/members").json()
+    subs = {m["auth0_id"] for m in members}
+    assert subs == {"test-user", "mate-1"}
+    mate = next(m for m in members if m["auth0_id"] == "mate-1")
+    assert mate["name"] == "Mate" and mate["email"] == "mate@x.io"
+
+
+def test_cannot_list_members_of_foreign_team(client, session):
+    session.add(User(auth0_id="stranger"))
+    t = Team(name="Stranger FC")
+    session.add(t)
+    session.commit()
+    session.refresh(t)
+    session.add(UserTeam(user_id="stranger", team_id=t.id))
+    session.commit()
+    assert client.get(f"/api/teams/{t.id}/members").status_code == 404
+
+
 def test_get_team_includes_player_ids(client, team):
     body = client.get(f"/api/teams/{team.id}").json()
     assert all(isinstance(p["id"], int) for p in body["players"])

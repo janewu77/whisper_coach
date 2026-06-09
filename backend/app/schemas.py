@@ -130,6 +130,14 @@ class JoinRequest(BaseModel):
     code: str
 
 
+class TeamMember(BaseModel):
+    """A user who belongs to a team (shown in the Profile team list)."""
+
+    auth0_id: str
+    name: Optional[str] = None
+    email: Optional[str] = None
+
+
 # ---- Roster import review ----
 class FieldChange(BaseModel):
     """A single changed field on an "updated" import item (for before/after)."""

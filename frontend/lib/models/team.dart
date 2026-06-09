@@ -1,5 +1,27 @@
 import 'player.dart';
 
+/// A user who belongs to a team (Profile → team members list).
+class TeamMember {
+  final String auth0Id;
+  final String? name;
+  final String? email;
+
+  const TeamMember({required this.auth0Id, this.name, this.email});
+
+  factory TeamMember.fromJson(Map<String, dynamic> j) => TeamMember(
+        auth0Id: j['auth0_id'] as String,
+        name: j['name'] as String?,
+        email: j['email'] as String?,
+      );
+
+  /// Best available display label.
+  String get label {
+    if (name != null && name!.isNotEmpty) return name!;
+    if (email != null && email!.isNotEmpty) return email!;
+    return auth0Id;
+  }
+}
+
 class Team {
   final int id;
   final String name;

@@ -7,7 +7,7 @@ from app.agents.transcribe import transcribe_audio
 from app.auth import current_user_id
 from app.db import get_session
 from app.membership import add_member, is_member, team_ids_for
-from app.models import Player, Team
+from app.models import Player, Team, User, UserTeam
 from app.schemas import (
     Absence,
     DescribeRequest,
@@ -17,6 +17,7 @@ from app.schemas import (
     PlayerUpdate,
     RosterResponse,
     TeamCreate,
+    TeamMember,
     TeamPlayer,
     TeamResponse,
     TeamSummary,
@@ -153,6 +154,26 @@ def join_team(
     add_member(session, user_id, team.id)
     session.commit()
     return TeamSummary(id=team.id, name=team.name, join_code=team.join_code)
+
+
+@router.get("/teams/{team_id}/members", response_model=list[TeamMember])
+def list_team_members(
+    team_id: int,
+    session: Session = Depends(get_session),
+    user_id: str = Depends(current_user_id),
+):
+    """List the users who share (are members of) this team."""
+    _member_team_or_404(session, team_id, user_id)
+    members = session.exec(
+        select(User)
+        .join(UserTeam, UserTeam.user_id == User.auth0_id)
+        .where(UserTeam.team_id == team_id)
+        .order_by(UserTeam.created_at)
+    ).all()
+    return [
+        TeamMember(auth0_id=u.auth0_id, name=u.name, email=u.email)
+        for u in members
+    ]
 
 
 @router.post("/roster/extract", response_model=RosterResponse)

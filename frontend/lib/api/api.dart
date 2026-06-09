@@ -60,6 +60,14 @@ class Api {
     return Team.fromJson(res.data!);
   }
 
+  /// The users who share (are members of) a team.
+  Future<List<TeamMember>> getTeamMembers(int teamId) async {
+    final res = await _dio.get<List<dynamic>>('/api/teams/$teamId/members');
+    return res.data!
+        .map((m) => TeamMember.fromJson(Map<String, dynamic>.from(m as Map)))
+        .toList();
+  }
+
   // ── Roster ──────────────────────────────────────────────────────────────
 
   /// Upload a team photo and extract player names via AI. When [teamId] is
