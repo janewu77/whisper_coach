@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../auth/auth_service.dart';
-import '../config.dart';
 import '../models/team.dart';
 import '../services/team_service.dart';
 import '../theme.dart';
@@ -36,11 +34,6 @@ class _HomeShellState extends State<HomeShell> {
     TeamService.instance.select(team);
   }
 
-  void _logout() {
-    TeamService.instance.reset();
-    AuthService.instance.logout();
-  }
-
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -57,19 +50,25 @@ class _HomeShellState extends State<HomeShell> {
         return Scaffold(
           appBar: AppBar(
             titleSpacing: 12,
-            title: _TeamSelector(
-              current: current,
-              teams: TeamService.instance.teams,
-              onSelected: _onMenuSelected,
+            title: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Image.asset(
+                  'assets/images/whisper_coach_logo.png',
+                  width: 28,
+                  height: 28,
+                ),
+                const SizedBox(width: 10),
+                const Text('Whisper Coach'),
+              ],
             ),
             actions: [
-              if (Config.authEnabled)
-                IconButton(
-                  tooltip: 'Log out',
-                  onPressed: _logout,
-                  icon: const Icon(Icons.logout_outlined),
-                ),
-              const SizedBox(width: 4),
+              _TeamSelector(
+                current: current,
+                teams: TeamService.instance.teams,
+                onSelected: _onMenuSelected,
+              ),
+              const SizedBox(width: 8),
             ],
             bottom: PreferredSize(
               preferredSize: const Size.fromHeight(0.5),
@@ -160,24 +159,29 @@ class _TeamSelector extends StatelessWidget {
           ),
         ),
       ],
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Image.asset(
-            'assets/images/whisper_coach_logo.png',
-            width: 28,
-            height: 28,
-          ),
-          const SizedBox(width: 10),
-          Flexible(
-            child: Text(
-              current?.name ?? 'Team',
-              overflow: TextOverflow.ellipsis,
-              style: kStyleScreenTitle,
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: kSurfacePage,
+          borderRadius: BorderRadius.circular(100),
+          border: Border.all(color: kBorderHairline, width: 0.5),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.groups_2_outlined, size: 16, color: kTextSecondary),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                current?.name ?? 'Team',
+                overflow: TextOverflow.ellipsis,
+                style: kStyleBody.copyWith(fontWeight: FontWeight.w600),
+              ),
             ),
-          ),
-          const Icon(Icons.expand_more, size: 20, color: kTextSecondary),
-        ],
+            const Icon(Icons.expand_more, size: 18, color: kTextSecondary),
+          ],
+        ),
       ),
     );
   }
