@@ -15,10 +15,11 @@ class TeamMember {
       );
 
   /// Best available display label — name, then email; never the raw auth0 id.
+  /// Blank when the member has neither yet (don't expose the auth0 id).
   String get label {
     if (name != null && name!.isNotEmpty) return name!;
     if (email != null && email!.isNotEmpty) return email!;
-    return 'Unknown';
+    return '';
   }
 }
 
