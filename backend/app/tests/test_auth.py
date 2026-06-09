@@ -90,6 +90,17 @@ def test_me_requires_auth(unauth_client, monkeypatch):
     assert unauth_client.get("/api/me").status_code == 401
 
 
+def test_update_me_sets_name(client):
+    # name starts empty (access-token claims have no name)
+    assert client.get("/api/me").json()["name"] is None
+    r = client.patch("/api/me", json={"name": "Coach Z"})
+    assert r.status_code == 200 and r.json()["name"] == "Coach Z"
+    assert client.get("/api/me").json()["name"] == "Coach Z"
+    # blank values are ignored (don't clobber)
+    client.patch("/api/me", json={"name": "   "})
+    assert client.get("/api/me").json()["name"] == "Coach Z"
+
+
 # ── Ownership isolation ──────────────────────────────────────────────────────
 
 def test_cannot_list_other_users_matches(client, session):

@@ -11,8 +11,9 @@ library;
 class AuthSession {
   final String accessToken;
   final String? userName;
+  final String? userEmail;
 
-  const AuthSession({required this.accessToken, this.userName});
+  const AuthSession({required this.accessToken, this.userName, this.userEmail});
 }
 
 abstract class Auth0Client {

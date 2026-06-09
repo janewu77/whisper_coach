@@ -12,12 +12,21 @@ from pydantic import BaseModel, ConfigDict, Field
 
 # ---- Auth ----
 class MeResponse(BaseModel):
-    """The current authenticated user (from the Auth0 access-token claims)."""
+    """The current authenticated user (from the stored `users` row, falling back
+    to Auth0 access-token claims)."""
 
     sub: str
     email: Optional[str] = None
     name: Optional[str] = None
     picture: Optional[str] = None
+
+
+class MeUpdate(BaseModel):
+    """Update the current user's profile (name/email synced from Auth0 on login,
+    or edited by the user)."""
+
+    name: Optional[str] = None
+    email: Optional[str] = None
 
 
 # ---- Players / teams ----

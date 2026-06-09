@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../api/api.dart';
 import '../api/client.dart';
+import '../auth/auth_service.dart';
 import '../services/team_service.dart';
 import '../theme.dart';
 import 'create_team_screen.dart';
@@ -22,6 +24,35 @@ class _TeamGateState extends State<TeamGate> {
     // Kick off the load now so `loading` is already true on the first build
     // (avoids a flash of the create-team screen before the request starts).
     TeamService.instance.load();
+    _syncProfile();
+  }
+
+  /// On login, fill in the user's name/email on the backend from the Auth0
+  /// profile if they're missing (the access token usually omits them). Doesn't
+  /// overwrite values the user has already set. Best-effort.
+  Future<void> _syncProfile() async {
+    try {
+      final me = await api.getMe();
+      final auth = AuthService.instance;
+      bool empty(Object? v) => v == null || (v as String).isEmpty;
+      final patch = <String, String>{};
+      if (empty(me['name']) && (auth.userName?.isNotEmpty ?? false)) {
+        patch['name'] = auth.userName!;
+      }
+      if (empty(me['email']) && (auth.userEmail?.isNotEmpty ?? false)) {
+        patch['email'] = auth.userEmail!;
+      }
+      if (patch.isEmpty) return;
+      final updated = await api.updateMe(
+        name: patch['name'],
+        email: patch['email'],
+      );
+      if (updated['name'] is String) {
+        AuthService.instance.setUserName(updated['name'] as String);
+      }
+    } catch (_) {
+      // best-effort; ignore (e.g. backend not reachable / not migrated yet)
+    }
   }
 
   @override

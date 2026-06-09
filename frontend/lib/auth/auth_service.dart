@@ -19,13 +19,21 @@ class AuthService extends ChangeNotifier {
   bool _ready = false;
   bool _authenticated = false;
   String? _userName;
+  String? _userEmail;
   String? _error;
 
   /// True once [init] has finished (so the UI can show a splash until then).
   bool get isReady => _ready;
   bool get isAuthenticated => _authenticated;
   String? get userName => _userName;
+  String? get userEmail => _userEmail;
   String? get error => _error;
+
+  /// Update the locally-displayed name (after the user edits it in Profile).
+  void setUserName(String name) {
+    _userName = name;
+    notifyListeners();
+  }
 
   /// Restore any existing session on startup (and complete the web redirect).
   Future<void> init() async {
@@ -65,6 +73,7 @@ class AuthService extends ChangeNotifier {
     } finally {
       _authenticated = false;
       _userName = null;
+      _userEmail = null;
       notifyListeners();
     }
   }
@@ -79,5 +88,6 @@ class AuthService extends ChangeNotifier {
     if (session == null) return;
     _authenticated = true;
     _userName = session.userName;
+    _userEmail = session.userEmail;
   }
 }

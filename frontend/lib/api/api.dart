@@ -32,6 +32,18 @@ class Api {
     return res.data!;
   }
 
+  /// Update the current user's profile (name/email). Returns the updated user.
+  Future<Map<String, dynamic>> updateMe({String? name, String? email}) async {
+    final res = await _dio.patch<Map<String, dynamic>>(
+      '/api/me',
+      data: {
+        if (name != null) 'name': name,
+        if (email != null) 'email': email,
+      },
+    );
+    return res.data!;
+  }
+
   // ── Teams ───────────────────────────────────────────────────────────────
 
   /// List the current user's teams (id + name only, no roster).

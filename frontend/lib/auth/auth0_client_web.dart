@@ -49,7 +49,10 @@ class WebAuth0Client implements Auth0Client {
       );
       if (creds == null) return null;
       return AuthSession(
-          accessToken: creds.accessToken, userName: creds.user.name);
+        accessToken: creds.accessToken,
+        userName: creds.user.name,
+        userEmail: creds.user.email,
+      );
     } catch (e) {
       // No stored session yet — on a first visit (before login) the SDK throws
       // `login_required` / `MISSING_REFRESH_TOKEN` because there's nothing

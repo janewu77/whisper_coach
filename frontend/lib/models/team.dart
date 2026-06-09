@@ -14,11 +14,11 @@ class TeamMember {
         email: j['email'] as String?,
       );
 
-  /// Best available display label.
+  /// Best available display label — name, then email; never the raw auth0 id.
   String get label {
     if (name != null && name!.isNotEmpty) return name!;
     if (email != null && email!.isNotEmpty) return email!;
-    return auth0Id;
+    return 'Unknown';
   }
 }
 

@@ -18,8 +18,11 @@ class ProfileTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable:
-          Listenable.merge([SettingsService.instance, TeamService.instance]),
+      listenable: Listenable.merge([
+        SettingsService.instance,
+        TeamService.instance,
+        AuthService.instance,
+      ]),
       builder: (context, _) {
         final settings = SettingsService.instance;
         final name = AuthService.instance.userName;
@@ -30,7 +33,7 @@ class ProfileTab extends StatelessWidget {
           body: ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
             children: [
-              _userCard(name),
+              _userCard(context, name, AuthService.instance.userEmail),
               if (teams.isNotEmpty) ...[
                 const SizedBox(height: 20),
                 const Text('MY TEAMS', style: kStyleLabel),
@@ -83,7 +86,7 @@ class ProfileTab extends StatelessWidget {
     );
   }
 
-  Widget _userCard(String? name) {
+  Widget _userCard(BuildContext context, String? name, String? email) {
     final initial = (name == null || name.isEmpty) ? '?' : name[0].toUpperCase();
     return Container(
       padding: const EdgeInsets.all(16),
@@ -121,13 +124,59 @@ class ProfileTab extends StatelessWidget {
                   style: kStyleBody.copyWith(fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 2),
-                Text('Signed in', style: kStyleSecondary),
+                Text(
+                  email == null || email.isEmpty ? 'Signed in' : email,
+                  style: kStyleSecondary,
+                ),
               ],
             ),
+          ),
+          IconButton(
+            tooltip: 'Edit name',
+            onPressed: () => _editName(context, name),
+            icon: const Icon(Icons.edit_outlined, size: 18, color: kTextSecondary),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _editName(BuildContext context, String? current) async {
+    final ctrl = TextEditingController(text: current ?? '');
+    final name = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Your name'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(labelText: 'Name'),
+          onSubmitted: (v) => Navigator.pop(ctx, v),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, ctrl.text),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    final trimmed = name?.trim() ?? '';
+    if (trimmed.isEmpty || trimmed == (current ?? '')) return;
+    try {
+      final updated = await api.updateMe(name: trimmed);
+      AuthService.instance.setUserName((updated['name'] as String?) ?? trimmed);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(dioErrorMessage(e))));
+      }
+    }
   }
 }
 

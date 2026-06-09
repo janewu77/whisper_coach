@@ -15,8 +15,11 @@ class NativeAuth0Client implements Auth0Client {
   WebAuthentication get _web =>
       _auth0.webAuthentication(scheme: Config.auth0Scheme);
 
-  AuthSession _toSession(Credentials c) =>
-      AuthSession(accessToken: c.accessToken, userName: c.user.name);
+  AuthSession _toSession(Credentials c) => AuthSession(
+        accessToken: c.accessToken,
+        userName: c.user.name,
+        userEmail: c.user.email,
+      );
 
   @override
   Future<AuthSession?> init() async {
