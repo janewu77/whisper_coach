@@ -34,22 +34,7 @@ class ProfileTab extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
             children: [
               _userCard(context, name, AuthService.instance.userEmail),
-              if (teams.isNotEmpty) ...[
-                const SizedBox(height: 20),
-                const Text('MY TEAMS', style: kStyleLabel),
-                const SizedBox(height: 6),
-                Text(
-                  'Share a team by giving its code to another coach (they tap '
-                  'the team selector → "Join team…").',
-                  style: kStyleSecondary,
-                ),
-                const SizedBox(height: 10),
-                for (final t in teams) ...[
-                  _TeamCard(team: t, isCurrent: t.id == currentId),
-                  const SizedBox(height: 8),
-                ],
-              ],
-              const SizedBox(height: 12),
+              const SizedBox(height: 20),
               const Text('SPEAKER LANGUAGE', style: kStyleLabel),
               const SizedBox(height: 6),
               Text(
@@ -71,6 +56,21 @@ class ProfileTab extends StatelessWidget {
                   if (code != null) settings.setSpeakerLanguage(code);
                 },
               ),
+              if (teams.isNotEmpty) ...[
+                const SizedBox(height: 20),
+                const Text('MY TEAMS', style: kStyleLabel),
+                const SizedBox(height: 6),
+                Text(
+                  'Share a team by giving its code to another coach (they tap '
+                  'the team selector → "Join team…").',
+                  style: kStyleSecondary,
+                ),
+                const SizedBox(height: 10),
+                for (final t in teams) ...[
+                  _TeamCard(team: t, isCurrent: t.id == currentId),
+                  const SizedBox(height: 8),
+                ],
+              ],
               if (Config.authEnabled) ...[
                 const SizedBox(height: 24),
                 OutlinedButton.icon(
