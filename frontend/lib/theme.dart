@@ -172,6 +172,19 @@ ThemeData buildTheme() {
       thickness: 0.5,
       space: 0,
     ),
+    popupMenuTheme: PopupMenuThemeData(
+      color: kSurfaceCard,
+      surfaceTintColor: Colors.transparent,
+      elevation: 3,
+      shadowColor: kBorderStrong,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(kRadiusInput),
+        side: const BorderSide(color: kBorderHairline, width: 0.5),
+      ),
+      // Ensure menu items are always dark text on the white menu surface
+      // (without this, items with no explicit style render unreadably on iOS).
+      textStyle: kStyleBody,
+    ),
     bottomNavigationBarTheme: const BottomNavigationBarThemeData(
       backgroundColor: kSurfaceCard,
       selectedItemColor: kBrand,
