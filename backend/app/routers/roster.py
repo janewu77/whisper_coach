@@ -162,12 +162,12 @@ def list_team_members(
     session: Session = Depends(get_session),
     user_id: str = Depends(current_user_id),
 ):
-    """List the users who share (are members of) this team."""
+    """List the OTHER users who share this team (excludes the caller)."""
     _member_team_or_404(session, team_id, user_id)
     members = session.exec(
         select(User)
         .join(UserTeam, UserTeam.user_id == User.auth0_id)
-        .where(UserTeam.team_id == team_id)
+        .where(UserTeam.team_id == team_id, User.auth0_id != user_id)
         .order_by(UserTeam.created_at)
     ).all()
     return [

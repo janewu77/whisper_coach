@@ -308,8 +308,8 @@ class _TeamCardState extends State<_TeamCard> {
                         ],
                       ),
                     ),
-                  if (members.length <= 1)
-                    Text('Only you — share the code to add coaches.',
+                  if (members.isEmpty)
+                    Text('Just you — share the code to add coaches.',
                         style: kStyleSecondary.copyWith(color: kTextTertiary)),
                 ],
               );

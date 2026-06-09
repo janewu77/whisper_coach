@@ -97,10 +97,10 @@ def test_list_team_members(client, session, team):
     session.commit()
 
     members = client.get(f"/api/teams/{team.id}/members").json()
+    # Excludes the caller (test-user) — only the other members are listed.
     subs = {m["auth0_id"] for m in members}
-    assert subs == {"test-user", "mate-1"}
-    mate = next(m for m in members if m["auth0_id"] == "mate-1")
-    assert mate["name"] == "Mate" and mate["email"] == "mate@x.io"
+    assert subs == {"mate-1"}
+    assert members[0]["name"] == "Mate" and members[0]["email"] == "mate@x.io"
 
 
 def test_cannot_list_members_of_foreign_team(client, session):
