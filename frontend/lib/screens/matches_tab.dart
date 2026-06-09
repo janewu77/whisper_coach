@@ -262,22 +262,23 @@ class _MatchesTabState extends State<MatchesTab> {
                     size: 22),
           ),
           const SizedBox(width: 12),
-          // Add from photo.
-          FloatingActionButton.extended(
+          // Add from photo (icon only).
+          FloatingActionButton(
             heroTag: 'matchFromPhoto',
             onPressed: (_busy || _recording) ? null : _addFromPhoto,
             backgroundColor: kBrand,
             foregroundColor: kTextOnBrand,
             elevation: 0,
-            icon: _busy && !_recording
+            shape: const CircleBorder(),
+            tooltip: 'Add from photo',
+            child: _busy && !_recording
                 ? const SizedBox(
                     width: 18,
                     height: 18,
                     child: CircularProgressIndicator(
                         color: Colors.white, strokeWidth: 2),
                   )
-                : const Icon(Icons.add_a_photo_outlined, size: 20),
-            label: Text(_busy && !_recording ? 'Reading…' : 'Add from photo'),
+                : const Icon(Icons.add_a_photo_outlined, size: 22),
           ),
         ],
       ),

@@ -505,8 +505,8 @@ class _PlayersTabState extends State<PlayersTab> {
                     size: 22),
           ),
           const SizedBox(width: 12),
-          // Add from photo — crop, then review.
-          FloatingActionButton.extended(
+          // Add from photo — crop, then review (icon only).
+          FloatingActionButton(
             heroTag: 'addFromPhoto',
             onPressed: (_extracting || _recording || _voiceBusy)
                 ? null
@@ -514,15 +514,16 @@ class _PlayersTabState extends State<PlayersTab> {
             backgroundColor: kBrand,
             foregroundColor: kTextOnBrand,
             elevation: 0,
-            icon: _extracting
+            shape: const CircleBorder(),
+            tooltip: 'Add from photo',
+            child: _extracting
                 ? const SizedBox(
                     width: 18,
                     height: 18,
                     child: CircularProgressIndicator(
                         color: Colors.white, strokeWidth: 2),
                   )
-                : const Icon(Icons.add_a_photo_outlined, size: 20),
-            label: Text(_extracting ? 'Reading photo…' : 'Add from photo'),
+                : const Icon(Icons.add_a_photo_outlined, size: 22),
           ),
         ],
       ),
