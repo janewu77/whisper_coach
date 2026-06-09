@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
@@ -58,8 +59,11 @@ class _PlayersTabState extends State<PlayersTab> {
   _PlayerSort _sort = _PlayerSort.lastName;
   final Set<String> _lineFilter = {};
   final Set<String> _sideFilter = {};
+  final Set<String> _availFilter = {}; // 'today' | 'nextmatch'
+  DateTime? _nextMatchDate;
 
-  bool get _filterActive => _lineFilter.isNotEmpty || _sideFilter.isNotEmpty;
+  bool get _filterActive =>
+      _lineFilter.isNotEmpty || _sideFilter.isNotEmpty || _availFilter.isNotEmpty;
 
   // Voice "add player" recording state.
   final _recorder = AudioRecorder();
@@ -73,6 +77,7 @@ class _PlayersTabState extends State<PlayersTab> {
   void initState() {
     super.initState();
     _team = api.getTeam(widget.teamId);
+    _loadNextMatch();
   }
 
   @override
@@ -86,13 +91,36 @@ class _PlayersTabState extends State<PlayersTab> {
     super.didUpdateWidget(old);
     if (old.teamId != widget.teamId) {
       _team = api.getTeam(widget.teamId);
+      _loadNextMatch();
     }
   }
 
   Future<void> _refresh() async {
     final team = api.getTeam(widget.teamId);
     setState(() => _team = team);
+    _loadNextMatch();
     await team;
+  }
+
+  /// Find the soonest match on/after today (for the "available for next match"
+  /// filter). Best-effort; ignored on error.
+  Future<void> _loadNextMatch() async {
+    try {
+      final matches = await api.listMatches(teamId: widget.teamId);
+      final today = DateUtils.dateOnly(DateTime.now());
+      final upcoming = matches
+          .map((m) => DateTime.tryParse(m.date))
+          .whereType<DateTime>()
+          .map(DateUtils.dateOnly)
+          .where((d) => !d.isBefore(today))
+          .toList()
+        ..sort();
+      if (mounted) {
+        setState(() => _nextMatchDate = upcoming.isEmpty ? null : upcoming.first);
+      }
+    } catch (_) {
+      // leave _nextMatchDate as-is
+    }
   }
 
   // ── Sorting ────────────────────────────────────────────────────────────
@@ -124,23 +152,57 @@ class _PlayersTabState extends State<PlayersTab> {
       ? p.positions
       : (p.preferredPosition == null ? const [] : [p.preferredPosition!]);
 
-  /// A player passes if any of their positions matches every active group
-  /// (line AND side); an empty group means "any".
+  /// A player passes the active filters: a position matching the line/side
+  /// groups (empty group = any) AND the availability checks.
   bool _matchesFilter(Player p) {
-    if (!_filterActive) return true;
-    for (final raw in _playerPositions(p)) {
-      final code = raw.toUpperCase();
-      final lineOk =
-          _lineFilter.isEmpty || _lineFilter.contains(_kPosLine[code]);
-      final sideOk =
-          _sideFilter.isEmpty || _sideFilter.contains(_kPosSide[code]);
-      if (lineOk && sideOk) return true;
+    if (_lineFilter.isNotEmpty || _sideFilter.isNotEmpty) {
+      final posOk = _playerPositions(p).any((raw) {
+        final code = raw.toUpperCase();
+        final lineOk =
+            _lineFilter.isEmpty || _lineFilter.contains(_kPosLine[code]);
+        final sideOk =
+            _sideFilter.isEmpty || _sideFilter.contains(_kPosSide[code]);
+        return lineOk && sideOk;
+      });
+      if (!posOk) return false;
     }
-    return false;
+    if (_availFilter.contains('today') && !p.availableOn(DateTime.now())) {
+      return false;
+    }
+    if (_availFilter.contains('nextmatch') &&
+        _nextMatchDate != null &&
+        !p.availableOn(_nextMatchDate!)) {
+      return false;
+    }
+    return true;
   }
 
   List<Player> _filtered(List<Player> players) =>
       _filterActive ? players.where(_matchesFilter).toList() : players;
+
+  /// Human label for the card's availability line.
+  String _availabilityLabel(Player p) {
+    final today = DateUtils.dateOnly(DateTime.now());
+    final active = p.activeAbsence(today);
+    if (active == null) {
+      // Mention an upcoming absence if one starts soon (within ~2 weeks).
+      final soon = p.absences
+          .map((a) => DateUtils.dateOnly(a.from))
+          .where((d) => d.isAfter(today))
+          .toList()
+        ..sort();
+      if (soon.isNotEmpty) {
+        final days = soon.first.difference(today).inDays;
+        if (days <= 14) return 'Available · out in ${days}d';
+      }
+      return 'Available';
+    }
+    final back = DateUtils.dateOnly(active.to).add(const Duration(days: 1));
+    final days = back.difference(today).inDays;
+    final kind = active.kind == 'injury' ? 'Injured' : 'On vacation';
+    if (days <= 1) return '$kind · back tomorrow';
+    return '$kind · back in ${days}d';
+  }
 
   Future<void> _openFilter() async {
     await showModalBottomSheet<void>(
@@ -196,6 +258,18 @@ class _PlayersTabState extends State<PlayersTab> {
                     const Text('SIDE', style: kStyleLabel),
                     const SizedBox(height: 8),
                     group(_kSideFilters, _sideFilter),
+                    const SizedBox(height: 16),
+                    const Text('AVAILABILITY', style: kStyleLabel),
+                    const SizedBox(height: 8),
+                    group([
+                      ('today', 'Available today'),
+                      (
+                        'nextmatch',
+                        _nextMatchDate == null
+                            ? 'Available next match'
+                            : 'Next match (${DateFormat('d MMM').format(_nextMatchDate!)})'
+                      ),
+                    ], _availFilter),
                     const SizedBox(height: 18),
                     SizedBox(
                       width: double.infinity,
@@ -567,6 +641,10 @@ class _PlayersTabState extends State<PlayersTab> {
                       : (p.preferredPosition == null
                           ? const []
                           : [p.preferredPosition!]),
+                  availabilityLabel: _availabilityLabel(p),
+                  available: p.availableOn(DateTime.now()),
+                  injuredNow:
+                      p.activeAbsence(DateTime.now())?.kind == 'injury',
                   onEdit: p.id == null ? null : () => _editPlayer(p),
                   onDelete: p.id == null
                       ? null
@@ -623,6 +701,9 @@ class _PlayerTile extends StatelessWidget {
   final String name;
   final int? number;
   final List<String> positions;
+  final String availabilityLabel;
+  final bool available;
+  final bool injuredNow;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
 
@@ -630,6 +711,9 @@ class _PlayerTile extends StatelessWidget {
     required this.name,
     this.number,
     this.positions = const [],
+    this.availabilityLabel = 'Available',
+    this.available = true,
+    this.injuredNow = false,
     this.onEdit,
     this.onDelete,
   });
@@ -637,6 +721,13 @@ class _PlayerTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final subtitle = positions.join(' · ');
+    final Color statusFg =
+        available ? kGreenFg : (injuredNow ? kRedFg : kAmberFg);
+    final Color statusBg =
+        available ? kGreenBg : (injuredNow ? kRedBg : kAmberBg);
+    final IconData statusIcon = available
+        ? Icons.check_circle_outline
+        : (injuredNow ? Icons.healing_outlined : Icons.beach_access_outlined);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
@@ -678,6 +769,30 @@ class _PlayerTile extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(subtitle, style: kStyleSecondary),
                 ],
+                const SizedBox(height: 5),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: statusBg,
+                    borderRadius: BorderRadius.circular(100),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(statusIcon, size: 11, color: statusFg),
+                      const SizedBox(width: 4),
+                      Text(
+                        availabilityLabel,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: statusFg,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),

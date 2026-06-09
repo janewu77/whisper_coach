@@ -28,6 +28,10 @@ class Player(SQLModel, table=True):
     height_cm: Optional[int] = None
     traits: list = Field(default_factory=list, sa_column=Column(JSON))  # ["strong", ...]
     description: Optional[str] = None
+    # Unavailability periods: [{"kind": "injury"|"vacation", "from": "YYYY-MM-DD",
+    # "to": "YYYY-MM-DD", "note": str?}]. Availability is derived by comparing the
+    # ranges to a reference date (today / next match) on the client.
+    absences: list = Field(default_factory=list, sa_column=Column(JSON))
 
 
 class Match(SQLModel, table=True):

@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart' show XFile;
+import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
@@ -54,6 +55,7 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
 
   final List<String> _positions = [];
   final List<String> _traits = [];
+  final List<Absence> _absences = [];
   bool _leftFoot = false;
   bool _rightFoot = false;
 
@@ -108,7 +110,14 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
   /// Fill the form from a player profile. Used by initial load and by the
   /// voice/LLM "describe" result (which merges into the existing profile).
   void _applyPlayer(Player p, {bool replaceName = false}) {
-    if (replaceName) _nameCtrl.text = p.name;
+    if (replaceName) {
+      _nameCtrl.text = p.name;
+      // Absences are managed only here (not in the voice profile), so load
+      // them once on initial fetch and never let a describe-merge clear them.
+      _absences
+        ..clear()
+        ..addAll(p.absences);
+    }
     if (p.number != null) _numberCtrl.text = p.number.toString();
     if (p.heightCm != null) _heightCtrl.text = p.heightCm.toString();
     if (p.positions.isNotEmpty) {
@@ -290,6 +299,7 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
         heightCm: int.tryParse(_heightCtrl.text.trim()),
         traits: _traits,
         description: _descCtrl.text.trim(),
+        absences: _absences,
       );
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
@@ -332,6 +342,29 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
       setState(() => _traits.add(t));
     }
     _traitCtrl.clear();
+  }
+
+  Future<void> _addAbsence(String kind) async {
+    final now = DateTime.now();
+    final range = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(now.year - 1),
+      lastDate: DateTime(now.year + 2),
+      initialDateRange: DateTimeRange(start: now, end: now),
+      helpText: kind == 'injury' ? 'Injury period' : 'Vacation period',
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: Theme.of(ctx).colorScheme.copyWith(primary: kBrand),
+        ),
+        child: child!,
+      ),
+    );
+    if (range == null) return;
+    setState(() => _absences.add(Absence(
+          kind: kind,
+          from: DateUtils.dateOnly(range.start),
+          to: DateUtils.dateOnly(range.end),
+        )));
   }
 
   // ── Build ──────────────────────────────────────────────────────────────
@@ -498,8 +531,75 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
                         ),
                       ),
                     ]),
+                    const SizedBox(height: 12),
+                    _group('AVAILABILITY', [
+                      Text(
+                        'Injury or vacation periods — used to show whether the '
+                        'player is available today / for the next match.',
+                        style: kStyleSecondary,
+                      ),
+                      const SizedBox(height: 10),
+                      if (_absences.isEmpty)
+                        Text('No absences — available.',
+                            style: kStyleSecondary.copyWith(color: kGreenFg)),
+                      for (var i = 0; i < _absences.length; i++)
+                        _absenceRow(_absences[i], i),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () => _addAbsence('injury'),
+                              icon: const Icon(Icons.healing_outlined, size: 16),
+                              label: const Text('Add injury'),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () => _addAbsence('vacation'),
+                              icon: const Icon(Icons.beach_access_outlined,
+                                  size: 16),
+                              label: const Text('Add vacation'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ]),
                   ],
                 ),
+    );
+  }
+
+  Widget _absenceRow(Absence a, int index) {
+    final fmt = DateFormat('d MMM yyyy');
+    final injury = a.kind == 'injury';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Icon(injury ? Icons.healing_outlined : Icons.beach_access_outlined,
+              size: 18, color: injury ? kRedFg : kAmberFg),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(injury ? 'Injury' : 'Vacation',
+                    style: kStyleBody.copyWith(fontWeight: FontWeight.w500)),
+                Text('${fmt.format(a.from)} – ${fmt.format(a.to)}',
+                    style: kStyleSecondary),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'Remove',
+            visualDensity: VisualDensity.compact,
+            onPressed: () => setState(() => _absences.removeAt(index)),
+            icon: const Icon(Icons.close, size: 18, color: kTextTertiary),
+          ),
+        ],
+      ),
     );
   }
 

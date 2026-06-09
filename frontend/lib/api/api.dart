@@ -113,6 +113,7 @@ class Api {
     int? heightCm,
     List<String>? traits,
     String? description,
+    List<Absence>? absences,
   }) async {
     final res = await _dio.patch<Map<String, dynamic>>(
       '/api/teams/$teamId/players/$playerId',
@@ -125,6 +126,8 @@ class Api {
         if (heightCm != null) 'height_cm': heightCm,
         if (traits != null) 'traits': traits,
         if (description != null) 'description': description,
+        if (absences != null)
+          'absences': absences.map((a) => a.toJson()).toList(),
       },
     );
     return Player.fromJson(res.data!);

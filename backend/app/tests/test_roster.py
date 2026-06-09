@@ -140,6 +140,27 @@ def test_describe_player_does_not_persist(client, team, monkeypatch):
     assert client.get(f"/api/teams/{team.id}/players/{pid}").json()["positions"] == []
 
 
+def test_update_player_absences_roundtrip(client, team):
+    pid = _first_player_id(client, team)
+    absence = {
+        "kind": "injury",
+        "from": "2026-06-01",
+        "to": "2026-06-10",
+        "note": "hamstring",
+    }
+    r = client.patch(
+        f"/api/teams/{team.id}/players/{pid}", json={"absences": [absence]}
+    )
+    assert r.status_code == 200
+    assert r.json()["absences"] == [absence]
+
+    # also surfaced in the team roster list
+    roster = client.get(f"/api/teams/{team.id}").json()["players"]
+    me = next(p for p in roster if p["id"] == pid)
+    assert me["absences"][0]["from"] == "2026-06-01"
+    assert me["absences"][0]["to"] == "2026-06-10"
+
+
 def test_roster_extract_appends_to_existing_team(client, stub_extract):
     team_id = client.post("/api/teams", json={"name": "Existing FC"}).json()["id"]
 

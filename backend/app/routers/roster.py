@@ -8,6 +8,7 @@ from app.auth import current_user_id
 from app.db import get_session
 from app.models import Player, Team
 from app.schemas import (
+    Absence,
     DescribeRequest,
     PlayerDetail,
     PlayerProfileResult,
@@ -18,6 +19,10 @@ from app.schemas import (
     TeamResponse,
     TeamSummary,
 )
+
+
+def _absences(p: Player) -> list[Absence]:
+    return [Absence.model_validate(a) for a in (p.absences or [])]
 
 
 def _owned_player_or_404(
@@ -43,6 +48,7 @@ def _to_detail(p: Player) -> PlayerDetail:
         height_cm=p.height_cm,
         traits=p.traits or [],
         description=p.description,
+        absences=_absences(p),
     )
 
 
@@ -178,6 +184,7 @@ def get_team(
                 number=p.number,
                 preferred_position=p.preferred_position,
                 positions=p.positions or [],
+                absences=_absences(p),
             )
             for p in players
         ],

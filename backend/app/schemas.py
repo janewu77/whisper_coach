@@ -38,6 +38,18 @@ class RosterResponse(BaseModel):
     players: list[PlayerOut]
 
 
+class Absence(BaseModel):
+    """An unavailability period (injury or vacation). `from`/`to` are inclusive
+    YYYY-MM-DD dates."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    kind: str  # "injury" | "vacation"
+    from_: str = Field(alias="from")
+    to: str
+    note: Optional[str] = None
+
+
 class TeamPlayer(BaseModel):
     """A roster player as returned to the app — includes the DB id so the client
     can act on individual players (e.g. delete)."""
@@ -47,6 +59,7 @@ class TeamPlayer(BaseModel):
     number: Optional[int] = None
     preferred_position: Optional[str] = None
     positions: list[str] = []
+    absences: list[Absence] = []
 
 
 class TeamResponse(BaseModel):
@@ -67,6 +80,7 @@ class PlayerDetail(BaseModel):
     height_cm: Optional[int] = None
     traits: list[str] = []
     description: Optional[str] = None
+    absences: list[Absence] = []
 
 
 class PlayerUpdate(BaseModel):
@@ -80,6 +94,7 @@ class PlayerUpdate(BaseModel):
     height_cm: Optional[int] = None
     traits: Optional[list[str]] = None
     description: Optional[str] = None
+    absences: Optional[list[Absence]] = None
 
 
 class DescribeRequest(BaseModel):

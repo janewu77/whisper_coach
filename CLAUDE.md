@@ -31,9 +31,13 @@ The plan deliberately keeps the stack minimal for a 1–2 day hackathon build.
 team / "Create new team…") and a bottom `BottomNavigationBar`:
 - **Players tab** (`PlayersTab`) — the current team's roster (each row has
   **edit** → `PlayerDetailScreen` and delete actions). The detail screen edits a
-  player's full profile (number, positions, preferred foot, height, traits, bio)
-  in grouped sections, with a voice "describe" button that calls the player
-  profiler and merges the result into the form (saved only on Save, via PATCH).
+  player's full profile (number, positions, preferred foot, height, traits, bio,
+  and injury/vacation **absences** with from–to dates) in grouped sections, with
+  a voice "describe" button that calls the player profiler and merges the result
+  into the form (saved only on Save, via PATCH). Each roster row shows an
+  availability line derived from absences (Available / Injured · back in Nd) and
+  the list can be **filtered** by position (line/side) and by availability
+  (available today / for the next match).
   Two add buttons both stage a **roster import review**
   (`ImportReviewScreen`) instead of saving directly: "add from photo" (crop via
   `CropScreen` → image) and "add by voice" (record → transcribe → extract). See
