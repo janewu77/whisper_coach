@@ -1,3 +1,6 @@
+import logging
+import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -10,8 +13,35 @@ from app.routers import imports, matches, me, roster
 
 STATIC_DIR = Path(__file__).parent / "static"
 FLUTTER_DIR = STATIC_DIR / "app"
+_BACKEND_DIR = Path(__file__).parent.parent  # contains alembic.ini + alembic/
 
-app = FastAPI(title="Whisper Coach API", version="0.1.0")
+log = logging.getLogger("whisper_coach")
+
+
+def _run_migrations() -> None:
+    """Apply Alembic migrations to head. A safety net so the schema is current
+    however the container is started (some platforms bypass the Docker
+    entrypoint). Disable with AUTO_MIGRATE=false."""
+    from alembic import command
+    from alembic.config import Config as AlembicConfig
+
+    cfg = AlembicConfig(str(_BACKEND_DIR / "alembic.ini"))
+    cfg.set_main_option("script_location", str(_BACKEND_DIR / "alembic"))
+    command.upgrade(cfg, "head")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    if os.getenv("AUTO_MIGRATE", "true").lower() != "false":
+        try:
+            _run_migrations()
+            log.info("migrations applied (head)")
+        except Exception:  # noqa: BLE001 — log but still start serving
+            log.exception("startup migration failed")
+    yield
+
+
+app = FastAPI(title="Whisper Coach API", version="0.1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
