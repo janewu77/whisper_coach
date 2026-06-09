@@ -79,41 +79,63 @@ class _MatchReviewScreenState extends State<MatchReviewScreen> {
   void _snack(String m) =>
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
 
+  int get _validCount =>
+      _drafts.where((d) => d.opponent.trim().isNotEmpty).length;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Review matches'),
-        actions: [
-          TextButton(
-            onPressed: _saving ? null : _confirm,
-            child: _saving
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(color: kBrand, strokeWidth: 2),
-                  )
-                : const Text('Confirm',
-                    style: TextStyle(fontWeight: FontWeight.w600)),
-          ),
-        ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(0.5),
-          child: Container(height: 0.5, color: kBorderHairline),
+          preferredSize: Size.fromHeight(_saving ? 2.5 : 0.5),
+          child: _saving
+              ? const LinearProgressIndicator(
+                  minHeight: 2.5, color: kBrand, backgroundColor: kBrandSubtle)
+              : Container(height: 0.5, color: kBorderHairline),
         ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+      body: Column(
         children: [
-          Text('${_drafts.length} match(es) found — edit and confirm.',
-              style: kStyleSecondary),
-          const SizedBox(height: 10),
-          for (var i = 0; i < _drafts.length; i++) _draftCard(_drafts[i], i),
-          const SizedBox(height: 4),
-          OutlinedButton.icon(
-            onPressed: () => setState(() => _drafts.add(MatchDraft())),
-            icon: const Icon(Icons.add, size: 18),
-            label: const Text('Add another match'),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 6, bottom: 8),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.event_outlined,
+                          size: 14, color: kTextSecondary),
+                      const SizedBox(width: 6),
+                      Text('MATCHES TO ADD · ${_drafts.length}',
+                          style: kStyleLabel),
+                    ],
+                  ),
+                ),
+                for (var i = 0; i < _drafts.length; i++)
+                  _draftCard(_drafts[i], i),
+                const SizedBox(height: 4),
+                OutlinedButton.icon(
+                  onPressed: () => setState(() => _drafts.add(MatchDraft())),
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Add another match'),
+                ),
+              ],
+            ),
+          ),
+          SafeArea(
+            top: false,
+            child: Container(
+              color: kSurfaceCard,
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              child: ElevatedButton.icon(
+                onPressed: (_saving || _validCount == 0) ? null : _confirm,
+                icon: const Icon(Icons.check_circle_outline, size: 18),
+                label: Text('Confirm — add $_validCount '
+                    '${_validCount == 1 ? 'match' : 'matches'}'),
+              ),
+            ),
           ),
         ],
       ),

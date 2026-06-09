@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -10,6 +12,7 @@ import '../api/client.dart';
 import '../main.dart';
 import '../models/match.dart';
 import '../theme.dart';
+import 'crop_screen.dart';
 import 'match_detail_screen.dart';
 import 'match_review_screen.dart';
 
@@ -134,9 +137,21 @@ class _MatchesTabState extends State<MatchesTab> {
   Future<void> _addFromPhoto() async {
     final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
     if (picked == null) return;
+    // Crop to just the fixtures area before extracting (like add-player).
+    final bytes = await picked.readAsBytes();
+    if (!mounted) return;
+    final cropped = await Navigator.of(context).push<Uint8List>(
+      MaterialPageRoute(builder: (_) => CropScreen(bytes: bytes)),
+    );
+    if (cropped == null) return;
+    final file = XFile.fromData(
+      cropped,
+      name: 'fixtures_crop.jpg',
+      mimeType: 'image/jpeg',
+    );
     setState(() => _busy = true);
     try {
-      final drafts = await _api.extractMatches(widget.teamId, picked);
+      final drafts = await _api.extractMatches(widget.teamId, file);
       await _openReview(drafts);
     } catch (e) {
       _snack(dioErrorMessage(e));

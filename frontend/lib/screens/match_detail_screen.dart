@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -9,6 +11,7 @@ import '../api/api.dart';
 import '../api/client.dart';
 import '../models/match.dart';
 import '../theme.dart';
+import 'crop_screen.dart';
 
 /// Edit an existing match. The coach can fill the fields by photo or voice
 /// (parsed by the match extractor) and then Save.
@@ -73,9 +76,20 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
     final picked =
         await ImagePicker().pickImage(source: ImageSource.gallery);
     if (picked == null) return;
+    final bytes = await picked.readAsBytes();
+    if (!mounted) return;
+    final cropped = await Navigator.of(context).push<Uint8List>(
+      MaterialPageRoute(builder: (_) => CropScreen(bytes: bytes)),
+    );
+    if (cropped == null) return;
+    final file = XFile.fromData(
+      cropped,
+      name: 'match_crop.jpg',
+      mimeType: 'image/jpeg',
+    );
     setState(() => _busy = true);
     try {
-      final drafts = await api.extractMatches(widget.match.teamId, picked);
+      final drafts = await api.extractMatches(widget.match.teamId, file);
       if (drafts.isNotEmpty) _applyDraft(drafts.first);
       _snack(drafts.isEmpty ? 'Nothing recognised.' : 'Filled from photo — review and Save.');
     } catch (e) {
