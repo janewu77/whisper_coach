@@ -8,7 +8,7 @@ from app.schemas import AdjustResult, LineupResult, LineupSlot, Substitution
 
 @pytest.fixture
 def stub_voice(monkeypatch):
-    async def fake_generate(players, opponent, strength):
+    async def fake_generate(players, opponent, strength, **kwargs):
         return LineupResult(
             formation="4-3-3",
             lineup=[LineupSlot(player="John", position="ST")],

@@ -77,6 +77,28 @@ List<_PosXY> _formationPositions(String formation, int count) {
         _PosXY(35, 24), _PosXY(65, 24),
       ];
     default:
+      // Generic: parse "a-b-c…" (outfield rows, defence → attack; GK implicit)
+      // so 7er/5er formations like 2-3-1 or 1-2-1 lay out correctly.
+      final rows = formation
+          .split('-')
+          .map(int.tryParse)
+          .whereType<int>()
+          .toList();
+      final outfield = rows.fold<int>(0, (a, b) => a + b);
+      if (rows.isNotEmpty && outfield == count - 1) {
+        final positions = <_PosXY>[const _PosXY(50, 88)]; // GK
+        for (var r = 0; r < rows.length; r++) {
+          // y from defence (≈72) up to attack (≈22).
+          final y = rows.length == 1
+              ? 47.0
+              : 72.0 - r * (50.0 / (rows.length - 1));
+          final n = rows[r];
+          for (var c = 0; c < n; c++) {
+            positions.add(_PosXY(100.0 * (c + 1) / (n + 1), y));
+          }
+        }
+        return positions;
+      }
       // Fallback: evenly distribute
       return List.generate(count, (i) {
         final row = i ~/ 4;

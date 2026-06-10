@@ -53,6 +53,7 @@ def _to_lineup_result(row: Lineup) -> LineupResult:
     return LineupResult(
         formation=row.formation,
         lineup=[LineupSlot(**s) for s in row.slots],
+        subs=[LineupSlot(**s) for s in (row.subs or [])],
         reason=row.reason,
     )
 
@@ -190,6 +191,51 @@ def update_match(
     return MatchResponse(**match.model_dump())
 
 
+async def _make_lineup(
+    session: Session,
+    auth0_id: str,
+    match_id: int,
+    strength: str | None,
+    team_size: int | None,
+    formation: str | None,
+    instructions: str | None,
+) -> LineupResult:
+    """Shared generate-and-store path for the text and voice lineup routes.
+    Does NOT charge credits — each route charges its own modality."""
+    match = _owned_match_or_404(session, match_id, auth0_id)
+    players = session.exec(select(Player).where(Player.team_id == match.team_id)).all()
+    if not players:
+        raise HTTPException(status_code=409, detail="team has no players")
+
+    player_outs = [
+        PlayerOut(name=p.name, number=p.number, preferred_position=p.preferred_position)
+        for p in players
+    ]
+    try:
+        result = await generate_lineup(
+            player_outs,
+            match.opponent,
+            strength or match.strength,
+            team_size=team_size,
+            formation=formation,
+            instructions=instructions,
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"lineup generation failed: {exc}")
+
+    session.add(
+        Lineup(
+            match_id=match_id,
+            formation=result.formation,
+            slots=[s.model_dump() for s in result.lineup],
+            subs=[s.model_dump() for s in result.subs],
+            reason=result.reason,
+        )
+    )
+    session.commit()
+    return result
+
+
 @router.post("/{match_id}/lineup", response_model=LineupResult)
 async def make_lineup(
     match_id: int,
@@ -197,31 +243,48 @@ async def make_lineup(
     session: Session = Depends(get_session),
     auth0_id: str = Depends(current_auth0_id),
 ):
-    match = _owned_match_or_404(session, match_id, auth0_id)
-    players = session.exec(select(Player).where(Player.team_id == match.team_id)).all()
-    if not players:
-        raise HTTPException(status_code=409, detail="team has no players")
-
-    strength = (body.strength if body else None) or match.strength
-    player_outs = [
-        PlayerOut(name=p.name, number=p.number, preferred_position=p.preferred_position)
-        for p in players
-    ]
-    try:
-        result = await generate_lineup(player_outs, match.opponent, strength)
-    except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=502, detail=f"lineup generation failed: {exc}")
-    credits.charge_text(session, auth0_id, f"Lineup vs {match.opponent}")
-
-    session.add(
-        Lineup(
-            match_id=match_id,
-            formation=result.formation,
-            slots=[s.model_dump() for s in result.lineup],
-            reason=result.reason,
-        )
+    body = body or LineupRequest()
+    result = await _make_lineup(
+        session,
+        auth0_id,
+        match_id,
+        body.strength,
+        body.team_size,
+        body.formation,
+        body.instructions,
     )
-    session.commit()
+    match = session.get(Match, match_id)
+    credits.charge_text(session, auth0_id, f"Lineup vs {match.opponent}")
+    return result
+
+
+@router.post("/{match_id}/lineup/voice", response_model=LineupResult)
+async def make_lineup_voice(
+    match_id: int,
+    audio: UploadFile = File(...),
+    team_size: int | None = Form(None),
+    formation: str | None = Form(None),
+    language: str | None = Form(None),
+    session: Session = Depends(get_session),
+    auth0_id: str = Depends(current_auth0_id),
+):
+    """Generate a lineup from spoken coach instructions (transcribed first)."""
+    _owned_match_or_404(session, match_id, auth0_id)
+    if not (audio.content_type or "").startswith("audio/"):
+        raise HTTPException(status_code=422, detail="audio must be an audio file")
+    data = await audio.read()
+    try:
+        instructions = await transcribe_audio(
+            data, audio.filename or "lineup.webm", language
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"transcription failed: {exc}")
+
+    result = await _make_lineup(
+        session, auth0_id, match_id, None, team_size, formation, instructions
+    )
+    match = session.get(Match, match_id)
+    credits.charge_voice(session, auth0_id, f"Lineup (voice) vs {match.opponent}")
     return result
 
 

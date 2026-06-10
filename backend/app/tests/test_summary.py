@@ -13,7 +13,7 @@ from app.schemas import (
 
 @pytest.fixture
 def stub_agents(monkeypatch):
-    async def fake_generate(players, opponent, strength):
+    async def fake_generate(players, opponent, strength, **kwargs):
         return LineupResult(
             formation="4-3-3",
             lineup=[LineupSlot(player="John", position="ST")],

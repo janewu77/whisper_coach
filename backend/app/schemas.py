@@ -333,6 +333,12 @@ class LineupSlot(BaseModel):
 
 class LineupRequest(BaseModel):
     strength: Optional[str] = None
+    # Players on the pitch including the GK (5 / 7 / 11). Default 11.
+    team_size: Optional[int] = None
+    # Requested formation (e.g. "4-3-3", "2-3-1"); None lets the AI pick.
+    formation: Optional[str] = None
+    # Free-text coach instructions (typed or transcribed from voice).
+    instructions: Optional[str] = None
 
 
 class LineupResult(BaseModel):
@@ -340,6 +346,8 @@ class LineupResult(BaseModel):
 
     formation: str
     lineup: list[LineupSlot]
+    # Remaining players (bench), in recommended substitution order.
+    subs: list[LineupSlot] = []
     reason: str
 
 

@@ -6,17 +6,28 @@ from app.schemas import LineupResult, LineupSlot
 
 @pytest.fixture
 def stub_generate(monkeypatch):
-    async def fake_generate(players, opponent, strength):
+    """Echo the inputs through the result so tests can assert pass-through."""
+    calls = {}
+
+    async def fake_generate(
+        players, opponent, strength, team_size=None, formation=None, instructions=None
+    ):
+        calls.update(
+            team_size=team_size, formation=formation, instructions=instructions
+        )
+        size = team_size or 11
         return LineupResult(
-            formation="4-3-3",
+            formation=formation or "4-3-3",
             lineup=[
                 LineupSlot(player="John", position="ST"),
                 LineupSlot(player="David", position="CM"),
-            ],
+            ][: min(2, size)],
+            subs=[LineupSlot(player="Sub One", position="GK")],
             reason=f"vs {opponent} ({strength or 'unknown'})",
         )
 
     monkeypatch.setattr(matches_router, "generate_lineup", fake_generate)
+    return calls
 
 
 def _make_match(client, team):
@@ -38,18 +49,55 @@ def test_generate_returns_formation(client, team, stub_generate):
     body = r.json()
     assert body["formation"] == "4-3-3"
     assert {s["player"] for s in body["lineup"]} == {"John", "David"}
+    assert body["subs"] == [{"player": "Sub One", "position": "GK"}]
     assert "reason" in body
+
+
+def test_generate_passes_size_formation_instructions(client, team, stub_generate):
+    match_id = _make_match(client, team)
+    r = client.post(
+        f"/api/matches/{match_id}/lineup",
+        json={"team_size": 7, "formation": "2-3-1", "instructions": "press high"},
+    )
+    assert r.status_code == 200
+    assert r.json()["formation"] == "2-3-1"
+    assert stub_generate == {
+        "team_size": 7,
+        "formation": "2-3-1",
+        "instructions": "press high",
+    }
 
 
 def test_generate_persists_and_regenerates(client, team, stub_generate):
     match_id = _make_match(client, team)
     client.post(f"/api/matches/{match_id}/lineup", json={})
     client.post(f"/api/matches/{match_id}/lineup", json={})
-    # latest lineup is surfaced on the match
+    # latest lineup (incl. subs) is surfaced on the match
     r = client.get(f"/api/matches/{match_id}")
     assert r.json()["lineup"]["formation"] == "4-3-3"
+    assert r.json()["lineup"]["subs"] == [{"player": "Sub One", "position": "GK"}]
 
 
 def test_lineup_unknown_match_404(client, stub_generate):
     r = client.post("/api/matches/999/lineup", json={})
     assert r.status_code == 404
+
+
+def test_generate_by_voice(client, team, stub_generate, monkeypatch):
+    async def fake_transcribe(data, filename, language=None):
+        return "play five at the back"
+
+    monkeypatch.setattr(matches_router, "transcribe_audio", fake_transcribe)
+    match_id = _make_match(client, team)
+    r = client.post(
+        f"/api/matches/{match_id}/lineup/voice",
+        files={"audio": ("cmd.webm", b"\x00\x01", "audio/webm")},
+        data={"team_size": "5", "formation": "1-2-1"},
+    )
+    assert r.status_code == 200
+    assert r.json()["formation"] == "1-2-1"
+    assert stub_generate == {
+        "team_size": 5,
+        "formation": "1-2-1",
+        "instructions": "play five at the back",
+    }

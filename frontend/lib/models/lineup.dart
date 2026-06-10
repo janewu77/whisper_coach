@@ -15,17 +15,27 @@ class LineupSlot {
 class Lineup {
   final String formation;
   final List<LineupSlot> lineup;
+  // Bench, in recommended substitution order.
+  final List<LineupSlot> subs;
   final String reason;
 
   const Lineup({
     required this.formation,
     required this.lineup,
+    this.subs = const [],
     required this.reason,
   });
 
   factory Lineup.fromJson(Map<String, dynamic> j) => Lineup(
         formation: j['formation'] as String,
         lineup: (j['lineup'] as List<dynamic>)
+            .map(
+              (s) => LineupSlot.fromJson(
+                Map<String, dynamic>.from(s as Map),
+              ),
+            )
+            .toList(),
+        subs: (j['subs'] as List<dynamic>? ?? const [])
             .map(
               (s) => LineupSlot.fromJson(
                 Map<String, dynamic>.from(s as Map),

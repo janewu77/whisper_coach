@@ -18,7 +18,7 @@ The plan deliberately keeps the stack minimal for a 1–2 day hackathon build.
 
 **Backend** (`backend/`): FastAPI + **PydanticAI** (the centerpiece) + SQLite/Postgres, simple REST. The AI work is organized as **PydanticAI agents** — keep this decomposition. The first three are the original core; the last two power the roster import-review flow:
 1. **roster extractor** — team photo → structured `players` list
-2. **lineup generator** — players + opponent info → `{formation, lineup, reason}` (e.g. 4-3-3 / 4-2-3-1 / 3-5-2)
+2. **lineup generator** — players + opponent info (+ optional `team_size` 5/7/11, requested `formation`, free-text coach `instructions`, typed or via `POST .../lineup/voice`) → `{formation, lineup, subs, reason}` (starters + bench in sub order; formations written without the GK, e.g. 4-3-3 / 2-3-1 / 1-2-1)
 3. **match analyst** — notes + events → post-match summary
 4. **roster matcher** (`agents/matcher.py`) — finds cross-language / spelling-variant duplicate candidates (Li Gang ↔ 李刚) with a confidence score
 5. **import command parser** (`agents/import_editor.py`) — turns a coach's natural-language / voice command into structured edit/delete/merge actions

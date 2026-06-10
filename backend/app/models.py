@@ -118,6 +118,8 @@ class Lineup(SQLModel, table=True):
     match_id: int = Field(foreign_key="match.id", index=True)
     formation: str
     slots: list = Field(sa_column=Column(JSON))  # [{"player": str, "position": str}]
+    # Bench, in recommended substitution order (same slot shape as `slots`).
+    subs: list = Field(default_factory=list, sa_column=Column(JSON))
     reason: str
     created_at: datetime = Field(default_factory=_now)
 

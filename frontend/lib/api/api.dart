@@ -496,12 +496,49 @@ class Api {
   // ── Lineup ───────────────────────────────────────────────────────────────
 
   /// Generate (or regenerate) a lineup for a match.
-  Future<Lineup> generateLineup(int matchId, {String? strength}) async {
+  Future<Lineup> generateLineup(
+    int matchId, {
+    String? strength,
+    int? teamSize,
+    String? formation,
+    String? instructions,
+  }) async {
     final res = await _dio.post<Map<String, dynamic>>(
       '/api/matches/$matchId/lineup',
       data: {
         if (strength != null) 'strength': strength,
+        if (teamSize != null) 'team_size': teamSize,
+        if (formation != null) 'formation': formation,
+        if (instructions != null && instructions.isNotEmpty)
+          'instructions': instructions,
       },
+    );
+    return Lineup.fromJson(res.data!);
+  }
+
+  /// Generate a lineup from spoken coach instructions (audio is transcribed
+  /// server-side first).
+  Future<Lineup> generateLineupVoice(
+    int matchId,
+    XFile audio, {
+    int? teamSize,
+    String? formation,
+  }) async {
+    final bytes = await audio.readAsBytes();
+    final formData = FormData.fromMap({
+      'audio': MultipartFile.fromBytes(
+        bytes,
+        filename: audio.name,
+        contentType: MediaType.parse(audio.mimeType ?? 'audio/mpeg'),
+      ),
+      if (teamSize != null) 'team_size': teamSize,
+      if (formation != null) 'formation': formation,
+      if (SettingsService.instance.speakerLanguage.isNotEmpty)
+        'language': SettingsService.instance.speakerLanguage,
+    });
+    final res = await _dio.post<Map<String, dynamic>>(
+      '/api/matches/$matchId/lineup/voice',
+      data: formData,
     );
     return Lineup.fromJson(res.data!);
   }
