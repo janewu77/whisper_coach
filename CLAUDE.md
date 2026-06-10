@@ -107,6 +107,34 @@ with **shared teams** (a team can belong to several users).
   attaches the bearer token. Web is the priority platform.
 - Setup details (Auth0 dashboard, native config) live in the root `README.md`.
 
+## Credits
+
+Every LLM-backed call spends **credits**, billed by the primary input modality:
+**text = 1, image = 5, voice = 2** (a voice call bundles transcription + the
+follow-up LLM into the single 2-credit charge).
+
+- **Ledger:** `User.credits` is the running balance; `CreditTransaction` is the
+  append-only ledger (`amount` +grant/−spend, `balance_after`, `kind` =
+  `initial`/`text`/`image`/`voice`, `description`). All logic lives in
+  `app/credits.py` (`INITIAL_CREDITS=100`, `COST_*`, `charge_text/image/voice`
+  which 402 on an empty balance and commit, `grant_initial`, `balance`,
+  `transactions`). Migration `a3b4c5d6e7f8_credits_system.py` adds the column +
+  table and backfills existing users to 100 with an `initial` entry.
+- **Grant:** `app/auth.py::current_auth0_id` calls `credits.grant_initial` the
+  first time it registers a user (100 welcome credits + ledger entry).
+- **Spend:** each LLM endpoint calls the matching `credits.charge_*` **after the
+  agent succeeds** (so failed calls aren't billed) in `routers/matches.py`,
+  `routers/roster.py`, `routers/imports.py`.
+- **Read endpoints:** `routers/credits.py` — `GET /api/credits` (`{balance}`)
+  and `GET /api/credits/transactions` (newest first). Insufficient balance → 402.
+- **Frontend:** `CreditsService` (`ChangeNotifier` singleton) holds the balance;
+  a Dio **response interceptor** (`api/client.dart` `onApiMutation`, wired in
+  `main()` to `CreditsService.refresh`) re-fetches it after any successful
+  `POST /api/*` (except `/api/credits`), so the header stays live without each
+  screen updating it. A `_CreditsChip` in the `HomeShell` app bar shows the
+  balance and opens `CreditsHistoryScreen` (balance card + full ledger). Tests
+  in `tests/test_credits.py`; the `team` fixture seeds the user with 100 credits.
+
 ## Roster import review
 
 Importing players from a photo is **staged for review** — OCR/AI output never

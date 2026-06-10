@@ -8,6 +8,7 @@ from app.agents.match_extract import (
     extract_matches_from_text,
 )
 from app.agents.transcribe import transcribe_audio
+from app import credits
 from app.auth import current_auth0_id
 from app.db import get_session
 from app.membership import is_member, team_ids_for
@@ -102,9 +103,11 @@ async def extract_matches(
         raise HTTPException(status_code=422, detail="image must be an image file")
     data = await image.read()
     try:
-        return await extract_matches_from_image(data, image.content_type)
+        result = await extract_matches_from_image(data, image.content_type)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"match extraction failed: {exc}")
+    credits.charge_image(session, auth0_id, "Fixtures photo extraction")
+    return result
 
 
 @router.post("/extract/voice", response_model=MatchExtractResult)
@@ -126,9 +129,11 @@ async def extract_matches_voice(
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"transcription failed: {exc}")
     try:
-        return await extract_matches_from_text(text)
+        result = await extract_matches_from_text(text)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"match extraction failed: {exc}")
+    credits.charge_voice(session, auth0_id, "Spoken schedule extraction")
+    return result
 
 
 @router.get("/{match_id}")
@@ -206,6 +211,7 @@ async def make_lineup(
         result = await generate_lineup(player_outs, match.opponent, strength)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"lineup generation failed: {exc}")
+    credits.charge_text(session, auth0_id, f"Lineup vs {match.opponent}")
 
     session.add(
         Lineup(
@@ -257,6 +263,7 @@ async def add_note(
     note, suggestion = await _adjust_and_store(
         session, match_id, auth0_id, body.kind, body.content
     )
+    credits.charge_text(session, auth0_id, "Match note suggestion")
     return NoteResponse(note_id=note.id, suggestion=suggestion)
 
 
@@ -296,6 +303,7 @@ async def add_voice_note(
         raise HTTPException(status_code=502, detail=f"transcription failed: {exc}")
 
     note, suggestion = await _adjust_and_store(session, match_id, auth0_id, "voice", text)
+    credits.charge_voice(session, auth0_id, "Voice note suggestion")
     return VoiceNoteResponse(
         note_id=note.id, transcription=text, suggestion=suggestion
     )
@@ -316,6 +324,7 @@ async def make_summary(
         result = await summarize_match(lineup, [n.content for n in notes])
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"summary failed: {exc}")
+    credits.charge_text(session, auth0_id, "Post-match summary")
 
     match.summary = result.model_dump()
     session.add(match)

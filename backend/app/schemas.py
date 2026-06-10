@@ -5,6 +5,7 @@ storage changes. Agent result types live here too (reused as PydanticAI
 `result_type`s) so the LLM output is validated against the same shapes.
 """
 
+from datetime import datetime
 from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -140,6 +141,23 @@ class TeamSummary(BaseModel):
 
 class JoinRequest(BaseModel):
     code: str
+
+
+class CreditsBalance(BaseModel):
+    """The current user's credit balance (shown in the app header)."""
+
+    balance: int
+
+
+class CreditTransactionOut(BaseModel):
+    """One entry in the credit ledger (credit history screen)."""
+
+    id: int
+    amount: int  # + grant, - spend
+    balance_after: int
+    kind: str  # "initial" | "text" | "image" | "voice"
+    description: Optional[str] = None
+    created_at: datetime
 
 
 class TeamMember(BaseModel):

@@ -4,6 +4,7 @@ from sqlmodel import Session, select
 from app.agents.player_profile import extract_profile, extract_profile_from_image
 from app.agents.roster import extract_roster
 from app.agents.transcribe import transcribe_audio
+from app import credits
 from app.auth import current_auth0_id
 from app.db import get_session
 from app.membership import add_member, is_member, team_ids_for
@@ -276,6 +277,7 @@ async def roster_extract(
         result = await extract_roster(data, image.content_type)
     except Exception as exc:  # noqa: BLE001 — surface any LLM/agent failure
         raise HTTPException(status_code=502, detail=f"roster extraction failed: {exc}")
+    credits.charge_image(session, auth0_id, "Roster photo extraction")
 
     for p in result.players:
         session.add(
@@ -377,6 +379,7 @@ async def describe_player(
         prof = await extract_profile(body.text, _profile_dict(player))
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"profiling failed: {exc}")
+    credits.charge_text(session, auth0_id, f"Player profile: {player.name}")
     return _merge_detail(player, prof)
 
 
@@ -405,6 +408,7 @@ async def describe_player_voice(
         prof = await extract_profile(text, _profile_dict(player))
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"profiling failed: {exc}")
+    credits.charge_voice(session, auth0_id, f"Player profile: {player.name}")
     return _merge_detail(player, prof)
 
 
@@ -430,4 +434,5 @@ async def describe_player_photo(
         )
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"profiling failed: {exc}")
+    credits.charge_image(session, auth0_id, f"Player profile: {player.name}")
     return _merge_detail(player, prof)

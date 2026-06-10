@@ -51,7 +51,10 @@ def team_fixture(session):
         select(User).where(User.auth0_id == TEST_USER["sub"])
     ).first()
     if existing is None:
-        session.add(User(auth0_id=TEST_USER["sub"], email=TEST_USER["email"]))
+        # Seed with the initial credit grant so LLM endpoints can be charged.
+        session.add(
+            User(auth0_id=TEST_USER["sub"], email=TEST_USER["email"], credits=100)
+        )
     team = Team(name="Test FC", owner_id=TEST_USER["sub"])
     session.add(team)
     session.commit()

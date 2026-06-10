@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../api/client.dart';
 import '../models/team.dart';
+import '../services/credits_service.dart';
 import '../services/team_service.dart';
 import '../theme.dart';
 import 'create_team_screen.dart';
+import 'credits_history_screen.dart';
 import 'matches_tab.dart';
 import 'players_tab.dart';
 import 'profile_tab.dart';
@@ -109,6 +111,8 @@ class _HomeShellState extends State<HomeShell> {
               ],
             ),
             actions: [
+              const _CreditsChip(),
+              const SizedBox(width: 8),
               _TeamSelector(
                 current: current,
                 teams: TeamService.instance.teams,
@@ -147,6 +151,49 @@ class _HomeShellState extends State<HomeShell> {
                 label: 'Profile',
               ),
             ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Header credit balance. Tapping opens the full transaction history.
+class _CreditsChip extends StatelessWidget {
+  const _CreditsChip();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: CreditsService.instance,
+      builder: (context, _) {
+        final balance = CreditsService.instance.balance;
+        return InkWell(
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const CreditsHistoryScreen()),
+          ),
+          borderRadius: BorderRadius.circular(100),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: kBrandSubtle,
+              borderRadius: BorderRadius.circular(100),
+              border: Border.all(color: kBrandBorder, width: 0.5),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.toll_outlined, size: 16, color: kTextBrand),
+                const SizedBox(width: 5),
+                Text(
+                  balance?.toString() ?? '—',
+                  style: kStyleBody.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: kTextBrand,
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },

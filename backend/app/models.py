@@ -30,6 +30,26 @@ class User(SQLModel, table=True):
     auth0_id: str = Field(unique=True)
     email: Optional[str] = None
     name: Optional[str] = None
+    # Running credit balance. Granted INITIAL_CREDITS on first login; every LLM
+    # call spends from it. The CreditTransaction table is the append-only ledger.
+    credits: int = Field(default=0)
+    created_at: datetime = Field(default_factory=_now)
+
+
+class CreditTransaction(SQLModel, table=True):
+    """One entry in a user's credit ledger. ``amount`` is positive for grants
+    (initial credits) and negative for spends (LLM calls). ``balance_after`` is
+    the running balance immediately after this entry — so the history is
+    self-contained without replaying the whole ledger."""
+
+    __tablename__ = "credit_transaction"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    auth0_id: str = Field(foreign_key="users.auth0_id", index=True)
+    amount: int  # + grant, - spend
+    balance_after: int
+    kind: str  # "initial" | "text" | "image" | "voice"
+    description: Optional[str] = None
     created_at: datetime = Field(default_factory=_now)
 
 

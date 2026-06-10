@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'theme.dart';
+import 'api/client.dart' as wc_client;
 import 'auth/auth_service.dart';
+import 'services/credits_service.dart';
 import 'services/settings_service.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
@@ -15,6 +17,8 @@ Future<void> main() async {
   // the first frame so we don't flash the login screen for signed-in users.
   await AuthService.instance.init();
   await SettingsService.instance.load();
+  // Refresh the header credit balance after any credit-spending API call.
+  wc_client.onApiMutation = CreditsService.instance.refresh;
   runApp(const WhisperCoachApp());
 }
 

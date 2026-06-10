@@ -12,6 +12,7 @@ from sqlmodel import Session, select
 from app.agents.import_editor import parse_command
 from app.agents.roster import extract_players_from_text, extract_roster
 from app.agents.transcribe import transcribe_audio
+from app import credits
 from app.auth import current_auth0_id
 from app.db import get_session
 from app.membership import is_member
@@ -88,6 +89,7 @@ async def create_import(
         extracted = await extract_roster(data, image.content_type)
     except Exception as exc:  # noqa: BLE001 — surface any LLM/agent failure
         raise HTTPException(status_code=502, detail=f"roster extraction failed: {exc}")
+    credits.charge_image(db, auth0_id, "Roster import (photo)")
 
     imp = await _stage_players(db, team_id, auth0_id, extracted.players)
     return _review(db, imp)
@@ -118,6 +120,7 @@ async def create_import_from_text(
         extracted = await extract_players_from_text(body.text)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"player extraction failed: {exc}")
+    credits.charge_text(db, auth0_id, "Roster import (text)")
     imp = await _stage_players(db, team_id, auth0_id, extracted.players)
     return _review(db, imp)
 
@@ -143,6 +146,7 @@ async def create_import_from_voice(
         extracted = await extract_players_from_text(text)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"player extraction failed: {exc}")
+    credits.charge_voice(db, auth0_id, "Roster import (voice)")
     imp = await _stage_players(db, team_id, auth0_id, extracted.players)
     return _review(db, imp)
 
@@ -315,7 +319,9 @@ async def run_command(
     auth0_id: str = Depends(current_auth0_id),
 ):
     imp = _owned_session_or_404(session_id, auth0_id)
-    return await _run_command(db, imp, body.text)
+    review = await _run_command(db, imp, body.text)
+    credits.charge_text(db, auth0_id, "Roster edit command")
+    return review
 
 
 @router.post("/imports/{session_id}/command/voice", response_model=ImportReviewResponse)
@@ -334,7 +340,9 @@ async def run_voice_command(
         text = await transcribe_audio(data, audio.filename or "command.webm", language)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"transcription failed: {exc}")
-    return await _run_command(db, imp, text)
+    review = await _run_command(db, imp, text)
+    credits.charge_voice(db, auth0_id, "Roster edit command (voice)")
+    return review
 
 
 # ── confirm: write to the live roster ────────────────────────────────────────

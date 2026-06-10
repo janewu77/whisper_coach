@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../api/api.dart';
 import '../api/client.dart';
 import '../auth/auth_service.dart';
+import '../services/credits_service.dart';
 import '../services/team_service.dart';
 import '../theme.dart';
 import 'create_team_screen.dart';
@@ -24,6 +25,7 @@ class _TeamGateState extends State<TeamGate> {
     // Kick off the load now so `loading` is already true on the first build
     // (avoids a flash of the create-team screen before the request starts).
     TeamService.instance.load();
+    CreditsService.instance.refresh();
     _syncProfile();
   }
 

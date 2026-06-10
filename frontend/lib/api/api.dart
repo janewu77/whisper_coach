@@ -10,6 +10,7 @@ import '../models/lineup.dart';
 import '../models/suggestion.dart';
 import '../models/summary.dart';
 import '../models/import_review.dart';
+import '../models/credits.dart';
 
 class ExtractRosterResult {
   final int teamId;
@@ -42,6 +43,22 @@ class Api {
       },
     );
     return res.data!;
+  }
+
+  // ── Credits ─────────────────────────────────────────────────────────────
+
+  /// The current user's credit balance.
+  Future<int> getCredits() async {
+    final res = await _dio.get<Map<String, dynamic>>('/api/credits');
+    return res.data!['balance'] as int;
+  }
+
+  /// The full credit ledger, newest first.
+  Future<List<CreditTransaction>> getCreditTransactions() async {
+    final res = await _dio.get<List<dynamic>>('/api/credits/transactions');
+    return res.data!
+        .map((t) => CreditTransaction.fromJson(Map<String, dynamic>.from(t as Map)))
+        .toList();
   }
 
   // ── Teams ───────────────────────────────────────────────────────────────

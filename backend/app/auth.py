@@ -93,6 +93,10 @@ def current_auth0_id(
             User(auth0_id=sub, email=user.get("email"), name=user.get("name"))
         )
         session.commit()
+        # One-time welcome credits for a brand-new user.
+        from app import credits
+
+        credits.grant_initial(session, sub)
     elif user.get("email") and record.email != user.get("email"):
         record.email = user.get("email")
         record.name = user.get("name") or record.name
