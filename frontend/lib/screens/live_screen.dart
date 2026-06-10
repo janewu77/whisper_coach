@@ -288,12 +288,15 @@ class _LiveScreenState extends State<LiveScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text('Live match'),
             Text(
               'vs ${widget.args.opponent} · $_matchMinute\'',
-              style: kStyleSecondary,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: kStyleSecondary.copyWith(fontSize: 12, height: 1.2),
             ),
           ],
         ),

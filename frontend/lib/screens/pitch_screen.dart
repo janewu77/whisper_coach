@@ -179,12 +179,16 @@ class _PitchScreenState extends State<PitchScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Lineup · ${_lineup.formation}'),
+            Text('Lineup · ${_lineup.formation}',
+                maxLines: 1, overflow: TextOverflow.ellipsis),
             Text(
               'vs ${widget.args.opponent}',
-              style: kStyleSecondary,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: kStyleSecondary.copyWith(fontSize: 12, height: 1.2),
             ),
           ],
         ),
