@@ -516,7 +516,7 @@ class _SquadList extends StatelessWidget {
                     const SizedBox(width: 7),
                     Expanded(
                       child: Text(
-                        s.player,
+                        s.displayName, // full nickname, or the name
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: kStyleBodyMd.copyWith(

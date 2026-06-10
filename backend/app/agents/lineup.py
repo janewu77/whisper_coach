@@ -10,8 +10,10 @@ GENERATE_PROMPT = (
     "requests a specific formation, use exactly that one. Put exactly the "
     "team-size number of players into `lineup` (the starters) and EVERY "
     "remaining player into `subs`, in recommended substitution order, each "
-    "with the position they would cover. Use only the players provided and "
-    "follow any coach instructions. Briefly explain the tactical reason."
+    "with the position they would cover. Always write positions as standard "
+    "short codes (GK, CB, LB, RB, LWB, RWB, CDM, CM, CAM, LM, RM, LW, RW, "
+    "ST) — never spelled out. Use only the players provided and follow any "
+    "coach instructions. Briefly explain the tactical reason."
 )
 
 ADJUST_PROMPT = (

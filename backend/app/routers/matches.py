@@ -58,13 +58,60 @@ def _to_lineup_result(row: Lineup) -> LineupResult:
     )
 
 
+# Spelled-out position names → standard short codes (display safety net for
+# lineups stored before the agent was told to emit codes).
+_POSITION_CODES = {
+    "goalkeeper": "GK",
+    "keeper": "GK",
+    "centre-back": "CB",
+    "center-back": "CB",
+    "centre back": "CB",
+    "center back": "CB",
+    "central defender": "CB",
+    "left-back": "LB",
+    "left back": "LB",
+    "right-back": "RB",
+    "right back": "RB",
+    "left wing-back": "LWB",
+    "left wingback": "LWB",
+    "right wing-back": "RWB",
+    "right wingback": "RWB",
+    "defensive midfielder": "CDM",
+    "holding midfielder": "CDM",
+    "central midfielder": "CM",
+    "centre midfielder": "CM",
+    "midfielder": "CM",
+    "attacking midfielder": "CAM",
+    "left midfielder": "LM",
+    "right midfielder": "RM",
+    "left winger": "LW",
+    "left wing": "LW",
+    "right winger": "RW",
+    "right wing": "RW",
+    "striker": "ST",
+    "centre forward": "ST",
+    "center forward": "ST",
+    "forward": "ST",
+    "substitute": "SUB",
+}
+
+
+def _short_position(pos: str) -> str:
+    p = pos.strip()
+    mapped = _POSITION_CODES.get(p.casefold())
+    if mapped:
+        return mapped
+    return p.upper() if len(p) <= 3 else p
+
+
 def _complete_squad(result: LineupResult, players: list[Player]) -> LineupResult:
-    """Make the squad whole: attach each slot's roster nickname, and append
-    every roster player the agent left out to the bench — starters + subs must
-    always cover the entire roster."""
+    """Make the squad whole: attach each slot's roster nickname, normalize the
+    position to a short code, and append every roster player the agent left out
+    to the bench — starters + subs must always cover the entire roster."""
     by_name = {p.name.strip().casefold(): p for p in players}
 
     def enrich(slot: LineupSlot) -> None:
+        slot.position = _short_position(slot.position)
         p = by_name.get(slot.player.strip().casefold())
         if p is not None and p.nickname:
             slot.nickname = p.nickname
@@ -78,7 +125,7 @@ def _complete_squad(result: LineupResult, players: list[Player]) -> LineupResult
             result.subs.append(
                 LineupSlot(
                     player=p.name,
-                    position=p.preferred_position or "SUB",
+                    position=_short_position(p.preferred_position or "SUB"),
                     nickname=p.nickname,
                 )
             )
