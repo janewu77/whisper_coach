@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dio/dio.dart';
 import 'package:http_mock_adapter/http_mock_adapter.dart';
@@ -10,14 +9,6 @@ import 'package:whisper_coach/models/suggestion.dart';
 import 'package:whisper_coach/models/summary.dart';
 
 // ── Sample payloads (copied from the backend contract) ───────────────────────
-
-const _rosterPayload = {
-  'team_id': 1,
-  'players': [
-    {'id': 1, 'name': 'M. Chen', 'number': 10, 'preferred_position': 'CM'},
-    {'id': 2, 'name': 'J. Park', 'number': null, 'preferred_position': null},
-  ],
-};
 
 const _matchPayload = {
   'id': 42,

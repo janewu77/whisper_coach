@@ -80,6 +80,7 @@ class Match(SQLModel, table=True):
     is_home: bool = True
     location: str = ""  # legacy free-text venue (kept for old rows); use `pitch`
     pitch: Optional[str] = None  # ground / pitch name
+    address: Optional[str] = None  # venue address (single line)
     date: str
     kickoff_time: Optional[str] = None  # "HH:MM"
     notes: Optional[str] = None

@@ -75,6 +75,7 @@ class _MatchReviewScreenState extends State<MatchReviewScreen> {
           opponent: d.opponent.trim(),
           isHome: d.isHome,
           pitch: d.pitch,
+          address: d.address,
           date: d.date ?? DateFormat('yyyy-MM-dd').format(DateTime.now()),
           kickoffTime: d.kickoffTime,
           notes: d.notes,
@@ -232,6 +233,13 @@ class _MatchReviewScreenState extends State<MatchReviewScreen> {
             decoration:
                 const InputDecoration(labelText: 'Pitch / ground', isDense: true),
             onChanged: (v) => d.pitch = v,
+          ),
+          const SizedBox(height: 8),
+          TextFormField(
+            initialValue: d.address,
+            decoration:
+                const InputDecoration(labelText: 'Address', isDense: true),
+            onChanged: (v) => d.address = v,
           ),
           const SizedBox(height: 8),
           Wrap(

@@ -18,6 +18,7 @@ class _HomeScreenState extends State<HomeScreen> {
   // ── Match form ───────────────────────────────────────────────────────────
   final _opponentCtrl = TextEditingController();
   final _pitchCtrl = TextEditingController();
+  final _addressCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
   String? _strength; // 'strong' | 'weak' | null
   bool _isHome = true;
@@ -32,6 +33,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void dispose() {
     _opponentCtrl.dispose();
     _pitchCtrl.dispose();
+    _addressCtrl.dispose();
     _notesCtrl.dispose();
     super.dispose();
   }
@@ -85,6 +87,8 @@ class _HomeScreenState extends State<HomeScreen> {
         opponent: _opponentCtrl.text.trim(),
         isHome: _isHome,
         pitch: _pitchCtrl.text.trim().isEmpty ? null : _pitchCtrl.text.trim(),
+        address:
+            _addressCtrl.text.trim().isEmpty ? null : _addressCtrl.text.trim(),
         date: DateFormat('yyyy-MM-dd').format(_matchDate),
         kickoffTime: _timeStr,
         notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
@@ -182,6 +186,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   controller: _pitchCtrl,
                   decoration: const InputDecoration(
                       labelText: 'Pitch / ground', hintText: 'e.g. Home Park'),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _addressCtrl,
+                  decoration: const InputDecoration(
+                      labelText: 'Address', hintText: 'Street, city'),
                 ),
                 const SizedBox(height: 10),
                 // Date + time row

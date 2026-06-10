@@ -28,6 +28,7 @@ class MatchDetailScreen extends StatefulWidget {
 class _MatchDetailScreenState extends State<MatchDetailScreen> {
   final _opponentCtrl = TextEditingController();
   final _pitchCtrl = TextEditingController();
+  final _addressCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
   String _date = '';
   String? _kickoff; // "HH:MM"
@@ -49,6 +50,7 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
     final m = widget.match;
     _opponentCtrl.text = m.opponent;
     _pitchCtrl.text = m.pitch ?? '';
+    _addressCtrl.text = m.address ?? '';
     _isHome = m.isHome;
     _date = m.date;
     _kickoff = m.kickoffTime;
@@ -60,6 +62,7 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
   void dispose() {
     _opponentCtrl.dispose();
     _pitchCtrl.dispose();
+    _addressCtrl.dispose();
     _notesCtrl.dispose();
     _recorder.dispose();
     super.dispose();
@@ -70,6 +73,9 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
       if (d.opponent.trim().isNotEmpty) _opponentCtrl.text = d.opponent.trim();
       _isHome = d.isHome;
       if (d.pitch != null && d.pitch!.isNotEmpty) _pitchCtrl.text = d.pitch!;
+      if (d.address != null && d.address!.isNotEmpty) {
+        _addressCtrl.text = d.address!;
+      }
       if (d.date != null && d.date!.isNotEmpty) _date = d.date!;
       if (d.kickoffTime != null && d.kickoffTime!.isNotEmpty) {
         _kickoff = d.kickoffTime;
@@ -210,6 +216,9 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
     if (p.pitch != null && p.pitch!.isNotEmpty) {
       add('Pitch', _pitchCtrl.text.trim(), p.pitch!);
     }
+    if (p.address != null && p.address!.isNotEmpty) {
+      add('Address', _addressCtrl.text.trim(), p.address!);
+    }
     if (p.strength != null) {
       add('Strength', _strengthLabel(_strength), _strengthLabel(p.strength));
     }
@@ -271,6 +280,7 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
         opponent: _opponentCtrl.text.trim(),
         isHome: _isHome,
         pitch: _pitchCtrl.text.trim(),
+        address: _addressCtrl.text.trim(),
         date: _date,
         kickoffTime: _kickoff ?? '',
         notes: _notesCtrl.text.trim(),
@@ -436,6 +446,11 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
           TextField(
             controller: _pitchCtrl,
             decoration: const InputDecoration(labelText: 'Pitch / ground'),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _addressCtrl,
+            decoration: const InputDecoration(labelText: 'Address'),
           ),
           const SizedBox(height: 14),
           const Text('OPPONENT STRENGTH', style: kStyleLabel),

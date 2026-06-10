@@ -468,6 +468,26 @@ class _MatchCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: kStyleSecondary,
                       ),
+                      if (match.address != null &&
+                          match.address!.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Row(
+                          children: [
+                            const Icon(Icons.location_on_outlined,
+                                size: 12, color: kTextTertiary),
+                            const SizedBox(width: 3),
+                            Expanded(
+                              child: Text(
+                                match.address!,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: kStyleSecondary.copyWith(
+                                    color: kTextTertiary),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                       const SizedBox(height: 7),
                       _StrengthBadge(label: strengthLabel),
                     ],

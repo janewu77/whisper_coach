@@ -7,6 +7,7 @@ class Match {
   final bool isHome; // our team plays at home?
   final String location;
   final String? pitch;
+  final String? address;
   final String date;
   final String? kickoffTime; // "HH:MM"
   final String? notes;
@@ -19,6 +20,7 @@ class Match {
     this.isHome = true,
     this.location = '',
     this.pitch,
+    this.address,
     required this.date,
     this.kickoffTime,
     this.notes,
@@ -34,6 +36,7 @@ class Match {
       isHome: (j['is_home'] as bool?) ?? true,
       location: (j['location'] as String?) ?? '',
       pitch: j['pitch'] as String?,
+      address: j['address'] as String?,
       date: j['date'] as String,
       kickoffTime: j['kickoff_time'] as String?,
       // Match detail responses use "notes" for the event list, while list and
@@ -51,6 +54,7 @@ class MatchDraft {
   String? date;
   String? kickoffTime;
   String? pitch;
+  String? address;
   String? strength;
   String? notes;
 
@@ -60,6 +64,7 @@ class MatchDraft {
     this.date,
     this.kickoffTime,
     this.pitch,
+    this.address,
     this.strength,
     this.notes,
   });
@@ -70,6 +75,7 @@ class MatchDraft {
         date: j['date'] as String?,
         kickoffTime: j['kickoff_time'] as String?,
         pitch: j['pitch'] as String?,
+        address: j['address'] as String?,
         strength: j['strength'] as String?,
         notes: j['notes'] as String?,
       );
