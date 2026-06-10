@@ -69,6 +69,12 @@ class _LiveScreenState extends State<LiveScreen> {
 
   int _matchMinute = 0;
 
+  // ── Countdown clock (half/period timer) ──────────────────────────────────
+  Timer? _countdown;
+  int _countdownSetMin = 45; // chosen length in minutes
+  int _remainingSec = 0; // > 0 while running/paused
+  bool _countdownRunning = false;
+
   @override
   void initState() {
     super.initState();
@@ -86,10 +92,63 @@ class _LiveScreenState extends State<LiveScreen> {
   @override
   void dispose() {
     _matchClock?.cancel();
+    _countdown?.cancel();
     _textCtrl.dispose();
     _scrollCtrl.dispose();
     _recorder.dispose();
     super.dispose();
+  }
+
+  // ── Countdown clock ───────────────────────────────────────────────────────
+
+  String get _countdownLabel {
+    final m = (_remainingSec ~/ 60).toString().padLeft(2, '0');
+    final s = (_remainingSec % 60).toString().padLeft(2, '0');
+    return '$m:$s';
+  }
+
+  void _startCountdown() {
+    setState(() {
+      _remainingSec = _countdownSetMin * 60;
+      _countdownRunning = true;
+    });
+    _runCountdown();
+  }
+
+  void _runCountdown() {
+    _countdown?.cancel();
+    _countdown = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      if (_remainingSec <= 1) {
+        _countdown?.cancel();
+        setState(() {
+          _remainingSec = 0;
+          _countdownRunning = false;
+          _messages.add(SystemMessage('⏱ $_countdownSetMin min are up!'));
+        });
+        _scrollToBottom();
+      } else {
+        setState(() => _remainingSec--);
+      }
+    });
+  }
+
+  void _pauseCountdown() {
+    _countdown?.cancel();
+    setState(() => _countdownRunning = false);
+  }
+
+  void _resumeCountdown() {
+    setState(() => _countdownRunning = true);
+    _runCountdown();
+  }
+
+  void _resetCountdown() {
+    _countdown?.cancel();
+    setState(() {
+      _remainingSec = 0;
+      _countdownRunning = false;
+    });
   }
 
   // ── Text note ────────────────────────────────────────────────────────────
@@ -335,6 +394,10 @@ class _LiveScreenState extends State<LiveScreen> {
       ),
       body: Column(
         children: [
+          // Countdown clock (set minutes → start → mm:ss)
+          _buildCountdownBar(),
+          const Divider(height: 1),
+
           // Chat log
           Expanded(
             child: ListView.builder(
@@ -349,6 +412,107 @@ class _LiveScreenState extends State<LiveScreen> {
 
           // Input area
           _buildComposer(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCountdownBar() {
+    final active = _remainingSec > 0 || _countdownRunning;
+    final urgent = active && _remainingSec <= 60;
+    return Container(
+      color: kSurfaceCard,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      child: Row(
+        children: [
+          Icon(Icons.timer_outlined,
+              size: 18, color: urgent ? kRedFg : kTextSecondary),
+          const SizedBox(width: 8),
+          if (!active) ...[
+            // Idle: pick the length, then start.
+            IconButton(
+              tooltip: '-5 min',
+              visualDensity: VisualDensity.compact,
+              onPressed: _countdownSetMin > 5
+                  ? () => setState(() => _countdownSetMin -= 5)
+                  : null,
+              icon: const Icon(Icons.remove_circle_outline, size: 20),
+            ),
+            Text(
+              '$_countdownSetMin min',
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: kTextPrimary,
+                fontFeatures: [FontFeature.tabularFigures()],
+              ),
+            ),
+            IconButton(
+              tooltip: '+5 min',
+              visualDensity: VisualDensity.compact,
+              onPressed: _countdownSetMin < 90
+                  ? () => setState(() => _countdownSetMin += 5)
+                  : null,
+              icon: const Icon(Icons.add_circle_outline, size: 20),
+            ),
+            const Spacer(),
+            ElevatedButton.icon(
+              onPressed: _startCountdown,
+              style: ElevatedButton.styleFrom(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                minimumSize: Size.zero,
+              ),
+              icon: const Icon(Icons.play_arrow_rounded, size: 18),
+              label: const Text('Start'),
+            ),
+          ] else ...[
+            // Running / paused: mm:ss + pause/resume + reset.
+            Text(
+              _countdownLabel,
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                color: urgent ? kRedFg : kTextPrimary,
+                fontFeatures: const [FontFeature.tabularFigures()],
+                height: 1.1,
+              ),
+            ),
+            const SizedBox(width: 8),
+            if (!_countdownRunning)
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: kSurfacePage,
+                  borderRadius: BorderRadius.circular(100),
+                ),
+                child: Text('Paused',
+                    style: kStyleLabel.copyWith(
+                        fontSize: 10, letterSpacing: 0)),
+              ),
+            const Spacer(),
+            IconButton(
+              tooltip: _countdownRunning ? 'Pause' : 'Resume',
+              visualDensity: VisualDensity.compact,
+              onPressed:
+                  _countdownRunning ? _pauseCountdown : _resumeCountdown,
+              icon: Icon(
+                _countdownRunning
+                    ? Icons.pause_circle_outline
+                    : Icons.play_circle_outline,
+                size: 24,
+                color: kTextBrand,
+              ),
+            ),
+            IconButton(
+              tooltip: 'Reset',
+              visualDensity: VisualDensity.compact,
+              onPressed: _resetCountdown,
+              icon: const Icon(Icons.stop_circle_outlined,
+                  size: 24, color: kTextSecondary),
+            ),
+          ],
         ],
       ),
     );
