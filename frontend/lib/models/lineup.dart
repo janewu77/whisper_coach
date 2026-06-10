@@ -10,9 +10,14 @@ class LineupSlot {
     this.nickname,
   });
 
-  /// What to show on the pitch: the nickname when set, else the full name.
-  String get displayName =>
-      (nickname != null && nickname!.isNotEmpty) ? nickname! : player;
+  /// What to show on the pitch: the nickname when set, else the first name
+  /// plus the last-name initial (e.g. "Thomas M.").
+  String get displayName {
+    if (nickname != null && nickname!.isNotEmpty) return nickname!;
+    final parts = player.trim().split(RegExp(r'\s+'));
+    if (parts.length < 2) return player;
+    return '${parts.first} ${parts.last[0]}.';
+  }
 
   factory LineupSlot.fromJson(Map<String, dynamic> j) => LineupSlot(
         player: j['player'] as String,
