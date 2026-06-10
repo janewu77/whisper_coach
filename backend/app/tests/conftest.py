@@ -6,7 +6,7 @@ from sqlmodel.pool import StaticPool
 from app.auth import get_current_user
 from app.db import get_session
 from app.main import app
-from app.models import Player, Team, User, UserTeam
+from app.models import CreditTransaction, Player, Team, User, UserTeam
 
 # The identity all `client` requests run as. Auth verification is bypassed in
 # tests by overriding get_current_user; enforcement itself is covered in
@@ -51,9 +51,19 @@ def team_fixture(session):
         select(User).where(User.auth0_id == TEST_USER["sub"])
     ).first()
     if existing is None:
-        # Seed with the initial credit grant so LLM endpoints can be charged.
+        # Seed with the initial credit grant (balance + ledger entry, like a
+        # real registration) so LLM endpoints can be charged.
         session.add(
             User(auth0_id=TEST_USER["sub"], email=TEST_USER["email"], credits=100)
+        )
+        session.add(
+            CreditTransaction(
+                auth0_id=TEST_USER["sub"],
+                amount=100,
+                balance_after=100,
+                kind="initial",
+                description="Welcome credits",
+            )
         )
     team = Team(name="Test FC", owner_id=TEST_USER["sub"])
     session.add(team)

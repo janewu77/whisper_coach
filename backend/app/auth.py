@@ -17,6 +17,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlmodel import Session, select
 
+from app import credits
 from app.config import settings
 from app.db import get_session
 from app.models import User
@@ -94,12 +95,18 @@ def current_auth0_id(
         )
         session.commit()
         # One-time welcome credits for a brand-new user.
-        from app import credits
-
         credits.grant_initial(session, sub)
-    elif user.get("email") and record.email != user.get("email"):
-        record.email = user.get("email")
-        record.name = user.get("name") or record.name
-        session.add(record)
-        session.commit()
+    else:
+        if record.credits == 0:
+            # Existing account that may predate the credits system: grant the
+            # welcome credits if the ledger shows they were never given (a
+            # user who merely spent down to zero has an "initial" entry and
+            # is NOT re-granted). Gated on a zero balance so the ledger check
+            # doesn't run on every request.
+            credits.ensure_initial_grant(session, sub)
+        if user.get("email") and record.email != user.get("email"):
+            record.email = user.get("email")
+            record.name = user.get("name") or record.name
+            session.add(record)
+            session.commit()
     return sub

@@ -67,6 +67,24 @@ def grant_initial(session: Session, auth0_id: str) -> int:
     return grant(session, auth0_id, INITIAL_CREDITS, "initial", "Welcome credits")
 
 
+def ensure_initial_grant(session: Session, auth0_id: str) -> int:
+    """Grant the welcome credits if this user never received them.
+
+    A safety net for accounts that predate the credits system (created before
+    the migration backfill, or seeded outside the normal register path): the
+    ledger is checked for an ``initial`` entry, so a user who legitimately
+    spent down to zero is never re-granted."""
+    already = session.exec(
+        select(CreditTransaction).where(
+            CreditTransaction.auth0_id == auth0_id,
+            CreditTransaction.kind == "initial",
+        )
+    ).first()
+    if already is not None:
+        return balance(session, auth0_id)
+    return grant_initial(session, auth0_id)
+
+
 def _charge(
     session: Session, auth0_id: str, cost: int, kind: str, description: str
 ) -> int:

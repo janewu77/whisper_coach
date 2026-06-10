@@ -121,7 +121,10 @@ follow-up LLM into the single 2-credit charge).
   `transactions`). Migration `a3b4c5d6e7f8_credits_system.py` adds the column +
   table and backfills existing users to 100 with an `initial` entry.
 - **Grant:** `app/auth.py::current_auth0_id` calls `credits.grant_initial` the
-  first time it registers a user (100 welcome credits + ledger entry).
+  first time it registers a user (100 welcome credits + ledger entry). For
+  **existing** users it also runs `credits.ensure_initial_grant` as a safety
+  net — gated on a zero balance, and granting only when the ledger has no
+  `initial` entry (so a user who spent down to 0 is never re-granted).
 - **Spend:** each LLM endpoint calls the matching `credits.charge_*` **after the
   agent succeeds** (so failed calls aren't billed) in `routers/matches.py`,
   `routers/roster.py`, `routers/imports.py`.

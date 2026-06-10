@@ -25,6 +25,36 @@ def test_new_user_gets_initial_credits(client, session):
     assert history[0]["balance_after"] == credits.INITIAL_CREDITS
 
 
+def test_existing_user_without_grant_gets_initial_credits(client, session):
+    """An account that predates the credits system (user row exists, empty
+    ledger) is granted the welcome credits on its next request."""
+    session.add(User(auth0_id=TEST_USER["sub"], email=TEST_USER["email"], credits=0))
+    session.commit()
+
+    r = client.get("/api/credits")
+    assert r.json()["balance"] == credits.INITIAL_CREDITS
+    history = client.get("/api/credits/transactions").json()
+    assert [t["kind"] for t in history] == ["initial"]
+
+
+def test_spent_down_user_is_not_regranted(client, session):
+    """A zero balance alone does not re-trigger the grant — only a missing
+    'initial' ledger entry does."""
+    # First request registers + grants 100.
+    assert client.get("/api/credits").json()["balance"] == credits.INITIAL_CREDITS
+    # Simulate having spent everything.
+    user = session.exec(
+        select(User).where(User.auth0_id == TEST_USER["sub"])
+    ).first()
+    user.credits = 0
+    session.add(user)
+    session.commit()
+
+    assert client.get("/api/credits").json()["balance"] == 0
+    history = client.get("/api/credits/transactions").json()
+    assert [t["kind"] for t in history] == ["initial"]  # still just the one grant
+
+
 def test_text_llm_call_spends_one_credit(client, team, monkeypatch):
     """Describing a player (text) costs 1 credit and records a transaction."""
     pid = client.get(f"/api/teams/{team.id}").json()["players"][0]["id"]
