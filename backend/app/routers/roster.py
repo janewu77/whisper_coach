@@ -79,6 +79,7 @@ def _to_detail(p: Player) -> PlayerDetail:
     return PlayerDetail(
         id=p.id,
         name=p.name,
+        nickname=p.nickname,
         number=p.number,
         preferred_position=p.preferred_position,
         positions=p.positions or [],
@@ -92,6 +93,7 @@ def _to_detail(p: Player) -> PlayerDetail:
 
 def _profile_dict(p: Player) -> dict:
     return {
+        "nickname": p.nickname,
         "number": p.number,
         "positions": p.positions or [],
         "preferred_foot": p.preferred_foot,
@@ -121,6 +123,7 @@ def _merge_detail(player: Player, prof: PlayerProfileResult) -> PlayerDetail:
     return PlayerDetail(
         id=player.id,
         name=player.name,
+        nickname=prof.nickname or player.nickname,
         number=prof.number if prof.number is not None else player.number,
         preferred_position=positions[0] if positions else player.preferred_position,
         positions=positions,
@@ -308,6 +311,7 @@ def get_team(
             TeamPlayer(
                 id=p.id,
                 name=p.name,
+                nickname=p.nickname,
                 number=p.number,
                 preferred_position=p.preferred_position,
                 positions=p.positions or [],

@@ -165,6 +165,7 @@ class Api {
     int teamId,
     int playerId, {
     String? name,
+    String? nickname,
     int? number,
     String? preferredPosition,
     List<String>? positions,
@@ -178,6 +179,7 @@ class Api {
       '/api/teams/$teamId/players/$playerId',
       data: {
         if (name != null) 'name': name,
+        if (nickname != null) 'nickname': nickname,
         if (number != null) 'number': number,
         if (preferredPosition != null) 'preferred_position': preferredPosition,
         if (positions != null) 'positions': positions,

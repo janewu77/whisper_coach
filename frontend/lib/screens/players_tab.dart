@@ -629,6 +629,7 @@ class _PlayersTabState extends State<PlayersTab> {
                 final p = players[index - 1];
                 return _PlayerTile(
                   name: p.name,
+                  nickname: p.nickname,
                   number: p.number,
                   positions: p.positions.isNotEmpty
                       ? p.positions
@@ -693,6 +694,7 @@ class _FilterButton extends StatelessWidget {
 
 class _PlayerTile extends StatelessWidget {
   final String name;
+  final String? nickname;
   final int? number;
   final List<String> positions;
   final String availabilityLabel;
@@ -703,6 +705,7 @@ class _PlayerTile extends StatelessWidget {
 
   const _PlayerTile({
     required this.name,
+    this.nickname,
     this.number,
     this.positions = const [],
     this.availabilityLabel = 'Available',
@@ -753,11 +756,22 @@ class _PlayerTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  name,
+                Text.rich(
+                  TextSpan(children: [
+                    TextSpan(
+                      text: name,
+                      style:
+                          kStyleBody.copyWith(fontWeight: FontWeight.w500),
+                    ),
+                    if (nickname != null && nickname!.isNotEmpty)
+                      TextSpan(
+                        text: '  "$nickname"',
+                        style: kStyleSecondary.copyWith(
+                            fontStyle: FontStyle.italic),
+                      ),
+                  ]),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: kStyleBody.copyWith(fontWeight: FontWeight.w500),
                 ),
                 if (subtitle.isNotEmpty) ...[
                   const SizedBox(height: 2),

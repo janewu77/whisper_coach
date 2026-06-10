@@ -237,6 +237,7 @@ def test_update_player_profile_persists(client, team):
     r = client.patch(
         f"/api/teams/{team.id}/players/{pid}",
         json={
+            "nickname": "Johnny",
             "number": 11,
             "positions": ["ST", "RW"],
             "preferred_foot": "left",
@@ -247,14 +248,20 @@ def test_update_player_profile_persists(client, team):
     )
     assert r.status_code == 200
     b = r.json()
+    assert b["nickname"] == "Johnny"
     assert b["positions"] == ["ST", "RW"]
     assert b["preferred_foot"] == "left"
     assert b["height_cm"] == 180
     assert b["traits"] == ["strong", "good ball control"]
 
     again = client.get(f"/api/teams/{team.id}/players/{pid}").json()
+    assert again["nickname"] == "Johnny"
     assert again["number"] == 11
     assert again["description"] == "Quick, direct striker."
+
+    # nickname also surfaces on the roster list
+    roster = client.get(f"/api/teams/{team.id}").json()["players"]
+    assert any(p.get("nickname") == "Johnny" for p in roster)
 
 
 def test_describe_player_does_not_persist(client, team, monkeypatch):

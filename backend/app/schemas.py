@@ -66,6 +66,7 @@ class TeamPlayer(BaseModel):
 
     id: int
     name: str
+    nickname: Optional[str] = None
     number: Optional[int] = None
     preferred_position: Optional[str] = None
     positions: list[str] = []
@@ -83,6 +84,7 @@ class PlayerDetail(BaseModel):
 
     id: int
     name: str
+    nickname: Optional[str] = None
     number: Optional[int] = None
     preferred_position: Optional[str] = None
     positions: list[str] = []
@@ -97,6 +99,7 @@ class PlayerUpdate(BaseModel):
     """Manual edit of a player profile — every field optional (PATCH)."""
 
     name: Optional[str] = None
+    nickname: Optional[str] = None
     number: Optional[int] = None
     preferred_position: Optional[str] = None
     positions: Optional[list[str]] = None
@@ -115,6 +118,7 @@ class PlayerProfileResult(BaseModel):
     """Agent output: a player's COMPLETE profile, extracted/merged from a
     spoken or typed description. Empty/None fields mean 'no information'."""
 
+    nickname: Optional[str] = None
     number: Optional[int] = None
     positions: list[str] = []
     preferred_foot: Optional[str] = None

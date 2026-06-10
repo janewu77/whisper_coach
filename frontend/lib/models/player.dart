@@ -34,6 +34,7 @@ class Absence {
 class Player {
   final int? id;
   final String name;
+  final String? nickname;
   final int? number;
   final String? preferredPosition;
   // Extended profile (populated by the player detail screen).
@@ -47,6 +48,7 @@ class Player {
   const Player({
     this.id,
     required this.name,
+    this.nickname,
     this.number,
     this.preferredPosition,
     this.positions = const [],
@@ -60,6 +62,7 @@ class Player {
   factory Player.fromJson(Map<String, dynamic> j) => Player(
         id: j['id'] as int?,
         name: j['name'] as String,
+        nickname: j['nickname'] as String?,
         number: j['number'] as int?,
         preferredPosition: j['preferred_position'] as String?,
         positions: (j['positions'] as List<dynamic>? ?? const [])
@@ -79,6 +82,7 @@ class Player {
   Map<String, dynamic> toJson() => {
         if (id != null) 'id': id,
         'name': name,
+        if (nickname != null && nickname!.isNotEmpty) 'nickname': nickname,
         if (number != null) 'number': number,
         if (preferredPosition != null) 'preferred_position': preferredPosition,
         'positions': positions,

@@ -14,6 +14,7 @@ from app.schemas import PlayerProfileResult
 
 SYSTEM_PROMPT = (
     "You build a football player's profile from a coach's description. Extract:\n"
+    "- nickname: what teammates call the player (e.g. 'Tommy' for Thomas)\n"
     "- number: jersey number\n"
     "- positions: positions the player can play, as standard codes "
     "(GK, CB, LB, RB, LWB, RWB, CDM, CM, CAM, LM, RM, LW, RW, ST)\n"

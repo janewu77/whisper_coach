@@ -80,6 +80,7 @@ class Player(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     team_id: int = Field(foreign_key="team.id", index=True)
     name: str
+    nickname: Optional[str] = None
     number: Optional[int] = None
     preferred_position: Optional[str] = None
     # Extended profile (set via the player detail screen / voice profiling).

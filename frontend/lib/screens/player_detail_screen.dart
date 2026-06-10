@@ -50,6 +50,7 @@ class PlayerDetailScreen extends StatefulWidget {
 
 class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
   final _nameCtrl = TextEditingController();
+  final _nicknameCtrl = TextEditingController();
   final _numberCtrl = TextEditingController();
   final _heightCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
@@ -85,6 +86,7 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
   @override
   void dispose() {
     _nameCtrl.dispose();
+    _nicknameCtrl.dispose();
     _numberCtrl.dispose();
     _heightCtrl.dispose();
     _descCtrl.dispose();
@@ -121,6 +123,9 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
       _absences
         ..clear()
         ..addAll(p.absences);
+    }
+    if (p.nickname != null && p.nickname!.isNotEmpty) {
+      _nicknameCtrl.text = p.nickname!;
     }
     if (p.number != null) _numberCtrl.text = p.number.toString();
     if (p.heightCm != null) _heightCtrl.text = p.heightCm.toString();
@@ -302,6 +307,7 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
       }
     }
 
+    add('Nickname', _nicknameCtrl.text.trim(), p.nickname ?? '');
     add('Jersey number', _numberCtrl.text.trim(),
         p.number?.toString() ?? '');
     add('Positions', _positions.join(', '), p.positions.join(', '));
@@ -328,6 +334,7 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
         widget.teamId,
         widget.playerId,
         name: name,
+        nickname: _nicknameCtrl.text.trim(),
         number: int.tryParse(_numberCtrl.text.trim()),
         positions: _positions,
         preferredPosition: _positions.isNotEmpty ? _positions.first : null,
@@ -504,6 +511,13 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
                         controller: _nameCtrl,
                         decoration: const InputDecoration(labelText: 'Name *'),
                         onChanged: (_) => setState(() {}), // refresh app-bar title
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: _nicknameCtrl,
+                        decoration: const InputDecoration(
+                            labelText: 'Nickname',
+                            hintText: 'What teammates call them'),
                       ),
                       const SizedBox(height: 10),
                       TextField(
