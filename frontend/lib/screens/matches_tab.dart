@@ -106,6 +106,31 @@ class _MatchesTabState extends State<MatchesTab> {
     }
   }
 
+  /// Start recording (live notes). Ensures a lineup exists first so in-match
+  /// notes are accepted by the backend.
+  Future<void> _recordMatch(Match match) async {
+    if (_openingMatchIds.contains(match.id)) return;
+    setState(() => _openingMatchIds.add(match.id));
+    try {
+      final details = await _api.getMatch(match.id);
+      if (details.lineup == null) {
+        await _api.generateLineup(match.id, strength: match.strength);
+      }
+      if (!mounted) return;
+      await Navigator.pushNamed(
+        context,
+        '/live',
+        arguments:
+            LiveScreenArgs(matchId: match.id, opponent: match.opponent),
+      );
+      if (mounted) await _refresh();
+    } catch (error) {
+      if (mounted) _snack(dioErrorMessage(error));
+    } finally {
+      if (mounted) setState(() => _openingMatchIds.remove(match.id));
+    }
+  }
+
   Future<void> _editMatch(Match match) async {
     final changed = await Navigator.of(context).push<bool>(
       MaterialPageRoute(builder: (_) => MatchDetailScreen(match: match)),
@@ -349,9 +374,10 @@ class _MatchesTabState extends State<MatchesTab> {
                 return _MatchCard(
                   match: match,
                   ourTeam: TeamService.instance.current?.name ?? 'Our team',
-                  opening: _openingMatchIds.contains(match.id),
-                  onTap: () => _openMatch(match),
-                  onEdit: () => _editMatch(match),
+                  busy: _openingMatchIds.contains(match.id),
+                  onLineup: () => _openMatch(match),
+                  onRecord: () => _recordMatch(match),
+                  onDetails: () => _editMatch(match),
                   onDelete: () => _deleteMatch(match),
                 );
               },
@@ -366,17 +392,19 @@ class _MatchesTabState extends State<MatchesTab> {
 class _MatchCard extends StatelessWidget {
   final Match match;
   final String ourTeam;
-  final bool opening;
-  final VoidCallback onTap;
-  final VoidCallback onEdit;
+  final bool busy;
+  final VoidCallback onLineup;
+  final VoidCallback onRecord;
+  final VoidCallback onDetails;
   final VoidCallback onDelete;
 
   const _MatchCard({
     required this.match,
     required this.ourTeam,
-    required this.opening,
-    required this.onTap,
-    required this.onEdit,
+    required this.busy,
+    required this.onLineup,
+    required this.onRecord,
+    required this.onDetails,
     required this.onDelete,
   });
 
@@ -399,86 +427,143 @@ class _MatchCard extends StatelessWidget {
         side: const BorderSide(color: kBorderHairline, width: 0.5),
       ),
       clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: opening ? null : onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: kBrandSubtle,
-                  borderRadius: BorderRadius.circular(kRadiusInput),
-                ),
-                child: const Icon(
-                  Icons.sports_soccer_outlined,
-                  color: kTextBrand,
-                  size: 22,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _MatchTitle(
-                      home: match.isHome ? ourTeam : match.opponent,
-                      away: match.isHome ? match.opponent : ourTeam,
-                      ourTeamIsHome: match.isHome,
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      [
-                        dateLabel,
-                        if (match.kickoffTime != null &&
-                            match.kickoffTime!.isNotEmpty)
-                          match.kickoffTime!,
-                      ].join(' ') +
-                          (match.pitch != null && match.pitch!.isNotEmpty
-                              ? ' · ${match.pitch}'
-                              : ''),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: kStyleSecondary,
-                    ),
-                    const SizedBox(height: 7),
-                    _StrengthBadge(label: strengthLabel),
-                  ],
-                ),
-              ),
-              IconButton(
-                tooltip: 'Edit match',
-                onPressed: onEdit,
-                visualDensity: VisualDensity.compact,
-                icon: const Icon(Icons.edit_outlined,
-                    size: 18, color: kTextSecondary),
-              ),
-              IconButton(
-                tooltip: 'Delete match',
-                onPressed: onDelete,
-                visualDensity: VisualDensity.compact,
-                icon: const Icon(Icons.delete_outline,
-                    size: 18, color: kTextTertiary),
-              ),
-              if (opening)
-                const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: kBrand,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: kBrandSubtle,
+                    borderRadius: BorderRadius.circular(kRadiusInput),
                   ),
-                )
-              else
-                const Icon(
-                  Icons.chevron_right,
-                  color: kTextTertiary,
-                  size: 22,
+                  child: const Icon(Icons.sports_soccer_outlined,
+                      color: kTextBrand, size: 22),
                 ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _MatchTitle(
+                        home: match.isHome ? ourTeam : match.opponent,
+                        away: match.isHome ? match.opponent : ourTeam,
+                        ourTeamIsHome: match.isHome,
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        [
+                          dateLabel,
+                          if (match.kickoffTime != null &&
+                              match.kickoffTime!.isNotEmpty)
+                            match.kickoffTime!,
+                        ].join(' ') +
+                            (match.pitch != null && match.pitch!.isNotEmpty
+                                ? ' · ${match.pitch}'
+                                : ''),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: kStyleSecondary,
+                      ),
+                      const SizedBox(height: 7),
+                      _StrengthBadge(label: strengthLabel),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Delete match',
+                  onPressed: busy ? null : onDelete,
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(Icons.delete_outline,
+                      size: 18, color: kTextTertiary),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Row(
+            children: [
+              Expanded(
+                child: _CardAction(
+                  icon: Icons.grid_view_outlined,
+                  label: 'Line up',
+                  busy: busy,
+                  onTap: busy ? null : onLineup,
+                ),
+              ),
+              const _VDivider(),
+              Expanded(
+                child: _CardAction(
+                  icon: Icons.mic_none_rounded,
+                  label: 'Record',
+                  onTap: busy ? null : onRecord,
+                ),
+              ),
+              const _VDivider(),
+              Expanded(
+                child: _CardAction(
+                  icon: Icons.info_outline,
+                  label: 'Details',
+                  onTap: busy ? null : onDetails,
+                ),
+              ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _VDivider extends StatelessWidget {
+  const _VDivider();
+  @override
+  Widget build(BuildContext context) =>
+      Container(width: 0.5, height: 22, color: kBorderHairline);
+}
+
+/// A single action in a match card's bottom row (icon + label).
+class _CardAction extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
+  final bool busy;
+
+  const _CardAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.busy = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = onTap == null ? kTextTertiary : kTextBrand;
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 11),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (busy)
+              const SizedBox(
+                width: 15,
+                height: 15,
+                child: CircularProgressIndicator(strokeWidth: 2, color: kBrand),
+              )
+            else
+              Icon(icon, size: 16, color: color),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: kStyleSecondary.copyWith(
+                  color: color, fontWeight: FontWeight.w600),
+            ),
+          ],
         ),
       ),
     );
