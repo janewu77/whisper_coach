@@ -11,6 +11,7 @@ import '../api/api.dart';
 import '../api/client.dart';
 import '../main.dart';
 import '../models/match.dart';
+import '../models/player.dart';
 import '../services/team_service.dart';
 import '../theme.dart';
 import '../widgets/empty_create_hint.dart';
@@ -34,6 +35,8 @@ class MatchesTab extends StatefulWidget {
 
 class _MatchesTabState extends State<MatchesTab> {
   late Future<List<Match>> _matches;
+  // Current roster, for the per-match "available on that date" count.
+  List<Player>? _roster;
   final Set<int> _openingMatchIds = {};
   final _recorder = AudioRecorder();
   bool _busy = false; // extracting from photo/voice
@@ -54,6 +57,7 @@ class _MatchesTabState extends State<MatchesTab> {
   void initState() {
     super.initState();
     _matches = _api.listMatches(teamId: widget.teamId);
+    _loadRoster();
   }
 
   @override
@@ -61,6 +65,19 @@ class _MatchesTabState extends State<MatchesTab> {
     super.didUpdateWidget(old);
     if (old.teamId != widget.teamId) {
       _matches = _api.listMatches(teamId: widget.teamId);
+      _roster = null;
+      _loadRoster();
+    }
+  }
+
+  /// Load the roster so each card can show how many players are available on
+  /// its date. Failures just hide the count (the list itself still works).
+  Future<void> _loadRoster() async {
+    try {
+      final team = await _api.getTeam(widget.teamId);
+      if (mounted) setState(() => _roster = team.players);
+    } catch (_) {
+      if (mounted) setState(() => _roster = null);
     }
   }
 
@@ -69,6 +86,7 @@ class _MatchesTabState extends State<MatchesTab> {
     setState(() {
       _matches = matches;
     });
+    _loadRoster();
     await matches;
   }
 
@@ -380,9 +398,16 @@ class _MatchesTabState extends State<MatchesTab> {
               separatorBuilder: (_, __) => const SizedBox(height: 10),
               itemBuilder: (context, index) {
                 final match = matches[index];
+                final matchDate = DateTime.tryParse(match.date);
+                final roster = _roster;
+                final available = (roster == null || matchDate == null)
+                    ? null
+                    : roster.where((p) => p.availableOn(matchDate)).length;
                 return _MatchCard(
                   match: match,
                   ourTeam: TeamService.instance.current?.name ?? 'Our team',
+                  availableCount: available,
+                  rosterCount: roster?.length,
                   busy: _openingMatchIds.contains(match.id),
                   onLineup: () => _openMatch(match),
                   onRecord: () => _recordMatch(match),
@@ -402,6 +427,9 @@ class _MatchesTabState extends State<MatchesTab> {
 class _MatchCard extends StatelessWidget {
   final Match match;
   final String ourTeam;
+  // Players available on the match date / roster size (null = unknown).
+  final int? availableCount;
+  final int? rosterCount;
   final bool busy;
   final VoidCallback onLineup;
   final VoidCallback onRecord;
@@ -412,6 +440,8 @@ class _MatchCard extends StatelessWidget {
   const _MatchCard({
     required this.match,
     required this.ourTeam,
+    this.availableCount,
+    this.rosterCount,
     required this.busy,
     required this.onLineup,
     required this.onRecord,
@@ -501,7 +531,18 @@ class _MatchCard extends StatelessWidget {
                         ),
                       ],
                       const SizedBox(height: 7),
-                      _StrengthBadge(label: strengthLabel),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: [
+                          _StrengthBadge(label: strengthLabel),
+                          if (availableCount != null && rosterCount != null)
+                            _AvailabilityBadge(
+                              available: availableCount!,
+                              total: rosterCount!,
+                            ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -636,6 +677,42 @@ class _MatchTitle extends StatelessWidget {
       ]),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
+    );
+  }
+}
+
+/// "N/M available" on the match date — red when a full XI isn't possible.
+class _AvailabilityBadge extends StatelessWidget {
+  final int available;
+  final int total;
+
+  const _AvailabilityBadge({required this.available, required this.total});
+
+  @override
+  Widget build(BuildContext context) {
+    final short = available < 11;
+    final color = short ? kRedFg : kTextSecondary;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: short ? kRedBg : kSurfacePage,
+        borderRadius: BorderRadius.circular(100),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.people_outline, size: 11, color: color),
+          const SizedBox(width: 3),
+          Text(
+            '$available/$total available',
+            style: kStyleLabel.copyWith(
+              fontSize: 10,
+              letterSpacing: 0,
+              color: color,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
