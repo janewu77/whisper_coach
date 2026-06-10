@@ -23,27 +23,36 @@ class PitchPlayer {
   });
 }
 
-/// Convert a Lineup from the API into positioned PitchPlayers using
-/// heuristic formation layouts.
+/// Convert a Lineup from the API into positioned PitchPlayers.
+///
+/// Layout is driven by each slot's POSITION CODE, not by the order the agent
+/// returned the players in: the code decides the line (GK → defence → CDM →
+/// midfield → CAM → attack) and the side (L… left, R… right, centre codes
+/// centre), and each line spreads its players evenly. So a CB is always
+/// central, an LW always left and an RW always right — for any formation.
 List<PitchPlayer> layoutFromLineup(Lineup lineup) {
   final slots = lineup.lineup;
-  final formation = lineup.formation; // e.g. "4-3-3"
-  final positions = _formationPositions(formation, slots.length);
+
+  final coords = _layoutByPosition(slots);
 
   return List.generate(slots.length, (i) {
     final slot = slots[i];
-    final pos = i < positions.length ? positions[i] : _PosXY(50, 50);
-    final parts = slot.player.split(' ');
+    final parts =
+        slot.player.trim().split(' ').where((p) => p.isNotEmpty).toList();
     final initials = parts.length >= 2
         ? '${parts[0][0]}.${parts[1][0]}'
-        : slot.player.substring(0, 2).toUpperCase();
+        : (parts.isEmpty
+            ? '?'
+            : parts[0]
+                .substring(0, parts[0].length < 2 ? 1 : 2)
+                .toUpperCase());
     return PitchPlayer(
       id: '$i',
       initials: initials,
       label: slot.displayName,
       position: slot.position,
-      x: pos.x,
-      y: pos.y,
+      x: coords[i].x,
+      y: coords[i].y,
     );
   });
 }
@@ -53,62 +62,79 @@ class _PosXY {
   const _PosXY(this.x, this.y);
 }
 
-/// Heuristic x,y% positions for common formations.
-/// GK at y≈88, defenders ≈72, midfielders ≈50, forwards ≈22.
-List<_PosXY> _formationPositions(String formation, int count) {
-  switch (formation) {
-    case '4-3-3':
-      return const [
-        _PosXY(50, 88), // GK
-        _PosXY(15, 72), _PosXY(37, 72), _PosXY(63, 72), _PosXY(85, 72), // def
-        _PosXY(22, 50), _PosXY(50, 50), _PosXY(78, 50), // mid
-        _PosXY(20, 25), _PosXY(50, 20), _PosXY(80, 25), // fwd
-      ];
-    case '4-2-3-1':
-      return const [
-        _PosXY(50, 88),
-        _PosXY(15, 72), _PosXY(37, 72), _PosXY(63, 72), _PosXY(85, 72),
-        _PosXY(33, 57), _PosXY(67, 57),
-        _PosXY(20, 40), _PosXY(50, 40), _PosXY(80, 40),
-        _PosXY(50, 22),
-      ];
-    case '3-5-2':
-      return const [
-        _PosXY(50, 88),
-        _PosXY(25, 72), _PosXY(50, 70), _PosXY(75, 72),
-        _PosXY(10, 50), _PosXY(30, 50), _PosXY(50, 50), _PosXY(70, 50), _PosXY(90, 50),
-        _PosXY(35, 24), _PosXY(65, 24),
-      ];
+/// Vertical line on the pitch for a position code (0 = GK … 5 = attack).
+int _lineOf(String pos) {
+  switch (pos.trim().toUpperCase()) {
+    case 'GK':
+      return 0;
+    case 'LB':
+    case 'CB':
+    case 'RB':
+    case 'LWB':
+    case 'RWB':
+    case 'SW':
+      return 1;
+    case 'CDM':
+    case 'DM':
+      return 2;
+    case 'LM':
+    case 'CM':
+    case 'RM':
+      return 3;
+    case 'CAM':
+    case 'AM':
+      return 4;
+    case 'LW':
+    case 'RW':
+    case 'ST':
+    case 'CF':
+    case 'FW':
+      return 5;
     default:
-      // Generic: parse "a-b-c…" (outfield rows, defence → attack; GK implicit)
-      // so 7er/5er formations like 2-3-1 or 1-2-1 lay out correctly.
-      final rows = formation
-          .split('-')
-          .map(int.tryParse)
-          .whereType<int>()
-          .toList();
-      final outfield = rows.fold<int>(0, (a, b) => a + b);
-      if (rows.isNotEmpty && outfield == count - 1) {
-        final positions = <_PosXY>[const _PosXY(50, 88)]; // GK
-        for (var r = 0; r < rows.length; r++) {
-          // y from defence (≈72) up to attack (≈22).
-          final y = rows.length == 1
-              ? 47.0
-              : 72.0 - r * (50.0 / (rows.length - 1));
-          final n = rows[r];
-          for (var c = 0; c < n; c++) {
-            positions.add(_PosXY(100.0 * (c + 1) / (n + 1), y));
-          }
-        }
-        return positions;
-      }
-      // Fallback: evenly distribute
-      return List.generate(count, (i) {
-        final row = i ~/ 4;
-        final col = i % 4;
-        return _PosXY(15.0 + col * 23.3, 85.0 - row * 20.0);
-      });
+      return 3; // unknown → midfield
   }
+}
+
+/// Horizontal ordering within a line: left codes → centre codes → right codes.
+int _sideOf(String pos) {
+  final p = pos.trim().toUpperCase();
+  if (p == 'GK') return 1;
+  if (p.startsWith('L')) return 0;
+  if (p.startsWith('R')) return 2;
+  return 1;
+}
+
+/// y% for each line.
+const Map<int, double> _lineY = {
+  0: 88, // GK
+  1: 72, // defence
+  2: 57, // CDM
+  3: 47, // midfield
+  4: 37, // CAM
+  5: 23, // attack
+};
+
+List<_PosXY> _layoutByPosition(List<LineupSlot> slots) {
+  // Group slot indexes by line.
+  final byLine = <int, List<int>>{};
+  for (var i = 0; i < slots.length; i++) {
+    byLine.putIfAbsent(_lineOf(slots[i].position), () => []).add(i);
+  }
+
+  final coords = List<_PosXY>.filled(slots.length, const _PosXY(50, 50));
+  byLine.forEach((line, idxs) {
+    // Left → centre → right; original order as a stable tie-breaker (so two
+    // CBs keep their relative order and spread around the centre).
+    idxs.sort((a, b) {
+      final s = _sideOf(slots[a].position) - _sideOf(slots[b].position);
+      return s != 0 ? s : a - b;
+    });
+    for (var k = 0; k < idxs.length; k++) {
+      coords[idxs[k]] =
+          _PosXY(100.0 * (k + 1) / (idxs.length + 1), _lineY[line]!);
+    }
+  });
+  return coords;
 }
 
 // ── PitchView ────────────────────────────────────────────────────────────────
