@@ -16,6 +16,7 @@ import '../theme.dart';
 import '../widgets/empty_create_hint.dart';
 import 'crop_screen.dart';
 import 'match_detail_screen.dart';
+import 'match_edit_screen.dart';
 import 'match_review_screen.dart';
 
 /// Match list for the currently selected team. Lives inside the [HomeShell]
@@ -131,11 +132,19 @@ class _MatchesTabState extends State<MatchesTab> {
     }
   }
 
+  /// Open the editable form (Edit button). Refreshes the list on save.
   Future<void> _editMatch(Match match) async {
     final changed = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) => MatchDetailScreen(match: match)),
+      MaterialPageRoute(builder: (_) => MatchEditScreen(match: match)),
     );
     if (changed == true && mounted) await _refresh();
+  }
+
+  /// Open the read-only details view (Details button / card tap).
+  void _showDetails(Match match) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => MatchDetailScreen(match: match)),
+    );
   }
 
   Future<void> _deleteMatch(Match match) async {
@@ -377,7 +386,8 @@ class _MatchesTabState extends State<MatchesTab> {
                   busy: _openingMatchIds.contains(match.id),
                   onLineup: () => _openMatch(match),
                   onRecord: () => _recordMatch(match),
-                  onDetails: () => _editMatch(match),
+                  onDetails: () => _showDetails(match),
+                  onEdit: () => _editMatch(match),
                   onDelete: () => _deleteMatch(match),
                 );
               },
@@ -396,6 +406,7 @@ class _MatchCard extends StatelessWidget {
   final VoidCallback onLineup;
   final VoidCallback onRecord;
   final VoidCallback onDetails;
+  final VoidCallback onEdit;
   final VoidCallback onDelete;
 
   const _MatchCard({
@@ -405,6 +416,7 @@ class _MatchCard extends StatelessWidget {
     required this.onLineup,
     required this.onRecord,
     required this.onDetails,
+    required this.onEdit,
     required this.onDelete,
   });
 
@@ -492,6 +504,13 @@ class _MatchCard extends StatelessWidget {
                       _StrengthBadge(label: strengthLabel),
                     ],
                   ),
+                ),
+                IconButton(
+                  tooltip: 'Edit match',
+                  onPressed: busy ? null : onEdit,
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(Icons.edit_outlined,
+                      size: 18, color: kTextTertiary),
                 ),
                 IconButton(
                   tooltip: 'Delete match',
