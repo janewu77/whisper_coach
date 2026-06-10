@@ -11,6 +11,7 @@ import '../api/api.dart';
 import '../api/client.dart';
 import '../models/match.dart';
 import '../theme.dart';
+import '../widgets/diff_sheet.dart';
 import 'crop_screen.dart';
 
 /// Edit an existing match. The coach can fill the fields by photo or voice
@@ -96,8 +97,12 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
     setState(() => _busy = true);
     try {
       final drafts = await api.extractMatches(widget.match.teamId, file);
-      if (drafts.isNotEmpty) _applyDraft(drafts.first);
-      _snack(drafts.isEmpty ? 'Nothing recognised.' : 'Filled from photo — review and Save.');
+      if (mounted) setState(() => _busy = false);
+      if (drafts.isEmpty) {
+        _snack('Nothing recognised.');
+      } else {
+        await _reviewProposal(drafts.first);
+      }
     } catch (e) {
       _snack(dioErrorMessage(e));
     } finally {
@@ -165,13 +170,60 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
     try {
       final drafts =
           await api.extractMatchesVoice(widget.match.teamId, file);
-      if (drafts.isNotEmpty) _applyDraft(drafts.first);
-      _snack(drafts.isEmpty ? 'Nothing recognised.' : 'Filled from voice — review and Save.');
+      if (mounted) setState(() => _busy = false);
+      if (drafts.isEmpty) {
+        _snack('Nothing recognised.');
+      } else {
+        await _reviewProposal(drafts.first);
+      }
     } catch (e) {
       _snack(dioErrorMessage(e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  // ── Diff + confirm ───────────────────────────────────────────────────────
+
+  String _strengthLabel(String? s) => switch (s) {
+        'strong' => 'Strong',
+        'weak' => 'Weak',
+        _ => 'Balanced',
+      };
+
+  Future<void> _reviewProposal(MatchDraft p) async {
+    final diffs = <FieldDiff>[];
+    void add(String label, String before, String after, {bool ml = false}) {
+      if (before.trim() != after.trim()) {
+        diffs.add(FieldDiff(label, before, after, multiline: ml));
+      }
+    }
+
+    if (p.opponent.trim().isNotEmpty) {
+      add('Opponent', _opponentCtrl.text.trim(), p.opponent.trim());
+    }
+    add('Home / Away', _isHome ? 'Home' : 'Away', p.isHome ? 'Home' : 'Away');
+    if (p.date != null && p.date!.isNotEmpty) add('Date', _date, p.date!);
+    if (p.kickoffTime != null && p.kickoffTime!.isNotEmpty) {
+      add('Time', _kickoff ?? '', p.kickoffTime!);
+    }
+    if (p.pitch != null && p.pitch!.isNotEmpty) {
+      add('Pitch', _pitchCtrl.text.trim(), p.pitch!);
+    }
+    if (p.strength != null) {
+      add('Strength', _strengthLabel(_strength), _strengthLabel(p.strength));
+    }
+    if (p.notes != null && p.notes!.isNotEmpty) {
+      add('Notes', _notesCtrl.text.trim(), p.notes!, ml: true);
+    }
+
+    if (diffs.isEmpty) {
+      _snack('No changes suggested.');
+      return;
+    }
+    final apply = await showDiffSheet(context, diffs,
+        subtitle: 'From your photo/voice — review before applying.');
+    if (apply == true) _applyDraft(p);
   }
 
   Future<void> _pickDate() async {
@@ -246,6 +298,47 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
         : DateFormat('EEE, d MMM yyyy')
             .format(DateTime.tryParse(_date) ?? DateTime.now());
     return Scaffold(
+      floatingActionButton: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          FloatingActionButton(
+            heroTag: 'matchFillVoice',
+            onPressed: _busy ? null : _toggleVoice,
+            backgroundColor: _recording ? kRedFg : kBrand,
+            foregroundColor: kTextOnBrand,
+            elevation: 0,
+            shape: const CircleBorder(),
+            tooltip: _recording ? 'Stop & review' : 'Fill by voice',
+            child: (_busy && !_recording)
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                        color: Colors.white, strokeWidth: 2),
+                  )
+                : Icon(_recording ? Icons.stop_rounded : Icons.mic_none_outlined,
+                    size: 22),
+          ),
+          const SizedBox(width: 12),
+          FloatingActionButton(
+            heroTag: 'matchFillPhoto',
+            onPressed: (_busy || _recording) ? null : _fillFromPhoto,
+            backgroundColor: kBrand,
+            foregroundColor: kTextOnBrand,
+            elevation: 0,
+            shape: const CircleBorder(),
+            tooltip: 'Fill from photo',
+            child: (_busy && !_recording)
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                        color: Colors.white, strokeWidth: 2),
+                  )
+                : const Icon(Icons.add_a_photo_outlined, size: 22),
+          ),
+        ],
+      ),
       appBar: AppBar(
         title: const Text('Edit match'),
         actions: [
@@ -262,14 +355,23 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
           ),
         ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(0.5),
-          child: Container(height: 0.5, color: kBorderHairline),
+          preferredSize: Size.fromHeight(_busy ? 2.5 : 0.5),
+          child: _busy
+              ? const LinearProgressIndicator(
+                  minHeight: 2.5, color: kBrand, backgroundColor: kBrandSubtle)
+              : Container(height: 0.5, color: kBorderHairline),
         ),
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
         children: [
-          _fillCard(),
+          Text(
+            _recording
+                ? 'Listening… tap the stop button (bottom right).'
+                : 'Tap the photo or mic in the bottom right to fill from a '
+                    'fixture photo or your voice — review before applying.',
+            style: kStyleSecondary,
+          ),
           const SizedBox(height: 14),
           TextField(
             controller: _opponentCtrl,
@@ -368,67 +470,4 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
     );
   }
 
-  Widget _fillCard() {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: kBrandSubtle,
-        borderRadius: BorderRadius.circular(kRadiusCard),
-        border: Border.all(color: kBrandBorder.withValues(alpha: 0.5), width: 0.5),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Fill from photo or voice',
-                    style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: kTextBrand)),
-                const SizedBox(height: 2),
-                Text(
-                  _recording
-                      ? 'Listening… tap to stop'
-                      : 'Snap a fixture or say the match details — AI fills the form.',
-                  style: kStyleSecondary,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          if (_busy)
-            const Padding(
-              padding: EdgeInsets.all(10),
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(color: kBrand, strokeWidth: 2),
-              ),
-            )
-          else ...[
-            IconButton(
-              tooltip: 'From photo',
-              onPressed: _fillFromPhoto,
-              icon: const Icon(Icons.photo_camera_back_outlined, color: kTextBrand),
-            ),
-            GestureDetector(
-              onTap: _toggleVoice,
-              child: Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: _recording ? kRedFg : kBrand,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(_recording ? Icons.stop_rounded : Icons.mic_rounded,
-                    color: Colors.white, size: 22),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
 }
