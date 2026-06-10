@@ -7,6 +7,7 @@ import 'package:record/record.dart';
 import '../api/api.dart';
 import '../api/client.dart';
 import '../models/lineup.dart';
+import '../models/player.dart';
 import '../theme.dart';
 import '../widgets/pitch_view.dart';
 import '../main.dart';
@@ -37,6 +38,11 @@ class _PitchScreenState extends State<PitchScreen> {
   String? _formation; // null = let the AI pick
   final _instructionsCtrl = TextEditingController();
 
+  // Squad availability (tap a player to move them between the two lists;
+  // persisted on the match so generation only uses available players).
+  List<Player>? _roster;
+  final Set<int> _unavailable = {};
+
   // Voice instructions.
   final _recorder = AudioRecorder();
   bool _recording = false;
@@ -50,6 +56,68 @@ class _PitchScreenState extends State<PitchScreen> {
     _lineup = widget.args.lineup;
     final n = _lineup.lineup.length;
     _teamSize = n <= 5 ? 5 : (n <= 7 ? 7 : 11);
+    _loadSquad();
+  }
+
+  /// Load the roster + this match's availability. The stored per-match list
+  /// wins; otherwise players whose absence covers the match date start out.
+  Future<void> _loadSquad() async {
+    try {
+      final details = await api.getMatch(widget.args.matchId);
+      final team = await api.getTeam(details.match.teamId);
+      final unavail = <int>{};
+      final stored = details.match.unavailablePlayerIds;
+      if (stored != null) {
+        unavail.addAll(stored);
+      } else {
+        final matchDate = DateTime.tryParse(details.match.date);
+        if (matchDate != null) {
+          for (final p in team.players) {
+            if (p.id != null && !p.availableOn(matchDate)) unavail.add(p.id!);
+          }
+        }
+      }
+      if (mounted) {
+        setState(() {
+          _roster = team.players;
+          _unavailable
+            ..clear()
+            ..addAll(unavail);
+        });
+      }
+    } catch (_) {
+      // Availability section simply stays hidden when loading fails.
+    }
+  }
+
+  /// Move a player between Available and Out, persisting on the match.
+  Future<void> _toggleAvailability(Player p) async {
+    final id = p.id;
+    if (id == null || _regenerating) return;
+    final wasOut = _unavailable.contains(id);
+    setState(() => wasOut ? _unavailable.remove(id) : _unavailable.add(id));
+    try {
+      await api.updateMatch(
+        widget.args.matchId,
+        unavailablePlayerIds: _unavailable.toList(),
+      );
+    } catch (e) {
+      if (mounted) {
+        setState(
+            () => wasOut ? _unavailable.add(id) : _unavailable.remove(id));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(dioErrorMessage(e))),
+        );
+      }
+    }
+  }
+
+  /// Short display name: nickname, else first name + last-name initial.
+  static String _shortName(Player p) {
+    if (p.nickname != null && p.nickname!.isNotEmpty) return p.nickname!;
+    final parts = p.name.trim().split(RegExp(r'\s+'));
+    if (parts.length < 2) return p.name;
+    return '${parts.first} ${parts.last[0]}.';
   }
 
   @override
@@ -172,6 +240,69 @@ class _PitchScreenState extends State<PitchScreen> {
     );
   }
 
+  Widget _availabilityRow({
+    required String title,
+    required List<Player> players,
+    required bool out,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('$title · ${players.length}', style: kStyleLabel),
+        const SizedBox(height: 6),
+        if (players.isEmpty)
+          Text(out ? 'Everyone can play.' : 'No one available — tap below.',
+              style: kStyleSecondary.copyWith(color: kTextTertiary))
+        else
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final p in players)
+                GestureDetector(
+                  onTap: () => _toggleAvailability(p),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: out ? kRedBg : kBrandSubtle,
+                      borderRadius: BorderRadius.circular(100),
+                      border: Border.all(
+                        color: out ? kRedFg.withOpacity(0.3) : kBrandBorder,
+                        width: 0.5,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          out
+                              ? Icons.person_off_outlined
+                              : Icons.check_circle_outline,
+                          size: 12,
+                          color: out ? kRedFg : kTextBrand,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          _shortName(p),
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: out ? kRedFg : kTextBrand,
+                            decoration:
+                                out ? TextDecoration.lineThrough : null,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final pitchPlayers = layoutFromLineup(_lineup);
@@ -230,6 +361,26 @@ class _PitchScreenState extends State<PitchScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          // Squad availability: tap a player to move them to the other list.
+          if (_roster != null) ...[
+            _availabilityRow(
+              title: 'AVAILABLE',
+              players: _roster!
+                  .where((p) => !_unavailable.contains(p.id))
+                  .toList(),
+              out: false,
+            ),
+            const SizedBox(height: 10),
+            _availabilityRow(
+              title: 'NOT AVAILABLE',
+              players: _roster!
+                  .where((p) => _unavailable.contains(p.id))
+                  .toList(),
+              out: true,
+            ),
+            const SizedBox(height: 14),
+          ],
+
           // Team size selector
           const Text('TEAM SIZE', style: kStyleLabel),
           const SizedBox(height: 8),

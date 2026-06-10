@@ -294,6 +294,8 @@ class MatchResponse(BaseModel):
     kickoff_time: Optional[str] = None
     notes: Optional[str] = None
     strength: Optional[str] = None
+    # Coach's per-match availability override (None = derive from absences).
+    unavailable_player_ids: Optional[list[int]] = None
 
 
 class MatchUpdate(BaseModel):
@@ -308,6 +310,7 @@ class MatchUpdate(BaseModel):
     kickoff_time: Optional[str] = None
     notes: Optional[str] = None
     strength: Optional[str] = None
+    unavailable_player_ids: Optional[list[int]] = None
 
 
 class MatchDraft(BaseModel):

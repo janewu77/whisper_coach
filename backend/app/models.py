@@ -109,6 +109,11 @@ class Match(SQLModel, table=True):
     kickoff_time: Optional[str] = None  # "HH:MM"
     notes: Optional[str] = None
     strength: Optional[str] = None  # "strong" | "weak" | None
+    # Player ids the coach marked unavailable for THIS match (lineup screen).
+    # None = never touched → derive from the players' absence ranges instead.
+    unavailable_player_ids: Optional[list] = Field(
+        default=None, sa_column=Column(JSON)
+    )
     # Last generated post-match summary (SummaryResult shape); null until made.
     summary: Optional[dict] = Field(default=None, sa_column=Column(JSON))
     created_at: datetime = Field(default_factory=_now)

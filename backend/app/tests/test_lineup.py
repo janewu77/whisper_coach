@@ -121,6 +121,76 @@ def test_bench_autofilled_with_remaining_roster(client, team, session, monkeypat
     assert [s["player"] for s in again["subs"]] == ["David"]
 
 
+def test_unavailable_players_excluded_from_generation(client, team, monkeypatch):
+    """Players on the match's unavailable list never reach the agent or the
+    auto-filled bench."""
+    seen = {}
+
+    async def fake_generate(players, opponent, strength, **kwargs):
+        seen["names"] = [p.name for p in players]
+        return LineupResult(
+            formation="4-3-3",
+            lineup=[LineupSlot(player=players[0].name, position="ST")],
+            subs=[],
+            reason="r",
+        )
+
+    monkeypatch.setattr(matches_router, "generate_lineup", fake_generate)
+    match_id = _make_match(client, team)
+
+    # John is id'd via the roster; mark him unavailable on the match.
+    roster = client.get(f"/api/teams/{team.id}").json()["players"]
+    john_id = next(p["id"] for p in roster if p["name"] == "John")
+    client.patch(
+        f"/api/matches/{match_id}", json={"unavailable_player_ids": [john_id]}
+    )
+
+    body = client.post(f"/api/matches/{match_id}/lineup", json={}).json()
+    assert seen["names"] == ["David"]  # John filtered out
+    squad = [s["player"] for s in body["lineup"]] + [
+        s["player"] for s in body["subs"]
+    ]
+    assert "John" not in squad
+
+    # everyone unavailable → 409
+    client.patch(
+        f"/api/matches/{match_id}",
+        json={"unavailable_player_ids": [p["id"] for p in roster]},
+    )
+    assert (
+        client.post(f"/api/matches/{match_id}/lineup", json={}).status_code == 409
+    )
+
+
+def test_absences_drive_default_availability(client, team, session, monkeypatch):
+    """With no explicit unavailable list, a player whose absence covers the
+    match date is excluded automatically."""
+    seen = {}
+
+    async def fake_generate(players, opponent, strength, **kwargs):
+        seen["names"] = [p.name for p in players]
+        return LineupResult(
+            formation="4-3-3",
+            lineup=[LineupSlot(player=players[0].name, position="ST")],
+            subs=[],
+            reason="r",
+        )
+
+    monkeypatch.setattr(matches_router, "generate_lineup", fake_generate)
+    from sqlmodel import select
+
+    from app.models import Player
+
+    john = session.exec(select(Player).where(Player.name == "John")).first()
+    john.absences = [{"kind": "injury", "from": "2026-06-01", "to": "2026-06-30"}]
+    session.add(john)
+    session.commit()
+
+    match_id = _make_match(client, team)  # date 2026-06-10 → inside the range
+    client.post(f"/api/matches/{match_id}/lineup", json={})
+    assert seen["names"] == ["David"]
+
+
 def test_generate_by_voice(client, team, stub_generate, monkeypatch):
     async def fake_transcribe(data, filename, language=None):
         return "play five at the back"

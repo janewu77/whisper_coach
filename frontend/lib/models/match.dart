@@ -12,6 +12,8 @@ class Match {
   final String? kickoffTime; // "HH:MM"
   final String? notes;
   final String? strength; // 'strong' | 'weak' | null
+  // Per-match availability override; null = derive from player absences.
+  final List<int>? unavailablePlayerIds;
 
   const Match({
     required this.id,
@@ -25,6 +27,7 @@ class Match {
     this.kickoffTime,
     this.notes,
     this.strength,
+    this.unavailablePlayerIds,
   });
 
   factory Match.fromJson(Map<String, dynamic> j) {
@@ -43,6 +46,9 @@ class Match {
       // create responses use it for the optional setup note.
       notes: notes is String ? notes : null,
       strength: j['strength'] as String?,
+      unavailablePlayerIds: (j['unavailable_player_ids'] as List<dynamic>?)
+          ?.map((e) => e as int)
+          .toList(),
     );
   }
 }

@@ -104,6 +104,34 @@ def _short_position(pos: str) -> str:
     return p.upper() if len(p) <= 3 else p
 
 
+def _absent_on(p: Player, date: str) -> bool:
+    """Whether an absence range (inclusive YYYY-MM-DD) covers `date`."""
+    for a in p.absences or []:
+        try:
+            if a["from"] <= date <= a["to"]:
+                return True
+        except (KeyError, TypeError):
+            continue
+    return False
+
+
+def _available_players(
+    session: Session, match: Match
+) -> tuple[list[Player], list[Player]]:
+    """The team roster split into (available, all) for this match. The coach's
+    explicit per-match list wins; otherwise availability derives from each
+    player's absence ranges on the match date."""
+    players = list(
+        session.exec(select(Player).where(Player.team_id == match.team_id)).all()
+    )
+    if match.unavailable_player_ids is not None:
+        excluded = set(match.unavailable_player_ids)
+        available = [p for p in players if p.id not in excluded]
+    else:
+        available = [p for p in players if not _absent_on(p, match.date)]
+    return available, players
+
+
 def _complete_squad(result: LineupResult, players: list[Player]) -> LineupResult:
     """Make the squad whole: attach each slot's roster nickname, normalize the
     position to a short code, and append every roster player the agent left out
@@ -221,11 +249,10 @@ def get_match(
     lineup = _latest_lineup(session, match_id)
     notes = session.exec(select(Note).where(Note.match_id == match_id)).all()
     if lineup:
-        # Complete older stored lineups at read time (full bench + nicknames).
-        players = session.exec(
-            select(Player).where(Player.team_id == match.team_id)
-        ).all()
-        lineup_out = _complete_squad(_to_lineup_result(lineup), players)
+        # Complete older stored lineups at read time (full bench + nicknames),
+        # only drawing bench fill from players available for this match.
+        available, _ = _available_players(session, match)
+        lineup_out = _complete_squad(_to_lineup_result(lineup), available)
     return {
         **MatchResponse(**match.model_dump()).model_dump(),
         "lineup": lineup_out.model_dump() if lineup else None,
@@ -283,9 +310,13 @@ async def _make_lineup(
     """Shared generate-and-store path for the text and voice lineup routes.
     Does NOT charge credits — each route charges its own modality."""
     match = _owned_match_or_404(session, match_id, auth0_id)
-    players = session.exec(select(Player).where(Player.team_id == match.team_id)).all()
-    if not players:
+    players, roster = _available_players(session, match)
+    if not roster:
         raise HTTPException(status_code=409, detail="team has no players")
+    if not players:
+        raise HTTPException(
+            status_code=409, detail="no players are available for this match"
+        )
 
     player_outs = [
         PlayerOut(name=p.name, number=p.number, preferred_position=p.preferred_position)

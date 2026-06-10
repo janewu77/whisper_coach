@@ -413,6 +413,7 @@ class Api {
     String? kickoffTime,
     String? notes,
     String? strength,
+    List<int>? unavailablePlayerIds,
   }) async {
     final res = await _dio.patch<Map<String, dynamic>>(
       '/api/matches/$matchId',
@@ -425,6 +426,8 @@ class Api {
         if (kickoffTime != null) 'kickoff_time': kickoffTime,
         if (notes != null) 'notes': notes,
         if (strength != null) 'strength': strength,
+        if (unavailablePlayerIds != null)
+          'unavailable_player_ids': unavailablePlayerIds,
       },
     );
     return Match.fromJson(res.data!);
