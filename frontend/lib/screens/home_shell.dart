@@ -98,17 +98,10 @@ class _HomeShellState extends State<HomeShell> {
         return Scaffold(
           appBar: AppBar(
             titleSpacing: 12,
-            title: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Image.asset(
-                  'assets/images/whisper_coach_logo.png',
-                  width: 28,
-                  height: 28,
-                ),
-                const SizedBox(width: 10),
-                const Text('Whisper Coach'),
-              ],
+            title: Image.asset(
+              'assets/images/whisper_coach_logo.png',
+              width: 28,
+              height: 28,
             ),
             actions: [
               const _CreditsChip(),

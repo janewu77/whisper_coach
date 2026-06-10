@@ -1,0 +1,12 @@
+// Per-developer Xcode signing — NOT committed (Local.xcconfig is gitignored).
+//
+//   cp Local.xcconfig.example Local.xcconfig   # then fill in your team id
+//
+// Find your team id: Xcode → Settings → Accounts → select your Apple ID →
+// your team's ID is shown in the team list (e.g. "Dacheng Chen (Personal Team)"
+// → a 10-char id like AB12CD34EF).
+//
+// Set the team HERE, not in Xcode's Signing & Capabilities tab — picking a
+// team there writes it into project.pbxproj, which is shared and would break
+// signing for everyone else.
+DEVELOPMENT_TEAM = YOUR_TEAM_ID
