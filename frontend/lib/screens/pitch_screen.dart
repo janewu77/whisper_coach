@@ -621,7 +621,7 @@ class _SelectedPlayerCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                player.initials,
+                player.label,
                 style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,

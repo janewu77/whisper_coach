@@ -1,15 +1,30 @@
 class LineupSlot {
   final String player;
   final String position;
+  // Nickname from the roster (attached server-side); null when unset.
+  final String? nickname;
 
-  const LineupSlot({required this.player, required this.position});
+  const LineupSlot({
+    required this.player,
+    required this.position,
+    this.nickname,
+  });
+
+  /// What to show on the pitch: the nickname when set, else the full name.
+  String get displayName =>
+      (nickname != null && nickname!.isNotEmpty) ? nickname! : player;
 
   factory LineupSlot.fromJson(Map<String, dynamic> j) => LineupSlot(
         player: j['player'] as String,
         position: j['position'] as String,
+        nickname: j['nickname'] as String?,
       );
 
-  Map<String, dynamic> toJson() => {'player': player, 'position': position};
+  Map<String, dynamic> toJson() => {
+        'player': player,
+        'position': position,
+        if (nickname != null) 'nickname': nickname,
+      };
 }
 
 class Lineup {

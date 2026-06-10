@@ -333,6 +333,9 @@ class MatchExtractResult(BaseModel):
 class LineupSlot(BaseModel):
     player: str
     position: str
+    # The player's nickname (attached server-side from the roster, not by the
+    # agent) so the pitch can label dots with what teammates call them.
+    nickname: Optional[str] = None
 
 
 class LineupRequest(BaseModel):

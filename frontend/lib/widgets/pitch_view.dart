@@ -8,6 +8,7 @@ import '../theme.dart';
 class PitchPlayer {
   final String id;
   final String initials; // e.g. "O.S"
+  final String label; // shown under the dot: nickname, or the full name
   final String position; // e.g. "ST"
   final double x; // 0–100 %
   final double y; // 0–100 %
@@ -15,6 +16,7 @@ class PitchPlayer {
   const PitchPlayer({
     required this.id,
     required this.initials,
+    required this.label,
     required this.position,
     required this.x,
     required this.y,
@@ -38,6 +40,7 @@ List<PitchPlayer> layoutFromLineup(Lineup lineup) {
     return PitchPlayer(
       id: '$i',
       initials: initials,
+      label: slot.displayName,
       position: slot.position,
       x: pos.x,
       y: pos.y,
@@ -169,19 +172,20 @@ class PitchView extends StatelessWidget {
   }
 
   Widget _buildDot(PitchPlayer p, double w, double h) {
-    const dotSize = 40.0;
+    const boxW = 64.0;
+    const boxH = 50.0;
     final cx = (p.x / 100) * w;
     final cy = (p.y / 100) * h;
     final isSelected = selectedId == p.id;
 
     return Positioned(
-      left: cx - dotSize / 2,
-      top: cy - dotSize / 2,
+      left: cx - boxW / 2,
+      top: cy - boxH / 2,
       child: GestureDetector(
         onTap: () => onTap?.call(p),
         child: SizedBox(
-          width: dotSize,
-          height: dotSize,
+          width: boxW,
+          height: boxH,
           child: _PlayerDot(
             player: p,
             selected: isSelected,
@@ -203,39 +207,50 @@ class _PlayerDot extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        // Circle with the position code (short word: ST, CM, GK…).
         Container(
-          width: 36,
-          height: 36,
+          width: 30,
+          height: 30,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: selected ? kBrand : kSurfaceCard,
             border: Border.all(
               color: selected ? kBrandPressed : kBrand,
-              width: 2.5,
+              width: 2,
             ),
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                player.initials,
-                style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w600,
-                  color: selected ? kTextOnBrand : kTextPrimary,
-                  height: 1.1,
-                ),
+          child: Center(
+            child: Text(
+              player.position,
+              style: TextStyle(
+                fontSize: 8.5,
+                fontWeight: FontWeight.w700,
+                color: selected ? kTextOnBrand : kTextPrimary,
+                height: 1.0,
               ),
-              Text(
-                player.position,
-                style: TextStyle(
-                  fontSize: 7,
-                  fontWeight: FontWeight.w500,
-                  color: selected ? kTextOnBrand.withOpacity(0.8) : kTextTertiary,
-                  height: 1.1,
-                ),
-              ),
-            ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 2),
+        // Full nickname (or name) under the dot.
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+          decoration: BoxDecoration(
+            color: selected
+                ? kBrand
+                : kSurfaceInverse.withOpacity(0.72),
+            borderRadius: BorderRadius.circular(100),
+          ),
+          child: Text(
+            player.label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 8.5,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+              height: 1.2,
+            ),
           ),
         ),
       ],

@@ -58,6 +58,33 @@ def _to_lineup_result(row: Lineup) -> LineupResult:
     )
 
 
+def _complete_squad(result: LineupResult, players: list[Player]) -> LineupResult:
+    """Make the squad whole: attach each slot's roster nickname, and append
+    every roster player the agent left out to the bench — starters + subs must
+    always cover the entire roster."""
+    by_name = {p.name.strip().casefold(): p for p in players}
+
+    def enrich(slot: LineupSlot) -> None:
+        p = by_name.get(slot.player.strip().casefold())
+        if p is not None and p.nickname:
+            slot.nickname = p.nickname
+
+    for slot in [*result.lineup, *result.subs]:
+        enrich(slot)
+
+    used = {s.player.strip().casefold() for s in [*result.lineup, *result.subs]}
+    for p in players:
+        if p.name.strip().casefold() not in used:
+            result.subs.append(
+                LineupSlot(
+                    player=p.name,
+                    position=p.preferred_position or "SUB",
+                    nickname=p.nickname,
+                )
+            )
+    return result
+
+
 @router.post("", response_model=MatchResponse, status_code=201)
 def create_match(
     body: MatchInput,
@@ -146,9 +173,15 @@ def get_match(
     match = _owned_match_or_404(session, match_id, auth0_id)
     lineup = _latest_lineup(session, match_id)
     notes = session.exec(select(Note).where(Note.match_id == match_id)).all()
+    if lineup:
+        # Complete older stored lineups at read time (full bench + nicknames).
+        players = session.exec(
+            select(Player).where(Player.team_id == match.team_id)
+        ).all()
+        lineup_out = _complete_squad(_to_lineup_result(lineup), players)
     return {
         **MatchResponse(**match.model_dump()).model_dump(),
-        "lineup": _to_lineup_result(lineup).model_dump() if lineup else None,
+        "lineup": lineup_out.model_dump() if lineup else None,
         "notes": [
             {"id": n.id, "kind": n.kind, "content": n.content, "ai_response": n.ai_response}
             for n in notes
@@ -223,6 +256,7 @@ async def _make_lineup(
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"lineup generation failed: {exc}")
 
+    result = _complete_squad(result, players)
     session.add(
         Lineup(
             match_id=match_id,
