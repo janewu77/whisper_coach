@@ -72,6 +72,19 @@ class Api {
     return Team.fromJson(res.data!);
   }
 
+  /// Rotate a team's join code (owner only). Returns the team with its new code.
+  Future<Team> refreshJoinCode(int teamId) async {
+    final res = await _dio.post<Map<String, dynamic>>(
+      '/api/teams/$teamId/refresh-code',
+    );
+    return Team.fromJson(res.data!);
+  }
+
+  /// Delete a team and everything under it (owner only).
+  Future<void> deleteTeam(int teamId) async {
+    await _dio.delete('/api/teams/$teamId');
+  }
+
   /// The users who share (are members of) a team.
   Future<List<TeamMember>> getTeamMembers(int teamId) async {
     final res = await _dio.get<List<dynamic>>('/api/teams/$teamId/members');

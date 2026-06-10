@@ -27,12 +27,14 @@ class Team {
   final int id;
   final String name;
   final String? joinCode; // code other users enter to join this shared team
+  final bool isOwner; // whether the current user created (and can delete) it
   final List<Player> players;
 
   const Team({
     required this.id,
     required this.name,
     this.joinCode,
+    this.isOwner = false,
     this.players = const [],
   });
 
@@ -40,6 +42,7 @@ class Team {
         id: j['id'] as int,
         name: j['name'] as String,
         joinCode: j['join_code'] as String?,
+        isOwner: j['is_owner'] as bool? ?? false,
         // The team-list endpoint omits players; default to an empty roster.
         players: (j['players'] as List<dynamic>? ?? const [])
             .map((p) => Player.fromJson(p as Map<String, dynamic>))

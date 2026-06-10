@@ -52,7 +52,7 @@ def team_fixture(session):
     ).first()
     if existing is None:
         session.add(User(auth0_id=TEST_USER["sub"], email=TEST_USER["email"]))
-    team = Team(name="Test FC")
+    team = Team(name="Test FC", owner_id=TEST_USER["sub"])
     session.add(team)
     session.commit()
     session.refresh(team)

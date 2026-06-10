@@ -80,16 +80,23 @@ with **shared teams** (a team can belong to several users).
   registers the user** in the `users` table on first sight (auth0 `sub` is the
   PK). If `AUTH0_DOMAIN` + `AUTH0_AUDIENCE` are unset the API returns 503 (never
   open). See `backend/.env.example`.
-- **Membership, not ownership:** `users` + a `user_team` join table govern
+- **Membership + a single owner:** `users` + a `user_team` join table govern
   access. A `Team` has a unique `join_code`; access to a team and its
   matches/roster is granted to **every member** (no roles). Helpers in
   `app/membership.py` (`is_member`, `team_ids_for`, `add_member`); endpoints 404
   on non-members. Sharing: `POST /api/teams/join {code}` adds the caller as a
-  member; `POST /api/teams` creates a team and joins the creator. `Team`/`Match`
-  no longer have `owner_id`. Migration
-  `alembic/versions/a7b8c9d0e1f2_shared_teams.py` creates `user`/`userteam`,
-  backfills each team's old `owner_id` into a user + membership + join code, then
-  drops the `owner_id` columns (existing users keep access).
+  member; `POST /api/teams` creates a team and joins the creator. `Match` has no
+  `owner_id` (membership-only). `Team` **does** have `owner_id` (the creator's
+  `auth0_id`) again — but only for privileged actions, not access: the owner is
+  the sole member who may `DELETE /api/teams/{id}` (cascades matches/lineups/
+  notes/players/memberships) and `POST /api/teams/{id}/refresh-code` (rotate the
+  join code), and is the **only** member the join code is returned to
+  (`TeamSummary.join_code` is null + `is_owner=false` for everyone else). Owner
+  helpers live in `routers/roster.py` (`_owner_team_or_403`, `_team_summary`,
+  `_unique_join_code`). Migration
+  `alembic/versions/a7b8c9d0e1f2_shared_teams.py` created `user`/`userteam` and
+  dropped the original `owner_id` columns; `f2a3b4c5d6e7_team_owner_id.py`
+  re-adds `team.owner_id`, backfilling each team's earliest member as owner.
 - **Tests** override `get_current_user` (see `conftest.py` `TEST_USER` +
   `unauth_client`); the `team` fixture seeds a `User` + `UserTeam`. Enforcement,
   isolation, and join-by-code are covered in `tests/test_auth.py` /

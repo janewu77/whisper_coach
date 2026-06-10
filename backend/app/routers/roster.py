@@ -7,7 +7,7 @@ from app.agents.transcribe import transcribe_audio
 from app.auth import current_auth0_id
 from app.db import get_session
 from app.membership import add_member, is_member, team_ids_for
-from app.models import Player, Team, User, UserTeam
+from app.models import Lineup, Match, Note, Player, Team, User, UserTeam, _join_code
 from app.schemas import (
     Absence,
     DescribeRequest,
@@ -33,6 +33,34 @@ def _member_team_or_404(session: Session, team_id: int, auth0_id: str) -> Team:
     if not team or not is_member(session, auth0_id, team_id):
         raise HTTPException(status_code=404, detail="team not found")
     return team
+
+
+def _owner_team_or_403(session: Session, team_id: int, auth0_id: str) -> Team:
+    """Fetch a team the caller created; 404 if not a member, 403 if not owner."""
+    team = _member_team_or_404(session, team_id, auth0_id)
+    if team.owner_id != auth0_id:
+        raise HTTPException(status_code=403, detail="only the owner can do this")
+    return team
+
+
+def _team_summary(team: Team, auth0_id: str) -> TeamSummary:
+    """Serialize a team for its list, hiding the join code from non-owners."""
+    is_owner = team.owner_id == auth0_id
+    return TeamSummary(
+        id=team.id,
+        name=team.name,
+        join_code=team.join_code if is_owner else None,
+        is_owner=is_owner,
+    )
+
+
+def _unique_join_code(session: Session) -> str:
+    """A fresh join code guaranteed not to collide with an existing team."""
+    for _ in range(20):
+        code = _join_code()
+        if not session.exec(select(Team).where(Team.join_code == code)).first():
+            return code
+    raise HTTPException(status_code=500, detail="could not allocate a join code")
 
 
 def _owned_player_or_404(
@@ -117,9 +145,7 @@ def list_teams(
         if team_ids
         else []
     )
-    return [
-        TeamSummary(id=t.id, name=t.name, join_code=t.join_code) for t in teams
-    ]
+    return [_team_summary(t, auth0_id) for t in teams]
 
 
 @router.post("/teams", response_model=TeamSummary, status_code=201)
@@ -131,13 +157,13 @@ def create_team(
     name = body.name.strip()
     if not name:
         raise HTTPException(status_code=422, detail="team name is required")
-    team = Team(name=name)
+    team = Team(name=name, owner_id=auth0_id)  # creator owns the team
     session.add(team)
     session.commit()
     session.refresh(team)
     add_member(session, auth0_id, team.id)  # creator joins their new team
     session.commit()
-    return TeamSummary(id=team.id, name=team.name, join_code=team.join_code)
+    return _team_summary(team, auth0_id)
 
 
 @router.post("/teams/join", response_model=TeamSummary)
@@ -153,7 +179,54 @@ def join_team(
         raise HTTPException(status_code=404, detail="invalid join code")
     add_member(session, auth0_id, team.id)
     session.commit()
-    return TeamSummary(id=team.id, name=team.name, join_code=team.join_code)
+    return _team_summary(team, auth0_id)
+
+
+@router.post("/teams/{team_id}/refresh-code", response_model=TeamSummary)
+def refresh_join_code(
+    team_id: int,
+    session: Session = Depends(get_session),
+    auth0_id: str = Depends(current_auth0_id),
+):
+    """Rotate a team's join code (invalidates the old one). Owner only."""
+    team = _owner_team_or_403(session, team_id, auth0_id)
+    team.join_code = _unique_join_code(session)
+    session.add(team)
+    session.commit()
+    session.refresh(team)
+    return _team_summary(team, auth0_id)
+
+
+@router.delete("/teams/{team_id}", status_code=204)
+def delete_team(
+    team_id: int,
+    session: Session = Depends(get_session),
+    auth0_id: str = Depends(current_auth0_id),
+):
+    """Delete a team and everything under it (matches, lineups, notes, roster,
+    memberships). Owner only."""
+    team = _owner_team_or_403(session, team_id, auth0_id)
+    matches = session.exec(select(Match).where(Match.team_id == team_id)).all()
+    for match in matches:
+        for note in session.exec(
+            select(Note).where(Note.match_id == match.id)
+        ).all():
+            session.delete(note)
+        for lineup in session.exec(
+            select(Lineup).where(Lineup.match_id == match.id)
+        ).all():
+            session.delete(lineup)
+        session.delete(match)
+    for player in session.exec(
+        select(Player).where(Player.team_id == team_id)
+    ).all():
+        session.delete(player)
+    for member in session.exec(
+        select(UserTeam).where(UserTeam.team_id == team_id)
+    ).all():
+        session.delete(member)
+    session.delete(team)
+    session.commit()
 
 
 @router.get("/teams/{team_id}/members", response_model=list[TeamMember])

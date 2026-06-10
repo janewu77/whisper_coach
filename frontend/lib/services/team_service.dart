@@ -75,6 +75,25 @@ class TeamService extends ChangeNotifier {
     return team;
   }
 
+  /// Rotate a team's join code (owner only) and update it in the list.
+  Future<Team> refreshCode(int teamId) async {
+    final updated = await api.refreshJoinCode(teamId);
+    _teams = [for (final t in _teams) t.id == updated.id ? updated : t];
+    if (_current?.id == updated.id) _current = updated;
+    notifyListeners();
+    return updated;
+  }
+
+  /// Delete a team (owner only), drop it from the list, and re-select another.
+  Future<void> deleteTeam(int teamId) async {
+    await api.deleteTeam(teamId);
+    _teams = _teams.where((t) => t.id != teamId).toList();
+    if (_current?.id == teamId) {
+      _current = _teams.isEmpty ? null : _teams.first;
+    }
+    notifyListeners();
+  }
+
   /// Reset on logout so the next user starts clean.
   void reset() {
     _teams = const [];

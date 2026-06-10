@@ -128,11 +128,14 @@ class TeamCreate(BaseModel):
 
 class TeamSummary(BaseModel):
     """A team in the user's team list (without the roster). `join_code` is the
-    code other users enter to join this (shared) team."""
+    code other users enter to join this (shared) team — it is only returned to
+    the team's owner (null for other members). `is_owner` marks whether the
+    caller created (and may delete / re-code) the team."""
 
     id: int
     name: str
-    join_code: str
+    join_code: Optional[str] = None
+    is_owner: bool = False
 
 
 class JoinRequest(BaseModel):

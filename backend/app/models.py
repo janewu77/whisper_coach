@@ -38,6 +38,9 @@ class Team(SQLModel, table=True):
     name: str
     # Short code another user enters to join (share a team across users).
     join_code: str = Field(default_factory=_join_code, index=True, unique=True)
+    # auth0_id of the user who created the team. The owner is the only member
+    # who may delete the team, rotate its join code, or see the code at all.
+    owner_id: Optional[str] = Field(default=None, index=True)
     created_at: datetime = Field(default_factory=_now)
 
 

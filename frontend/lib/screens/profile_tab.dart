@@ -194,11 +194,67 @@ class _TeamCard extends StatefulWidget {
 
 class _TeamCardState extends State<_TeamCard> {
   late Future<List<TeamMember>> _members;
+  bool _busy = false;
 
   @override
   void initState() {
     super.initState();
     _members = api.getTeamMembers(widget.team.id);
+  }
+
+  Future<void> _refreshCode() async {
+    setState(() => _busy = true);
+    try {
+      await TeamService.instance.refreshCode(widget.team.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('New join code generated')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(dioErrorMessage(e))));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _deleteTeam() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Delete "${widget.team.name}"?'),
+        content: const Text(
+          'This permanently removes the team and all its players, matches, '
+          'lineups and notes for everyone. This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: kRedFg),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    setState(() => _busy = true);
+    try {
+      await TeamService.instance.deleteTeam(widget.team.id);
+      // The card is removed from the tree by the parent rebuild.
+    } catch (e) {
+      if (mounted) {
+        setState(() => _busy = false);
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(dioErrorMessage(e))));
+      }
+    }
   }
 
   @override
@@ -242,7 +298,9 @@ class _TeamCardState extends State<_TeamCard> {
                 ),
             ],
           ),
-          if (t.joinCode != null) ...[
+          // Only the owner sees / manages the join code (backend hides it from
+          // other members — joinCode is null for them).
+          if (t.isOwner && t.joinCode != null) ...[
             const SizedBox(height: 4),
             Row(
               children: [
@@ -263,8 +321,25 @@ class _TeamCardState extends State<_TeamCard> {
                     child: Icon(Icons.copy, size: 14, color: kTextBrand),
                   ),
                 ),
+                InkWell(
+                  onTap: _busy ? null : _refreshCode,
+                  borderRadius: BorderRadius.circular(100),
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: _busy
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                                color: kBrand, strokeWidth: 2),
+                          )
+                        : const Icon(Icons.refresh, size: 14, color: kTextBrand),
+                  ),
+                ),
               ],
             ),
+            Text('Refresh to invalidate the old code.',
+                style: kStyleSecondary.copyWith(color: kTextTertiary)),
           ],
           const SizedBox(height: 10),
           const Text('SHARED WITH', style: kStyleLabel),
@@ -315,6 +390,24 @@ class _TeamCardState extends State<_TeamCard> {
               );
             },
           ),
+          // Only the owner can delete the whole team.
+          if (t.isOwner) ...[
+            const SizedBox(height: 10),
+            const Divider(height: 1, color: kBorderHairline),
+            const SizedBox(height: 4),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: _busy ? null : _deleteTeam,
+                style: TextButton.styleFrom(
+                  foregroundColor: kRedFg,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                ),
+                icon: const Icon(Icons.delete_outline, size: 18),
+                label: const Text('Delete team'),
+              ),
+            ),
+          ],
         ],
       ),
     );

@@ -1,8 +1,9 @@
 import io
 
 import pytest
+from sqlmodel import select
 
-from app.models import Team, User, UserTeam
+from app.models import Match, Player, Team, User, UserTeam
 from app.routers import roster as roster_router
 from app.schemas import PlayerOut, PlayerProfileResult, RosterResult
 
@@ -112,6 +113,89 @@ def test_cannot_list_members_of_foreign_team(client, session):
     session.add(UserTeam(auth0_id="stranger", team_id=t.id))
     session.commit()
     assert client.get(f"/api/teams/{t.id}/members").status_code == 404
+
+
+# ── Team ownership: delete, code rotation, code visibility ────────────────────
+
+def _foreign_team(session, name="Foreign FC", owner="owner-y") -> Team:
+    """A team owned by another user that TEST_USER is NOT a member of."""
+    if session.exec(select(User).where(User.auth0_id == owner)).first() is None:
+        session.add(User(auth0_id=owner))
+    t = Team(name=name, owner_id=owner)
+    session.add(t)
+    session.commit()
+    session.refresh(t)
+    session.add(UserTeam(auth0_id=owner, team_id=t.id))
+    session.commit()
+    return t
+
+
+def test_create_team_marks_caller_as_owner(client):
+    body = client.post("/api/teams", json={"name": "Sunday FC"}).json()
+    assert body["is_owner"] is True
+    assert isinstance(body["join_code"], str)
+
+
+def test_join_code_hidden_from_non_owner(client, session):
+    t = _foreign_team(session)
+    client.post("/api/teams/join", json={"code": t.join_code})
+    listed = {x["id"]: x for x in client.get("/api/teams").json()}
+    assert listed[t.id]["is_owner"] is False
+    assert listed[t.id]["join_code"] is None  # non-owners never see the code
+
+
+def test_owner_can_refresh_join_code(client):
+    created = client.post("/api/teams", json={"name": "Code FC"}).json()
+    old = created["join_code"]
+    r = client.post(f"/api/teams/{created['id']}/refresh-code")
+    assert r.status_code == 200
+    new = r.json()["join_code"]
+    assert new and new != old
+    # listing reflects the rotated code for the owner
+    listed = {x["id"]: x for x in client.get("/api/teams").json()}
+    assert listed[created["id"]]["join_code"] == new
+
+
+def test_non_owner_cannot_refresh_code(client, session):
+    t = _foreign_team(session)
+    client.post("/api/teams/join", json={"code": t.join_code})
+    assert client.post(f"/api/teams/{t.id}/refresh-code").status_code == 403
+
+
+def test_non_member_cannot_refresh_code(client, session):
+    t = _foreign_team(session)
+    assert client.post(f"/api/teams/{t.id}/refresh-code").status_code == 404
+
+
+def test_owner_can_delete_team(client, team):
+    assert client.delete(f"/api/teams/{team.id}").status_code == 204
+    assert client.get(f"/api/teams/{team.id}").status_code == 404
+    assert all(x["id"] != team.id for x in client.get("/api/teams").json())
+
+
+def test_delete_team_removes_matches_and_players(client, team, session):
+    session.add(
+        Match(team_id=team.id, opponent="X", location="Home", date="2026-06-10")
+    )
+    session.commit()
+    client.delete(f"/api/teams/{team.id}")
+    assert client.get("/api/matches").json() == []
+    assert session.exec(
+        select(Player).where(Player.team_id == team.id)
+    ).all() == []
+
+
+def test_non_owner_cannot_delete_team(client, session):
+    t = _foreign_team(session)
+    client.post("/api/teams/join", json={"code": t.join_code})
+    assert client.delete(f"/api/teams/{t.id}").status_code == 403
+    # still present
+    assert any(x["id"] == t.id for x in client.get("/api/teams").json())
+
+
+def test_non_member_cannot_delete_team(client, session):
+    t = _foreign_team(session)
+    assert client.delete(f"/api/teams/{t.id}").status_code == 404
 
 
 def test_get_team_includes_player_ids(client, team):
