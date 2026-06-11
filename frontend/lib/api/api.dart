@@ -605,6 +605,19 @@ class Api {
     );
     return Summary.fromJson(res.data!);
   }
+
+  /// The stored post-match summary, or null if not generated yet (no LLM call).
+  Future<Summary?> getStoredSummary(int matchId) async {
+    try {
+      final res = await _dio.get<Map<String, dynamic>>(
+        '/api/matches/$matchId/summary',
+      );
+      return Summary.fromJson(res.data!);
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) return null;
+      rethrow;
+    }
+  }
 }
 
 // Module-level getter so callers can do `import 'api.dart'; api.extractRoster(…)`

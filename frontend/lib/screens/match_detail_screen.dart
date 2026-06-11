@@ -1,16 +1,101 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../api/api.dart';
+import '../api/client.dart';
 import '../models/match.dart';
+import '../models/player.dart';
 import '../services/team_service.dart';
 import '../theme.dart';
+import '../widgets/squad_availability.dart';
+import 'match_summary_screen.dart';
 
-/// Read-only match details. Editing happens on [MatchEditScreen], reached from
-/// the Edit button on the match card.
-class MatchDetailScreen extends StatelessWidget {
+/// Read-only match details: fixture info, who is available, and the AI match
+/// summary. Editing happens on [MatchEditScreen], reached from the Edit button
+/// on the match card.
+class MatchDetailScreen extends StatefulWidget {
   final Match match;
 
   const MatchDetailScreen({super.key, required this.match});
+
+  @override
+  State<MatchDetailScreen> createState() => _MatchDetailScreenState();
+}
+
+class _MatchDetailScreenState extends State<MatchDetailScreen> {
+  Match get match => widget.match;
+
+  // Squad availability for this match (same block as the lineup screen).
+  List<Player>? _roster;
+  final Set<int> _unavailable = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSquad();
+  }
+
+  /// Load the roster + availability (the stored per-match list wins;
+  /// otherwise players whose absence covers the match date start out).
+  Future<void> _loadSquad() async {
+    try {
+      final team = await api.getTeam(match.teamId);
+      final unavail = <int>{};
+      final stored = match.unavailablePlayerIds;
+      if (stored != null) {
+        unavail.addAll(stored);
+      } else {
+        final matchDate = DateTime.tryParse(match.date);
+        if (matchDate != null) {
+          for (final p in team.players) {
+            if (p.id != null && !p.availableOn(matchDate)) unavail.add(p.id!);
+          }
+        }
+      }
+      if (mounted) {
+        setState(() {
+          _roster = team.players;
+          _unavailable
+            ..clear()
+            ..addAll(unavail);
+        });
+      }
+    } catch (_) {
+      // The availability block simply stays hidden when loading fails.
+    }
+  }
+
+  Future<void> _toggleAvailability(Player p) async {
+    final id = p.id;
+    if (id == null) return;
+    final wasOut = _unavailable.contains(id);
+    setState(() => wasOut ? _unavailable.remove(id) : _unavailable.add(id));
+    try {
+      await api.updateMatch(
+        match.id,
+        unavailablePlayerIds: _unavailable.toList(),
+      );
+    } catch (e) {
+      if (mounted) {
+        setState(
+            () => wasOut ? _unavailable.add(id) : _unavailable.remove(id));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(dioErrorMessage(e))),
+        );
+      }
+    }
+  }
+
+  void _openSummary() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => MatchSummaryScreen(
+          matchId: match.id,
+          opponent: match.opponent,
+        ),
+      ),
+    );
+  }
 
   String get _dateLabel {
     final parsed = DateTime.tryParse(match.date);
@@ -121,6 +206,33 @@ class MatchDetailScreen extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+          const SizedBox(height: 16),
+
+          // Who can play this match (tap a player to move them).
+          if (_roster != null) ...[
+            Container(
+              padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
+              decoration: BoxDecoration(
+                color: kSurfaceCard,
+                borderRadius: BorderRadius.circular(kRadiusCard),
+                border: Border.all(color: kBorderHairline, width: 0.5),
+              ),
+              child: SquadAvailabilityBlock(
+                roster: _roster!,
+                unavailable: _unavailable,
+                onToggle: _toggleAvailability,
+                initiallyExpanded: true,
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          // AI match report (formation, subs + detailed summary from notes).
+          ElevatedButton.icon(
+            onPressed: _openSummary,
+            icon: const Icon(Icons.emoji_events_outlined, size: 18),
+            label: const Text('Match summary'),
           ),
           const SizedBox(height: 16),
 

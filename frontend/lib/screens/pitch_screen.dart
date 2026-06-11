@@ -10,6 +10,7 @@ import '../models/lineup.dart';
 import '../models/player.dart';
 import '../theme.dart';
 import '../widgets/pitch_view.dart';
+import '../widgets/squad_availability.dart';
 import '../main.dart';
 
 /// Formations offered per team size (outfield players only; GK implicit).
@@ -42,7 +43,6 @@ class _PitchScreenState extends State<PitchScreen> {
   // persisted on the match so generation only uses available players).
   List<Player>? _roster;
   final Set<int> _unavailable = {};
-  bool _squadExpanded = false; // collapsed by default to save screen space
 
   // Voice instructions.
   final _recorder = AudioRecorder();
@@ -111,14 +111,6 @@ class _PitchScreenState extends State<PitchScreen> {
         );
       }
     }
-  }
-
-  /// Short display name: nickname, else first name + last-name initial.
-  static String _shortName(Player p) {
-    if (p.nickname != null && p.nickname!.isNotEmpty) return p.nickname!;
-    final parts = p.name.trim().split(RegExp(r'\s+'));
-    if (parts.length < 2) return p.name;
-    return '${parts.first} ${parts.last[0]}.';
   }
 
   @override
@@ -315,69 +307,6 @@ class _PitchScreenState extends State<PitchScreen> {
     );
   }
 
-  Widget _availabilityRow({
-    required String title,
-    required List<Player> players,
-    required bool out,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('$title · ${players.length}', style: kStyleLabel),
-        const SizedBox(height: 6),
-        if (players.isEmpty)
-          Text(out ? 'Everyone can play.' : 'No one available — tap below.',
-              style: kStyleSecondary.copyWith(color: kTextTertiary))
-        else
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              for (final p in players)
-                GestureDetector(
-                  onTap: () => _toggleAvailability(p),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: out ? kRedBg : kBrandSubtle,
-                      borderRadius: BorderRadius.circular(100),
-                      border: Border.all(
-                        color: out ? kRedFg.withOpacity(0.3) : kBrandBorder,
-                        width: 0.5,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          out
-                              ? Icons.person_off_outlined
-                              : Icons.check_circle_outline,
-                          size: 12,
-                          color: out ? kRedFg : kTextBrand,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          _shortName(p),
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: out ? kRedFg : kTextBrand,
-                            decoration:
-                                out ? TextDecoration.lineThrough : null,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-            ],
-          ),
-      ],
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final pitchPlayers = layoutFromLineup(_lineup);
@@ -436,56 +365,13 @@ class _PitchScreenState extends State<PitchScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // Squad availability: collapsible block (header shows the counts);
-          // expanded, tap a player to move them to the other list.
+          // Squad availability (shared collapsible block).
           if (_roster != null) ...[
-            InkWell(
-              onTap: () =>
-                  setState(() => _squadExpanded = !_squadExpanded),
-              borderRadius: BorderRadius.circular(6),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  children: [
-                    const Icon(Icons.groups_2_outlined,
-                        size: 14, color: kTextSecondary),
-                    const SizedBox(width: 6),
-                    Text(
-                      'SQUAD · '
-                      '${_roster!.length - _unavailable.length} available'
-                      '${_unavailable.isNotEmpty ? ' · ${_unavailable.length} out' : ''}',
-                      style: kStyleLabel,
-                    ),
-                    const Spacer(),
-                    Icon(
-                      _squadExpanded
-                          ? Icons.expand_less
-                          : Icons.expand_more,
-                      size: 18,
-                      color: kTextSecondary,
-                    ),
-                  ],
-                ),
-              ),
+            SquadAvailabilityBlock(
+              roster: _roster!,
+              unavailable: _unavailable,
+              onToggle: _toggleAvailability,
             ),
-            if (_squadExpanded) ...[
-              const SizedBox(height: 8),
-              _availabilityRow(
-                title: 'AVAILABLE',
-                players: _roster!
-                    .where((p) => !_unavailable.contains(p.id))
-                    .toList(),
-                out: false,
-              ),
-              const SizedBox(height: 10),
-              _availabilityRow(
-                title: 'NOT AVAILABLE',
-                players: _roster!
-                    .where((p) => _unavailable.contains(p.id))
-                    .toList(),
-                out: true,
-              ),
-            ],
             const SizedBox(height: 12),
           ],
 

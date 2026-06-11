@@ -3,8 +3,12 @@ from app.schemas import LineupResult, SummaryResult
 
 SYSTEM_PROMPT = (
     "You are a football analyst. Given the starting formation and the notes / "
-    "adjustments made during a match, write a concise post-match summary, rate "
-    "the players mentioned, and list concrete improvement suggestions."
+    "adjustments made during a match, write a DETAILED post-match report in "
+    "`summary`: a full narrative of how the match unfolded based on the notes "
+    "— key events in order, the score's progression, tactical changes and "
+    "their effect — written for the coach (do not just repeat the raw notes; "
+    "synthesize them). Then rate the players mentioned and list concrete "
+    "improvement suggestions."
 )
 
 
