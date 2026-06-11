@@ -508,75 +508,60 @@ class _PitchScreenState extends State<PitchScreen> {
           ),
           const SizedBox(height: 12),
 
-          // Coach instructions (keyboard or voice) + generate
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: kSurfaceCard,
-              borderRadius: BorderRadius.circular(kRadiusCard),
-              border: Border.all(color: kBorderHairline, width: 0.5),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextField(
+          // Instructions input with the mic inside it + icon-only Generate,
+          // all on one line.
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
                   controller: _instructionsCtrl,
-                  maxLines: 2,
-                  minLines: 1,
+                  maxLines: 1,
                   decoration: InputDecoration(
                     labelText: 'Instructions (optional)',
                     hintText: _recording
                         ? 'Listening… tap the mic to stop & generate'
-                        : 'e.g. Max in goal, press high, Tom on the left…',
-                    alignLabelWithHint: true,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    // Voice input
-                    IconButton(
-                      tooltip:
-                          _recording ? 'Stop & generate' : 'Speak instructions',
+                        : 'e.g. Max in goal, press high…',
+                    isDense: true,
+                    suffixIcon: IconButton(
+                      tooltip: _recording
+                          ? 'Stop & generate'
+                          : 'Speak instructions',
                       onPressed: _regenerating ? null : _toggleVoice,
-                      style: IconButton.styleFrom(
-                        backgroundColor: _recording ? kRedFg : kBrandSubtle,
-                        foregroundColor:
-                            _recording ? Colors.white : kTextBrand,
-                      ),
                       icon: Icon(
                         _recording
                             ? Icons.stop_rounded
                             : Icons.mic_none_outlined,
                         size: 20,
+                        color: _recording ? kRedFg : kTextBrand,
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: (_regenerating || _recording)
-                            ? null
-                            : () => _generate(),
-                        icon: _regenerating
-                            ? const SizedBox(
-                                width: 14,
-                                height: 14,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Icon(Icons.auto_fix_high_outlined,
-                                size: 16),
-                        label: Text(_regenerating
-                            ? 'Generating…'
-                            : 'Generate lineup'),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                tooltip: 'Generate lineup',
+                onPressed: (_regenerating || _recording)
+                    ? null
+                    : () => _generate(),
+                style: IconButton.styleFrom(
+                  backgroundColor: kBrand,
+                  foregroundColor: kTextOnBrand,
+                  disabledBackgroundColor: kBorderStrong,
+                  fixedSize: const Size(46, 46),
+                ),
+                icon: _regenerating
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.auto_fix_high_outlined, size: 20),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
 
