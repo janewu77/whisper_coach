@@ -139,6 +139,44 @@ def test_bench_autofilled_with_remaining_roster(client, team, session, monkeypat
     assert [s["player"] for s in again["subs"]] == ["David"]
 
 
+def test_starters_never_duplicated_on_bench(client, team, session, monkeypatch):
+    """A player the agent lists both as starter and sub (even under their
+    nickname) appears exactly once — as the starter."""
+    from sqlmodel import select
+
+    from app.models import Player
+
+    david = session.exec(select(Player).where(Player.name == "David")).first()
+    david.nickname = "Dave"
+    session.add(david)
+    session.commit()
+
+    async def fake_generate(players, opponent, strength, **kwargs):
+        return LineupResult(
+            formation="4-3-3",
+            lineup=[
+                LineupSlot(player="John", position="ST"),
+                LineupSlot(player="Dave", position="CM"),  # nickname variant
+            ],
+            subs=[
+                LineupSlot(player="John", position="SUB"),  # duplicate starter
+                LineupSlot(player="David", position="SUB"),  # dup of "Dave"
+            ],
+            reason="r",
+        )
+
+    monkeypatch.setattr(matches_router, "generate_lineup", fake_generate)
+    match_id = _make_match(client, team)
+    body = client.post(f"/api/matches/{match_id}/lineup", json={}).json()
+
+    # Starters canonicalized to roster names; bench is empty (everyone starts).
+    assert [s["player"] for s in body["lineup"]] == ["John", "David"]
+    assert body["subs"] == []
+    # read path stays clean too
+    again = client.get(f"/api/matches/{match_id}").json()["lineup"]
+    assert again["subs"] == []
+
+
 def test_unavailable_players_excluded_from_generation(client, team, monkeypatch):
     """Players on the match's unavailable list never reach the agent or the
     auto-filled bench."""

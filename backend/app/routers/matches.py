@@ -133,23 +133,45 @@ def _available_players(
 
 
 def _complete_squad(result: LineupResult, players: list[Player]) -> LineupResult:
-    """Make the squad whole: attach each slot's roster nickname, normalize the
-    position to a short code, and append every roster player the agent left out
-    to the bench — starters + subs must always cover the entire roster."""
-    by_name = {p.name.strip().casefold(): p for p in players}
+    """Make the squad whole: canonicalize each slot to its roster player
+    (matched by name OR nickname), attach nicknames, normalize positions to
+    short codes, drop bench entries that duplicate a starter (or each other),
+    and append every roster player the agent left out to the bench — starters
+    + subs always cover the entire roster, each player exactly once."""
+
+    def norm(s: str) -> str:
+        return s.strip().casefold()
+
+    by_name = {norm(p.name): p for p in players}
+    by_nick = {norm(p.nickname): p for p in players if p.nickname}
 
     def enrich(slot: LineupSlot) -> None:
         slot.position = _short_position(slot.position)
-        p = by_name.get(slot.player.strip().casefold())
-        if p is not None and p.nickname:
-            slot.nickname = p.nickname
+        p = by_name.get(norm(slot.player)) or by_nick.get(norm(slot.player))
+        if p is not None:
+            # Canonicalize so dedup below compares the same roster identity
+            # even when the agent wrote the nickname or a variant.
+            slot.player = p.name
+            if p.nickname:
+                slot.nickname = p.nickname
 
     for slot in [*result.lineup, *result.subs]:
         enrich(slot)
 
-    used = {s.player.strip().casefold() for s in [*result.lineup, *result.subs]}
+    starters = {norm(s.player) for s in result.lineup}
+    deduped: list[LineupSlot] = []
+    seen: set[str] = set()
+    for s in result.subs:
+        key = norm(s.player)
+        if key in starters or key in seen:
+            continue  # already starting, or listed twice on the bench
+        seen.add(key)
+        deduped.append(s)
+    result.subs = deduped
+
+    used = starters | seen
     for p in players:
-        if p.name.strip().casefold() not in used:
+        if norm(p.name) not in used:
             result.subs.append(
                 LineupSlot(
                     player=p.name,
