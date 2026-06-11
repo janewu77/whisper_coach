@@ -14,22 +14,25 @@ void main() {
     );
   }
 
-  testWidgets('composer is one input with mic inside and a send button',
+  testWidgets('composer shows big voice button AND keyboard input together',
       (tester) async {
     await tester.pumpWidget(buildScreen());
 
-    // Single text field with the voice button as its suffix icon.
-    expect(find.byKey(const Key('live-note-text-field')), findsOneWidget);
+    // Big voice circle, text field and send button — all visible at once,
+    // no mode switching.
     expect(find.byKey(const Key('voice-record-button')), findsOneWidget);
+    expect(find.byKey(const Key('live-note-text-field')), findsOneWidget);
     expect(find.byKey(const Key('send-text-note-button')), findsOneWidget);
+    final voiceButton =
+        tester.getSize(find.byKey(const Key('voice-record-button')));
+    expect(voiceButton.width, greaterThanOrEqualTo(80));
 
     // The old quick actions and mode switcher are gone.
     expect(find.text('Goal'), findsNothing);
     expect(find.text('Injury'), findsNothing);
-    expect(find.text('Tap to speak'), findsNothing);
     expect(find.byKey(const Key('text-input-mode-button')), findsNothing);
 
-    // End match moved into the app bar.
+    // End match lives in the app bar.
     expect(find.text('End match'), findsOneWidget);
   });
 }

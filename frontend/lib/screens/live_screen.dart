@@ -527,81 +527,115 @@ class _LiveScreenState extends State<LiveScreen> {
       top: false,
       child: Container(
         color: kSurfaceCard,
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // One input for both: type, or tap the mic inside and speak.
-            Expanded(
-              child: TextField(
-                key: const Key('live-note-text-field'),
-                controller: _textCtrl,
-                maxLines: 4,
-                minLines: 1,
-                readOnly: _recording,
-                textInputAction: TextInputAction.send,
-                onSubmitted: (_) => _sendText(),
-                decoration: InputDecoration(
-                  hintText: _recording
-                      ? 'Listening… tap the mic to stop & send'
-                      : 'Type or speak what is happening…',
-                  isDense: true,
-                  suffixIcon: Semantics(
-                    button: true,
-                    label: _recording
-                        ? 'Stop voice recording'
-                        : 'Start voice recording',
-                    child: IconButton(
-                      key: const Key('voice-record-button'),
-                      tooltip: _recording ? 'Stop & send' : 'Speak',
-                      onPressed: _sending ? null : _toggleRecording,
-                      icon: Icon(
-                        _recording
-                            ? Icons.stop_rounded
-                            : Icons.mic_none_outlined,
-                        size: 22,
-                        color: _recording ? kRedFg : kTextBrand,
-                      ),
+            // Big voice button — primary input, always visible.
+            Semantics(
+              button: true,
+              label: _recording
+                  ? 'Stop voice recording'
+                  : 'Start voice recording',
+              child: GestureDetector(
+                key: const Key('voice-record-button'),
+                onTap: _sending ? null : _toggleRecording,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  width: 88,
+                  height: 88,
+                  decoration: BoxDecoration(
+                    color: _recording ? kRedFg : kBrand,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: _recording ? kRedBg : kBrandSubtle,
+                      width: 6,
+                      strokeAlign: BorderSide.strokeAlignOutside,
                     ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: (_recording ? kRedFg : kBrand)
+                            .withValues(alpha: 0.24),
+                        blurRadius: 16,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    _recording ? Icons.stop_rounded : Icons.mic_rounded,
+                    color: Colors.white,
+                    size: 40,
                   ),
                 ),
               ),
             ),
-            const SizedBox(width: 8),
-            Semantics(
-              button: true,
-              label: 'Send text note',
-              child: GestureDetector(
-                key: const Key('send-text-note-button'),
-                onTap: (_sending || _recording) ? null : _sendText,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: (_sending || _recording)
-                        ? kBorderStrong
-                        : kBrand,
-                    borderRadius: BorderRadius.circular(kRadiusInput),
+            const SizedBox(height: 6),
+            Text(
+              _recording
+                  ? 'Recording… tap to stop & send'
+                  : 'Tap to speak — or type below',
+              style: kStyleSecondary,
+            ),
+            const SizedBox(height: 10),
+
+            // Keyboard input, always available alongside the voice button.
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Expanded(
+                  child: TextField(
+                    key: const Key('live-note-text-field'),
+                    controller: _textCtrl,
+                    maxLines: 4,
+                    minLines: 1,
+                    readOnly: _recording,
+                    textInputAction: TextInputAction.send,
+                    onSubmitted: (_) => _sendText(),
+                    decoration: InputDecoration(
+                      hintText: _recording
+                          ? 'Listening…'
+                          : 'Type event or ask for advice…',
+                      isDense: true,
+                    ),
                   ),
-                  child: _sending
-                      ? const Center(
-                          child: SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2,
-                            ),
-                          ),
-                        )
-                      : const Icon(
-                          Icons.send_rounded,
-                          color: Colors.white,
-                          size: 20,
-                        ),
                 ),
-              ),
+                const SizedBox(width: 8),
+                Semantics(
+                  button: true,
+                  label: 'Send text note',
+                  child: GestureDetector(
+                    key: const Key('send-text-note-button'),
+                    onTap: (_sending || _recording) ? null : _sendText,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: (_sending || _recording)
+                            ? kBorderStrong
+                            : kBrand,
+                        borderRadius: BorderRadius.circular(kRadiusInput),
+                      ),
+                      child: _sending
+                          ? const Center(
+                              child: SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            )
+                          : const Icon(
+                              Icons.send_rounded,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
