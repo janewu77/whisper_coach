@@ -560,7 +560,6 @@ class _MatchCard extends StatelessWidget {
                         spacing: 6,
                         runSpacing: 4,
                         children: [
-                          if (clockRunning) const _RecBadge(),
                           _StrengthBadge(label: strengthLabel),
                           if (availableCount != null && rosterCount != null)
                             _AvailabilityBadge(
@@ -602,11 +601,18 @@ class _MatchCard extends StatelessWidget {
               ),
               const _VDivider(),
               Expanded(
-                child: _CardAction(
-                  icon: Icons.play_arrow_rounded,
-                  label: 'Start',
-                  onTap: busy ? null : onRecord,
-                ),
+                child: clockRunning
+                    ? _CardAction(
+                        icon: Icons.fiber_manual_record,
+                        label: 'REC',
+                        color: kRedFg,
+                        onTap: busy ? null : onRecord,
+                      )
+                    : _CardAction(
+                        icon: Icons.play_arrow_rounded,
+                        label: 'Start',
+                        onTap: busy ? null : onRecord,
+                      ),
               ),
               const _VDivider(),
               Expanded(
@@ -637,17 +643,19 @@ class _CardAction extends StatelessWidget {
   final String label;
   final VoidCallback? onTap;
   final bool busy;
+  final Color? color; // override the enabled color (e.g. red REC)
 
   const _CardAction({
     required this.icon,
     required this.label,
     required this.onTap,
     this.busy = false,
+    this.color,
   });
 
   @override
   Widget build(BuildContext context) {
-    final color = onTap == null ? kTextTertiary : kTextBrand;
+    final color = onTap == null ? kTextTertiary : (this.color ?? kTextBrand);
     return InkWell(
       onTap: onTap,
       child: Padding(
@@ -735,37 +743,6 @@ class _AvailabilityBadge extends StatelessWidget {
               fontSize: 10,
               letterSpacing: 0,
               color: color,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Red "REC" pill: the live-match clock for this match is still running.
-class _RecBadge extends StatelessWidget {
-  const _RecBadge();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: kRedBg,
-        borderRadius: BorderRadius.circular(100),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.fiber_manual_record, size: 9, color: kRedFg),
-          const SizedBox(width: 3),
-          Text(
-            'REC',
-            style: kStyleLabel.copyWith(
-              fontSize: 10,
-              letterSpacing: 0.5,
-              color: kRedFg,
             ),
           ),
         ],
