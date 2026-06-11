@@ -9,6 +9,7 @@ List<PitchPlayer> _makePlayers(int n) => List.generate(
       (i) => PitchPlayer(
         id: '$i',
         initials: 'P$i',
+        label: 'Player $i',
         position: 'CM',
         x: 10.0 + i * 8,
         y: 50,

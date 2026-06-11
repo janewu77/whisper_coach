@@ -398,6 +398,9 @@ class PositionChange(BaseModel):
 class AdjustResult(BaseModel):
     """Agent 2 (adjust mode) output."""
 
+    # Whether the coach needs an answer on screen. False for pure event logs
+    # (goal, card, sub made…) — the note is registered silently.
+    respond: bool = True
     substitutions: list[Substitution] = []
     position_changes: list[PositionChange] = []
     reason: str

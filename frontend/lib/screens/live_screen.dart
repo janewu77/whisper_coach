@@ -153,7 +153,13 @@ class _LiveScreenState extends State<LiveScreen> {
     try {
       final resp = await api.sendNote(widget.args.matchId, text);
       setState(() {
-        _messages.add(AiMessage(resp.suggestion));
+        // Pure event logs are registered silently — only show the AI card
+        // when it decided the coach needs an answer.
+        if (resp.suggestion.respond) {
+          _messages.add(AiMessage(resp.suggestion));
+        } else {
+          _messages.add(SystemMessage('✓ ${resp.suggestion.reason}'));
+        }
       });
     } catch (e) {
       setState(() {
@@ -249,7 +255,11 @@ class _LiveScreenState extends State<LiveScreen> {
       setState(() {
         _messages.removeLast(); // remove "Voice note..."
         _messages.add(UserMessage(resp.transcription));
-        _messages.add(AiMessage(resp.suggestion));
+        if (resp.suggestion.respond) {
+          _messages.add(AiMessage(resp.suggestion));
+        } else {
+          _messages.add(SystemMessage('✓ ${resp.suggestion.reason}'));
+        }
       });
     } catch (e) {
       setState(() {

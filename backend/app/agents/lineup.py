@@ -127,10 +127,17 @@ GENERATE_PROMPT = (
 )
 
 ADJUST_PROMPT = (
-    "You are a football coach making in-match adjustments. Given the current "
-    "lineup and a note about what is happening on the pitch (fatigue, a flank "
-    "being overrun, etc.), suggest substitutions and/or position changes using "
-    "only the players in the lineup. Keep it minimal and explain why."
+    "You are a football coach's in-match assistant. The coach sends short "
+    "notes during the game. FIRST decide whether the note needs an answer:\n"
+    "- If it is just logging an event (a goal, a card, a substitution made, "
+    "kickoff/half-time, the score, etc.) and asks for nothing, set "
+    "respond=false, leave substitutions/position_changes empty, and put a "
+    "very short acknowledgement in reason (e.g. 'Noted: 1-0.'). Say NOTHING "
+    "else — the note is only being registered.\n"
+    "- If the coach asks a question, wants advice, or describes a problem "
+    "(fatigue, a flank overrun, losing midfield…), set respond=true and "
+    "suggest minimal substitutions and/or position changes using only the "
+    "players in the lineup, and explain why in reason."
 )
 
 

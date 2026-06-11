@@ -23,17 +23,22 @@ class PositionChange {
 }
 
 class Suggestion {
+  // Whether the AI decided the note needs an on-screen answer. False for
+  // pure event logs (goal, card…) — registered silently.
+  final bool respond;
   final List<Substitution> substitutions;
   final List<PositionChange> positionChanges;
   final String reason;
 
   const Suggestion({
+    this.respond = true,
     required this.substitutions,
     required this.positionChanges,
     required this.reason,
   });
 
   factory Suggestion.fromJson(Map<String, dynamic> j) => Suggestion(
+        respond: j['respond'] as bool? ?? true,
         substitutions: (j['substitutions'] as List<dynamic>? ?? [])
             .map((s) => Substitution.fromJson(s as Map<String, dynamic>))
             .toList(),
