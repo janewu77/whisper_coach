@@ -1,4 +1,8 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart' show XFile;
+import 'package:path_provider/path_provider.dart';
+import 'package:record/record.dart';
 
 import '../api/api.dart';
 import '../api/client.dart';
@@ -29,10 +33,98 @@ class _MatchSummaryScreenState extends State<MatchSummaryScreen> {
   bool _generating = false;
   String? _error;
 
+  // Coach prompt for the report (style / extra info) — typed or spoken.
+  final _instructionsCtrl = TextEditingController();
+  final _recorder = AudioRecorder();
+  bool _recording = false;
+  String _recFilename = 'summary.m4a';
+  String _recMime = 'audio/mp4';
+  String? _recPath;
+
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void dispose() {
+    _instructionsCtrl.dispose();
+    _recorder.dispose();
+    super.dispose();
+  }
+
+  Future<void> _toggleVoice() async {
+    if (_generating || _loading) return;
+    try {
+      if (_recording) {
+        await _stopVoiceAndRegenerate();
+      } else {
+        await _startVoice();
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _recording = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Recording error: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _startVoice() async {
+    if (!await _recorder.hasPermission()) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Microphone permission denied.')),
+        );
+      }
+      return;
+    }
+    final ts = DateTime.now().millisecondsSinceEpoch;
+    late final RecordConfig config;
+    if (kIsWeb) {
+      if (await _recorder.isEncoderSupported(AudioEncoder.opus)) {
+        config = const RecordConfig(encoder: AudioEncoder.opus);
+        _recFilename = 'summary_$ts.webm';
+        _recMime = 'audio/webm';
+      } else {
+        config = const RecordConfig(encoder: AudioEncoder.aacLc);
+        _recFilename = 'summary_$ts.m4a';
+        _recMime = 'audio/mp4';
+      }
+      _recPath = '';
+    } else {
+      final dir = await getTemporaryDirectory();
+      _recFilename = 'summary_$ts.m4a';
+      _recMime = 'audio/mp4';
+      _recPath = '${dir.path}/$_recFilename';
+      config = const RecordConfig(encoder: AudioEncoder.aacLc);
+    }
+    await _recorder.start(config, path: _recPath!);
+    if (mounted) setState(() => _recording = true);
+  }
+
+  Future<void> _stopVoiceAndRegenerate() async {
+    final path = await _recorder.stop();
+    if (!mounted) return;
+    setState(() => _recording = false);
+    if (path == null) return;
+    setState(() => _generating = true);
+    try {
+      final summary = await api.getSummaryVoice(
+        widget.matchId,
+        XFile(path, name: _recFilename, mimeType: _recMime),
+      );
+      if (mounted) setState(() => _summary = summary);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(dioErrorMessage(e))));
+      }
+    } finally {
+      if (mounted) setState(() => _generating = false);
+    }
   }
 
   Future<void> _load() async {
@@ -74,7 +166,10 @@ class _MatchSummaryScreenState extends State<MatchSummaryScreen> {
   Future<void> _regenerate() async {
     setState(() => _generating = true);
     try {
-      final summary = await api.getSummary(widget.matchId);
+      final summary = await api.getSummary(
+        widget.matchId,
+        instructions: _instructionsCtrl.text.trim(),
+      );
       if (mounted) setState(() => _summary = summary);
     } catch (e) {
       if (mounted) {
@@ -147,6 +242,65 @@ class _MatchSummaryScreenState extends State<MatchSummaryScreen> {
                       _FormationCard(lineup: _lineup!),
                       const SizedBox(height: 12),
                     ],
+
+                    // Coach prompt for the report + regenerate.
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _instructionsCtrl,
+                            maxLines: 1,
+                            decoration: InputDecoration(
+                              labelText: 'Report wishes (optional)',
+                              hintText: _recording
+                                  ? 'Listening… tap the mic to stop'
+                                  : 'e.g. make it humorous, mention the rain…',
+                              isDense: true,
+                              suffixIcon: IconButton(
+                                tooltip: _recording
+                                    ? 'Stop & regenerate'
+                                    : 'Speak your wishes',
+                                onPressed:
+                                    _generating ? null : _toggleVoice,
+                                icon: Icon(
+                                  _recording
+                                      ? Icons.stop_rounded
+                                      : Icons.mic_none_outlined,
+                                  size: 20,
+                                  color:
+                                      _recording ? kRedFg : kTextBrand,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          tooltip: 'Regenerate summary',
+                          onPressed: (_generating || _recording)
+                              ? null
+                              : _regenerate,
+                          style: IconButton.styleFrom(
+                            backgroundColor: kBrand,
+                            foregroundColor: kTextOnBrand,
+                            disabledBackgroundColor: kBorderStrong,
+                            fixedSize: const Size(46, 46),
+                          ),
+                          icon: _generating
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Icon(Icons.refresh_outlined,
+                                  size: 20),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
                     if (_generating && _summary == null)
                       Container(
                         padding: const EdgeInsets.all(20),

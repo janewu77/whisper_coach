@@ -380,6 +380,8 @@ class LineupResult(BaseModel):
 class NoteInput(BaseModel):
     kind: str = "text"  # "text" | "voice"
     content: str
+    # ISO 639-1 code for the AI answer; None → reply in the note's language.
+    language: Optional[str] = None
 
 
 class Substitution(BaseModel):
@@ -429,6 +431,15 @@ class PlayerPerformance(BaseModel):
     player: str
     rating: str
     comment: str
+
+
+class SummaryRequest(BaseModel):
+    """Options for generating the post-match report."""
+
+    # Free-text coach prompt: style (e.g. humorous) or extra info to include.
+    instructions: Optional[str] = None
+    # ISO 639-1 code for the report; None → infer from the notes.
+    language: Optional[str] = None
 
 
 class SummaryResult(BaseModel):

@@ -16,6 +16,7 @@ from app.models import Lineup, Match, Note, Player, Team
 from app.schemas import (
     AdjustResult,
     LineupEdit,
+    SummaryRequest,
     LineupRequest,
     LineupResult,
     LineupSlot,
@@ -469,7 +470,12 @@ async def make_lineup_voice(
 
 
 async def _adjust_and_store(
-    session: Session, match_id: int, auth0_id: str, kind: str, content: str
+    session: Session,
+    match_id: int,
+    auth0_id: str,
+    kind: str,
+    content: str,
+    language: str | None = None,
 ) -> tuple[Note, AdjustResult]:
     """Shared path for text and voice notes: run the adjust agent + persist."""
     _owned_match_or_404(session, match_id, auth0_id)
@@ -480,7 +486,9 @@ async def _adjust_and_store(
         )
 
     try:
-        suggestion = await adjust_lineup(_to_lineup_result(lineup_row), content)
+        suggestion = await adjust_lineup(
+            _to_lineup_result(lineup_row), content, language=language
+        )
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"adjustment failed: {exc}")
 
@@ -504,7 +512,8 @@ async def add_note(
     auth0_id: str = Depends(current_auth0_id),
 ):
     note, suggestion = await _adjust_and_store(
-        session, match_id, auth0_id, body.kind, body.content
+        session, match_id, auth0_id, body.kind, body.content,
+        language=body.language,
     )
     credits.charge_text(session, auth0_id, "Match note suggestion")
     return NoteResponse(note_id=note.id, suggestion=suggestion)
@@ -545,7 +554,9 @@ async def add_voice_note(
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"transcription failed: {exc}")
 
-    note, suggestion = await _adjust_and_store(session, match_id, auth0_id, "voice", text)
+    note, suggestion = await _adjust_and_store(
+        session, match_id, auth0_id, "voice", text, language=language
+    )
     credits.charge_voice(session, auth0_id, "Voice note suggestion")
     return VoiceNoteResponse(
         note_id=note.id, transcription=text, suggestion=suggestion
@@ -555,23 +566,69 @@ async def add_voice_note(
 @router.post("/{match_id}/summary", response_model=SummaryResult)
 async def make_summary(
     match_id: int,
+    body: SummaryRequest | None = None,
     session: Session = Depends(get_session),
     auth0_id: str = Depends(current_auth0_id),
 ):
+    body = body or SummaryRequest()
+    result = await _make_summary(
+        session, auth0_id, match_id, body.instructions, body.language
+    )
+    credits.charge_text(session, auth0_id, "Post-match summary")
+    return result
+
+
+async def _make_summary(
+    session: Session,
+    auth0_id: str,
+    match_id: int,
+    instructions: str | None,
+    language: str | None,
+) -> SummaryResult:
+    """Shared generate-and-store path (credits charged per modality by the
+    calling route)."""
     match = _owned_match_or_404(session, match_id, auth0_id)
     lineup_row = _latest_lineup(session, match_id)
     lineup = _to_lineup_result(lineup_row) if lineup_row else None
     notes = session.exec(select(Note).where(Note.match_id == match_id)).all()
 
     try:
-        result = await summarize_match(lineup, [n.content for n in notes])
+        result = await summarize_match(
+            lineup,
+            [n.content for n in notes],
+            instructions=instructions,
+            language=language,
+        )
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"summary failed: {exc}")
-    credits.charge_text(session, auth0_id, "Post-match summary")
 
     match.summary = result.model_dump()
     session.add(match)
     session.commit()
+    return result
+
+
+@router.post("/{match_id}/summary/voice", response_model=SummaryResult)
+async def make_summary_voice(
+    match_id: int,
+    audio: UploadFile = File(...),
+    language: str | None = Form(None),
+    session: Session = Depends(get_session),
+    auth0_id: str = Depends(current_auth0_id),
+):
+    """Generate the report from spoken instructions (style / extra info)."""
+    _owned_match_or_404(session, match_id, auth0_id)
+    if not (audio.content_type or "").startswith("audio/"):
+        raise HTTPException(status_code=422, detail="audio must be an audio file")
+    data = await audio.read()
+    try:
+        instructions = await transcribe_audio(
+            data, audio.filename or "summary.webm", language
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"transcription failed: {exc}")
+    result = await _make_summary(session, auth0_id, match_id, instructions, language)
+    credits.charge_voice(session, auth0_id, "Post-match summary (voice)")
     return result
 
 

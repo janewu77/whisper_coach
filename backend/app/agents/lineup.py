@@ -207,14 +207,22 @@ async def generate_lineup(
     return result
 
 
-async def adjust_lineup(current_lineup: LineupResult, note: str) -> AdjustResult:
+async def adjust_lineup(
+    current_lineup: LineupResult, note: str, language: str | None = None
+) -> AdjustResult:
     agent = build_agent("lineup_adjust", AdjustResult, ADJUST_PROMPT)
     current = ", ".join(f"{s.player} @ {s.position}" for s in current_lineup.lineup)
+    lang_line = (
+        f"Write `reason` in the language with ISO 639-1 code '{language}'.\n"
+        if language
+        else "Write `reason` in the same language as the coach's note.\n"
+    )
     prompt = (
         f"Current formation: {current_lineup.formation}.\n"
         f"Current lineup: {current}.\n"
         f"In-match note: {note}.\n"
-        "Suggest adjustments."
+        + lang_line
+        + "Suggest adjustments."
     )
     result = await agent.run(prompt)
     return result.output

@@ -13,7 +13,10 @@ SYSTEM_PROMPT = (
 
 
 async def summarize_match(
-    lineup: LineupResult | None, notes: list[str]
+    lineup: LineupResult | None,
+    notes: list[str],
+    instructions: str | None = None,
+    language: str | None = None,
 ) -> SummaryResult:
     agent = build_agent("analyst", SummaryResult, SYSTEM_PROMPT)
     formation = lineup.formation if lineup else "unknown"
@@ -23,11 +26,24 @@ async def summarize_match(
         else "unknown"
     )
     notes_text = "\n".join(f"- {n}" for n in notes) if notes else "(no notes)"
+    lang_line = (
+        f"Write everything in the language with ISO 639-1 code '{language}'.\n"
+        if language
+        else "Write everything in the language the notes are written in "
+        "(default to English if unclear).\n"
+    )
     prompt = (
         f"Formation: {formation}.\n"
         f"Lineup: {starters}.\n"
         f"In-match notes and adjustments:\n{notes_text}\n"
-        "Write the post-match summary."
+        + (
+            f"Coach's wishes for the report (style and/or extra information "
+            f"to include — follow them): {instructions}\n"
+            if instructions
+            else ""
+        )
+        + lang_line
+        + "Write the post-match summary."
     )
     result = await agent.run(prompt)
     return result.output

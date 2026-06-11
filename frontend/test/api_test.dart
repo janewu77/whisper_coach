@@ -208,7 +208,7 @@ void main() {
     test('getSummary hits correct path and parses summary', () async {
       adapter.onPost('/api/matches/42/summary', (server) {
         return server.reply(200, _summaryPayload);
-      });
+      }, data: Matchers.any);
       final s = await apiClient.getSummary(42);
       expect(s.summary, isNotEmpty);
       expect(s.playerPerformance, isNotEmpty);

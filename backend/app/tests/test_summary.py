@@ -20,14 +20,14 @@ def stub_agents(monkeypatch):
             reason="ok",
         )
 
-    async def fake_adjust(current_lineup, note):
+    async def fake_adjust(current_lineup, note, **kwargs):
         return AdjustResult(
             substitutions=[Substitution(out="John", in_="David")],
             position_changes=[],
             reason=f"because: {note}",
         )
 
-    async def fake_summary(lineup, notes):
+    async def fake_summary(lineup, notes, **kwargs):
         return SummaryResult(
             summary="Good game.",
             player_performance=[

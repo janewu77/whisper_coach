@@ -571,7 +571,14 @@ class Api {
   Future<NoteResponse> sendNote(int matchId, String content) async {
     final res = await _dio.post<Map<String, dynamic>>(
       '/api/matches/$matchId/notes',
-      data: {'kind': 'text', 'content': content},
+      data: {
+        'kind': 'text',
+        'content': content,
+        // Reply language for the AI answer (unset = reply in the note's
+        // language).
+        if (SettingsService.instance.speakerLanguage.isNotEmpty)
+          'language': SettingsService.instance.speakerLanguage,
+      },
     );
     return NoteResponse.fromJson(res.data!);
   }
@@ -599,9 +606,34 @@ class Api {
   // ── Summary ──────────────────────────────────────────────────────────────
 
   /// Generate a post-match summary with player ratings and improvements.
-  Future<Summary> getSummary(int matchId) async {
+  Future<Summary> getSummary(int matchId, {String? instructions}) async {
     final res = await _dio.post<Map<String, dynamic>>(
       '/api/matches/$matchId/summary',
+      data: {
+        if (instructions != null && instructions.isNotEmpty)
+          'instructions': instructions,
+        if (SettingsService.instance.speakerLanguage.isNotEmpty)
+          'language': SettingsService.instance.speakerLanguage,
+      },
+    );
+    return Summary.fromJson(res.data!);
+  }
+
+  /// Generate the report from spoken instructions (style / extra info).
+  Future<Summary> getSummaryVoice(int matchId, XFile audio) async {
+    final bytes = await audio.readAsBytes();
+    final formData = FormData.fromMap({
+      'audio': MultipartFile.fromBytes(
+        bytes,
+        filename: audio.name,
+        contentType: MediaType.parse(audio.mimeType ?? 'audio/mpeg'),
+      ),
+      if (SettingsService.instance.speakerLanguage.isNotEmpty)
+        'language': SettingsService.instance.speakerLanguage,
+    });
+    final res = await _dio.post<Map<String, dynamic>>(
+      '/api/matches/$matchId/summary/voice',
+      data: formData,
     );
     return Summary.fromJson(res.data!);
   }

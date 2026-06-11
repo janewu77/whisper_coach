@@ -15,7 +15,7 @@ def stub_voice(monkeypatch):
             reason="ok",
         )
 
-    async def fake_adjust(current_lineup, note):
+    async def fake_adjust(current_lineup, note, **kwargs):
         return AdjustResult(
             substitutions=[Substitution(out="John", in_="David")],
             position_changes=[],
