@@ -590,8 +590,8 @@ class _MatchCard extends StatelessWidget {
               const _VDivider(),
               Expanded(
                 child: _CardAction(
-                  icon: Icons.mic_none_rounded,
-                  label: 'Record',
+                  icon: Icons.play_arrow_rounded,
+                  label: 'Start',
                   onTap: busy ? null : onRecord,
                 ),
               ),
