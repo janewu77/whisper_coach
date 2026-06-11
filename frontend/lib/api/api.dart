@@ -525,6 +525,19 @@ class Api {
     return Lineup.fromJson(res.data!);
   }
 
+  /// Persist a manual lineup edit (drag & drop). Free — no LLM call.
+  Future<Lineup> saveLineup(int matchId, Lineup lineup) async {
+    final res = await _dio.put<Map<String, dynamic>>(
+      '/api/matches/$matchId/lineup',
+      data: {
+        'formation': lineup.formation,
+        'lineup': lineup.lineup.map((s) => s.toJson()).toList(),
+        'subs': lineup.subs.map((s) => s.toJson()).toList(),
+      },
+    );
+    return Lineup.fromJson(res.data!);
+  }
+
   /// Generate a lineup from spoken coach instructions (audio is transcribed
   /// server-side first).
   Future<Lineup> generateLineupVoice(

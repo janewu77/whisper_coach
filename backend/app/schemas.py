@@ -353,6 +353,15 @@ class LineupRequest(BaseModel):
     language: Optional[str] = None
 
 
+class LineupEdit(BaseModel):
+    """Manual lineup edit from the pitch screen (drag & drop): the full
+    starters + bench as the coach arranged them. No credits — no LLM call."""
+
+    formation: Optional[str] = None
+    lineup: list[LineupSlot]
+    subs: list[LineupSlot] = []
+
+
 class LineupResult(BaseModel):
     """Agent 2 (lineup generator) output."""
 

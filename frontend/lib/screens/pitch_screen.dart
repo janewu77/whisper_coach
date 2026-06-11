@@ -229,6 +229,54 @@ class _PitchScreenState extends State<PitchScreen> {
     });
   }
 
+  // ── Drag & drop edits (swap positions / pitch ↔ bench) ──────────────────
+
+  /// Two starters swap positions (players stay, position codes trade).
+  void _swapStarters(int a, int b) {
+    if (a == b) return;
+    final sa = _lineup.lineup[a];
+    final sb = _lineup.lineup[b];
+    setState(() {
+      _lineup.lineup[a] = LineupSlot(
+          player: sa.player, position: sb.position, nickname: sa.nickname);
+      _lineup.lineup[b] = LineupSlot(
+          player: sb.player, position: sa.position, nickname: sb.nickname);
+      _selectedPlayerId = null;
+    });
+    _saveLineup();
+  }
+
+  /// A sub takes a starter's place (and position); the starter is benched.
+  void _swapWithBench(int starterIdx, int subIdx) {
+    final starter = _lineup.lineup[starterIdx];
+    final sub = _lineup.subs[subIdx];
+    setState(() {
+      _lineup.lineup[starterIdx] = LineupSlot(
+          player: sub.player,
+          position: starter.position,
+          nickname: sub.nickname);
+      _lineup.subs[subIdx] = LineupSlot(
+          player: starter.player,
+          position: starter.position,
+          nickname: starter.nickname);
+      _selectedPlayerId = null;
+    });
+    _saveLineup();
+  }
+
+  /// Persist the manual arrangement (fire-and-forget with an error snack).
+  Future<void> _saveLineup() async {
+    try {
+      await api.saveLineup(widget.args.matchId, _lineup);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not save: ${dioErrorMessage(e)}')),
+        );
+      }
+    }
+  }
+
   void _startMatch() {
     Navigator.pushNamed(
       context,
@@ -517,14 +565,28 @@ class _PitchScreenState extends State<PitchScreen> {
                         players: pitchPlayers,
                         selectedId: _selectedPlayerId,
                         onTap: _onPlayerTap,
+                        onSwapStarters: _swapStarters,
+                        onSubIn: (subIdx, starterIdx) =>
+                            _swapWithBench(starterIdx, subIdx),
                       ),
                     ),
                     const SizedBox(width: gap),
-                    Expanded(flex: 1, child: _SubsPanel(subs: _lineup.subs)),
+                    Expanded(
+                      flex: 1,
+                      child: _SubsPanel(
+                        subs: _lineup.subs,
+                        onStarterDropped: _swapWithBench,
+                      ),
+                    ),
                   ],
                 ),
               );
             },
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Hold & drag a player to swap positions — or between pitch and bench.',
+            style: kStyleSecondary.copyWith(fontSize: 11, color: kTextTertiary),
           ),
           const SizedBox(height: 12),
 
@@ -557,10 +619,51 @@ class _PitchScreenState extends State<PitchScreen> {
 // ── Sub-widgets ───────────────────────────────────────────────────────────────
 
 /// Narrow bench panel beside the pitch (scrolls when the bench is long).
+/// Long-press-drag a sub onto a pitch dot to sub them in; drop a starter on a
+/// bench entry to swap them out.
 class _SubsPanel extends StatelessWidget {
   final List<LineupSlot> subs;
+  final void Function(int starterIndex, int subIndex)? onStarterDropped;
 
-  const _SubsPanel({required this.subs});
+  const _SubsPanel({required this.subs, this.onStarterDropped});
+
+  Widget _entry(LineupSlot s, {bool dragging = false}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      decoration: dragging
+          ? BoxDecoration(
+              color: kSurfaceCard,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: kBrandBorder),
+            )
+          : null,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            s.displayName, // full nickname, or the name
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: kTextPrimary,
+              height: 1.2,
+            ),
+          ),
+          Text(
+            s.position,
+            style: kStyleLabel.copyWith(
+              fontSize: 8.5,
+              letterSpacing: 0,
+              color: kTextTertiary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -584,32 +687,36 @@ class _SubsPanel extends StatelessWidget {
               child: ListView(
                 padding: EdgeInsets.zero,
                 children: [
-                  for (final s in subs)
+                  for (var i = 0; i < subs.length; i++)
                     Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            s.displayName, // full nickname, or the name
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: kTextPrimary,
-                              height: 1.2,
-                            ),
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: DragTarget<Object>(
+                        onWillAcceptWithDetails: (d) =>
+                            d.data is StarterDrag && onStarterDropped != null,
+                        onAcceptWithDetails: (d) => onStarterDropped!
+                            ((d.data as StarterDrag).index, i),
+                        builder: (context, candidates, _) =>
+                            LongPressDraggable<Object>(
+                          data: SubDrag(i),
+                          delay: const Duration(milliseconds: 200),
+                          feedback: Material(
+                            color: Colors.transparent,
+                            child: SizedBox(
+                                width: 90,
+                                child: _entry(subs[i], dragging: true)),
                           ),
-                          Text(
-                            s.position,
-                            style: kStyleLabel.copyWith(
-                              fontSize: 8.5,
-                              letterSpacing: 0,
-                              color: kTextTertiary,
-                            ),
+                          childWhenDragging:
+                              Opacity(opacity: 0.3, child: _entry(subs[i])),
+                          child: Container(
+                            decoration: candidates.isEmpty
+                                ? null
+                                : BoxDecoration(
+                                    color: kBrandSubtle,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                            child: _entry(subs[i]),
                           ),
-                        ],
+                        ),
                       ),
                     ),
                 ],

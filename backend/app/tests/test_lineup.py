@@ -247,6 +247,39 @@ def test_absences_drive_default_availability(client, team, session, monkeypatch)
     assert seen["names"] == ["David"]
 
 
+def test_save_manual_lineup_edit(client, team, stub_generate):
+    """PUT persists a drag-and-drop edit (swapped positions / bench moves)."""
+    match_id = _make_match(client, team)
+    client.post(f"/api/matches/{match_id}/lineup", json={})
+
+    # Swap: David now starts up front, John drops to the bench.
+    r = client.put(
+        f"/api/matches/{match_id}/lineup",
+        json={
+            "lineup": [{"player": "David", "position": "ST"}],
+            "subs": [{"player": "John", "position": "ST"}],
+        },
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert [s["player"] for s in body["lineup"]] == ["David"]
+    assert [s["player"] for s in body["subs"]] == ["John"]
+
+    # The stored lineup reflects the edit on subsequent reads.
+    again = client.get(f"/api/matches/{match_id}").json()["lineup"]
+    assert [s["player"] for s in again["lineup"]] == ["David"]
+    assert [s["player"] for s in again["subs"]] == ["John"]
+
+
+def test_save_lineup_requires_existing(client, team, stub_generate):
+    match_id = _make_match(client, team)
+    r = client.put(
+        f"/api/matches/{match_id}/lineup",
+        json={"lineup": [{"player": "John", "position": "ST"}]},
+    )
+    assert r.status_code == 409  # nothing generated yet
+
+
 def test_generate_by_voice(client, team, stub_generate, monkeypatch):
     async def fake_transcribe(data, filename, language=None):
         return "play five at the back"

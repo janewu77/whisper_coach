@@ -137,6 +137,20 @@ List<_PosXY> _layoutByPosition(List<LineupSlot> slots) {
   return coords;
 }
 
+// ── Drag payloads (pitch ↔ bench) ────────────────────────────────────────────
+
+/// A starter being dragged (index into Lineup.lineup).
+class StarterDrag {
+  final int index;
+  const StarterDrag(this.index);
+}
+
+/// A sub being dragged (index into Lineup.subs).
+class SubDrag {
+  final int index;
+  const SubDrag(this.index);
+}
+
 // ── PitchView ────────────────────────────────────────────────────────────────
 
 class PitchView extends StatelessWidget {
@@ -144,11 +158,19 @@ class PitchView extends StatelessWidget {
   final String? selectedId;
   final void Function(PitchPlayer player)? onTap;
 
+  /// Drag & drop (long-press a dot): swap two starters' positions…
+  final void Function(int a, int b)? onSwapStarters;
+
+  /// …or drop a bench player onto a starter (sub in / starter out).
+  final void Function(int subIndex, int starterIndex)? onSubIn;
+
   const PitchView({
     super.key,
     required this.players,
     this.selectedId,
     this.onTap,
+    this.onSwapStarters,
+    this.onSubIn,
   });
 
   @override
@@ -203,21 +225,48 @@ class PitchView extends StatelessWidget {
     final cx = (p.x / 100) * w;
     final cy = (p.y / 100) * h;
     final isSelected = selectedId == p.id;
+    final index = int.tryParse(p.id) ?? 0;
+
+    final dot = SizedBox(
+      width: boxW,
+      height: boxH,
+      child: _PlayerDot(player: p, selected: isSelected),
+    );
+    final tappable = GestureDetector(
+      onTap: () => onTap?.call(p),
+      child: dot,
+    );
+    Widget child = tappable;
+
+    if (onSwapStarters != null) {
+      child = DragTarget<Object>(
+        onWillAcceptWithDetails: (d) =>
+            (d.data is StarterDrag && (d.data as StarterDrag).index != index) ||
+            d.data is SubDrag,
+        onAcceptWithDetails: (d) {
+          final data = d.data;
+          if (data is StarterDrag) {
+            onSwapStarters!(data.index, index);
+          } else if (data is SubDrag) {
+            onSubIn?.call(data.index, index);
+          }
+        },
+        builder: (context, candidates, _) => LongPressDraggable<Object>(
+          data: StarterDrag(index),
+          delay: const Duration(milliseconds: 200),
+          feedback: Material(color: Colors.transparent, child: dot),
+          childWhenDragging: Opacity(opacity: 0.3, child: tappable),
+          child: candidates.isEmpty
+              ? tappable
+              : Transform.scale(scale: 1.2, child: tappable),
+        ),
+      );
+    }
 
     return Positioned(
       left: cx - boxW / 2,
       top: cy - boxH / 2,
-      child: GestureDetector(
-        onTap: () => onTap?.call(p),
-        child: SizedBox(
-          width: boxW,
-          height: boxH,
-          child: _PlayerDot(
-            player: p,
-            selected: isSelected,
-          ),
-        ),
-      ),
+      child: child,
     );
   }
 }

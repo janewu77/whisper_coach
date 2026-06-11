@@ -15,6 +15,7 @@ from app.membership import is_member, team_ids_for
 from app.models import Lineup, Match, Note, Player, Team
 from app.schemas import (
     AdjustResult,
+    LineupEdit,
     LineupRequest,
     LineupResult,
     LineupSlot,
@@ -393,6 +394,40 @@ async def make_lineup(
     )
     match = session.get(Match, match_id)
     credits.charge_text(session, auth0_id, f"Lineup vs {match.opponent}")
+    return result
+
+
+@router.put("/{match_id}/lineup", response_model=LineupResult)
+def save_lineup(
+    match_id: int,
+    body: LineupEdit,
+    session: Session = Depends(get_session),
+    auth0_id: str = Depends(current_auth0_id),
+):
+    """Persist a manual lineup edit (drag & drop on the pitch screen). Updates
+    the latest stored lineup in place; free (no LLM call)."""
+    match = _owned_match_or_404(session, match_id, auth0_id)
+    row = _latest_lineup(session, match_id)
+    if row is None:
+        raise HTTPException(status_code=409, detail="generate a lineup first")
+    if not body.lineup:
+        raise HTTPException(status_code=422, detail="lineup cannot be empty")
+
+    available, _ = _available_players(session, match)
+    result = _complete_squad(
+        LineupResult(
+            formation=body.formation or row.formation,
+            lineup=body.lineup,
+            subs=body.subs,
+            reason=row.reason,
+        ),
+        available,
+    )
+    row.formation = result.formation
+    row.slots = [s.model_dump() for s in result.lineup]
+    row.subs = [s.model_dump() for s in result.subs]
+    session.add(row)
+    session.commit()
     return result
 
 
