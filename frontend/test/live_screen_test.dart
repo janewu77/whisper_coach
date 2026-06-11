@@ -32,7 +32,8 @@ void main() {
     expect(find.text('Injury'), findsNothing);
     expect(find.byKey(const Key('text-input-mode-button')), findsNothing);
 
-    // End match lives in the app bar.
-    expect(find.text('End match'), findsOneWidget);
+    // No start/stop lifecycle — just a Summary action in the app bar.
+    expect(find.text('End match'), findsNothing);
+    expect(find.text('Summary'), findsOneWidget);
   });
 }

@@ -55,7 +55,6 @@ class _LiveScreenState extends State<LiveScreen> {
   final _recorder = AudioRecorder();
 
   final List<ChatMessage> _messages = [];
-  Timer? _matchClock;
   bool _sending = false;
   bool _recording = false;
   bool _changingRecordingState = false;
@@ -63,8 +62,6 @@ class _LiveScreenState extends State<LiveScreen> {
   String? _recordingPath;
   String _recordingFilename = 'note.m4a';
   String _recordingMimeType = 'audio/mp4';
-
-  int _matchMinute = 0;
 
   // ── Countdown clock (half/period timer) ──────────────────────────────────
   Timer? _countdown;
@@ -77,18 +74,12 @@ class _LiveScreenState extends State<LiveScreen> {
     super.initState();
     _messages.add(
       SystemMessage(
-          'Match started. Voice input is ready. Speak to log events and get suggestions.'),
+          'Speak or type to log events and get tactical suggestions.'),
     );
-    _matchClock = Timer.periodic(const Duration(minutes: 1), (_) {
-      if (mounted) {
-        setState(() => _matchMinute++);
-      }
-    });
   }
 
   @override
   void dispose() {
-    _matchClock?.cancel();
     _countdown?.cancel();
     _textCtrl.dispose();
     _scrollCtrl.dispose();
@@ -162,10 +153,7 @@ class _LiveScreenState extends State<LiveScreen> {
     try {
       final resp = await api.sendNote(widget.args.matchId, text);
       setState(() {
-        _messages.add(AiMessage(
-          resp.suggestion,
-          minute: "$_matchMinute'",
-        ));
+        _messages.add(AiMessage(resp.suggestion));
       });
     } catch (e) {
       setState(() {
@@ -261,10 +249,7 @@ class _LiveScreenState extends State<LiveScreen> {
       setState(() {
         _messages.removeLast(); // remove "Voice note..."
         _messages.add(UserMessage(resp.transcription));
-        _messages.add(AiMessage(
-          resp.suggestion,
-          minute: "$_matchMinute'",
-        ));
+        _messages.add(AiMessage(resp.suggestion));
       });
     } catch (e) {
       setState(() {
@@ -283,8 +268,8 @@ class _LiveScreenState extends State<LiveScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('End match?'),
-        content: const Text('Generate the post-match summary now?'),
+        title: const Text('Post-match summary?'),
+        content: const Text('Generate the AI summary from your notes now?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -292,7 +277,7 @@ class _LiveScreenState extends State<LiveScreen> {
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('End match'),
+            child: const Text('Generate'),
           ),
         ],
       ),
@@ -342,7 +327,7 @@ class _LiveScreenState extends State<LiveScreen> {
           children: [
             const Text('Live match'),
             Text(
-              'vs ${widget.args.opponent} · $_matchMinute\'',
+              'vs ${widget.args.opponent}',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: kStyleSecondary.copyWith(fontSize: 12, height: 1.2),
@@ -357,8 +342,8 @@ class _LiveScreenState extends State<LiveScreen> {
                 child: TextButton.icon(
                   onPressed: _sending ? null : _endMatch,
                   style: TextButton.styleFrom(
-                    foregroundColor: kRedFg,
-                    backgroundColor: kRedBg,
+                    foregroundColor: kTextBrand,
+                    backgroundColor: kBrandSubtle,
                     padding: const EdgeInsets.symmetric(
                         horizontal: 10, vertical: 4),
                     minimumSize: Size.zero,
@@ -366,9 +351,9 @@ class _LiveScreenState extends State<LiveScreen> {
                       borderRadius: BorderRadius.circular(100),
                     ),
                   ),
-                  icon: const Icon(Icons.sports_score_outlined, size: 14),
+                  icon: const Icon(Icons.assignment_outlined, size: 14),
                   label: const Text(
-                    'End match',
+                    'Summary',
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,

@@ -125,29 +125,15 @@ class _MatchesTabState extends State<MatchesTab> {
     }
   }
 
-  /// Start recording (live notes). Ensures a lineup exists first so in-match
-  /// notes are accepted by the backend.
+  /// "Start" simply opens the live view for this match (no lifecycle, no
+  /// API calls — the countdown/notes live there).
   Future<void> _recordMatch(Match match) async {
-    if (_openingMatchIds.contains(match.id)) return;
-    setState(() => _openingMatchIds.add(match.id));
-    try {
-      final details = await _api.getMatch(match.id);
-      if (details.lineup == null) {
-        await _api.generateLineup(match.id, strength: match.strength);
-      }
-      if (!mounted) return;
-      await Navigator.pushNamed(
-        context,
-        '/live',
-        arguments:
-            LiveScreenArgs(matchId: match.id, opponent: match.opponent),
-      );
-      if (mounted) await _refresh();
-    } catch (error) {
-      if (mounted) _snack(dioErrorMessage(error));
-    } finally {
-      if (mounted) setState(() => _openingMatchIds.remove(match.id));
-    }
+    await Navigator.pushNamed(
+      context,
+      '/live',
+      arguments: LiveScreenArgs(matchId: match.id, opponent: match.opponent),
+    );
+    if (mounted) await _refresh();
   }
 
   /// Open the editable form (Edit button). Refreshes the list on save.
