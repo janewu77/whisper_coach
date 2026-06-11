@@ -54,4 +54,10 @@ class MatchClockStore {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_key(matchId));
   }
+
+  /// Whether this match's clock is currently running (incl. overtime).
+  static Future<bool> isRunning(int matchId) async {
+    final saved = await load(matchId);
+    return saved != null && saved['running'] == true;
+  }
 }

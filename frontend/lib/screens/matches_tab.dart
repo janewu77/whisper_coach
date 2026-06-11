@@ -12,6 +12,7 @@ import '../api/client.dart';
 import '../main.dart';
 import '../models/match.dart';
 import '../models/player.dart';
+import '../services/match_clock_store.dart';
 import '../services/team_service.dart';
 import '../theme.dart';
 import '../widgets/empty_create_hint.dart';
@@ -37,6 +38,8 @@ class _MatchesTabState extends State<MatchesTab> {
   late Future<List<Match>> _matches;
   // Current roster, for the per-match "available on that date" count.
   List<Player>? _roster;
+  // Matches whose live-match clock is still running (red REC badge).
+  final Set<int> _runningClocks = {};
   final Set<int> _openingMatchIds = {};
   final _recorder = AudioRecorder();
   bool _busy = false; // extracting from photo/voice
@@ -57,6 +60,7 @@ class _MatchesTabState extends State<MatchesTab> {
   void initState() {
     super.initState();
     _matches = _api.listMatches(teamId: widget.teamId);
+    _matches.then(_loadRunningClocks).catchError((_) {});
     _loadRoster();
   }
 
@@ -65,8 +69,24 @@ class _MatchesTabState extends State<MatchesTab> {
     super.didUpdateWidget(old);
     if (old.teamId != widget.teamId) {
       _matches = _api.listMatches(teamId: widget.teamId);
+      _matches.then(_loadRunningClocks).catchError((_) {});
       _roster = null;
       _loadRoster();
+    }
+  }
+
+  /// Check which matches have a running countdown (stored locally).
+  Future<void> _loadRunningClocks(List<Match> matches) async {
+    final running = <int>{};
+    for (final m in matches) {
+      if (await MatchClockStore.isRunning(m.id)) running.add(m.id);
+    }
+    if (mounted) {
+      setState(() {
+        _runningClocks
+          ..clear()
+          ..addAll(running);
+      });
     }
   }
 
@@ -87,7 +107,9 @@ class _MatchesTabState extends State<MatchesTab> {
       _matches = matches;
     });
     _loadRoster();
-    await matches;
+    try {
+      await _loadRunningClocks(await matches);
+    } catch (_) {}
   }
 
   Future<void> _openMatch(Match match) async {
@@ -407,6 +429,7 @@ class _MatchesTabState extends State<MatchesTab> {
                   ourTeam: TeamService.instance.current?.name ?? 'Our team',
                   availableCount: available,
                   rosterCount: roster?.length,
+                  clockRunning: _runningClocks.contains(match.id),
                   busy: _openingMatchIds.contains(match.id),
                   onLineup: () => _openMatch(match),
                   onRecord: () => _recordMatch(match),
@@ -429,6 +452,8 @@ class _MatchCard extends StatelessWidget {
   // Players available on the match date / roster size (null = unknown).
   final int? availableCount;
   final int? rosterCount;
+  // The live-match countdown for this match is still running.
+  final bool clockRunning;
   final bool busy;
   final VoidCallback onLineup;
   final VoidCallback onRecord;
@@ -441,6 +466,7 @@ class _MatchCard extends StatelessWidget {
     required this.ourTeam,
     this.availableCount,
     this.rosterCount,
+    this.clockRunning = false,
     required this.busy,
     required this.onLineup,
     required this.onRecord,
@@ -534,6 +560,7 @@ class _MatchCard extends StatelessWidget {
                         spacing: 6,
                         runSpacing: 4,
                         children: [
+                          if (clockRunning) const _RecBadge(),
                           _StrengthBadge(label: strengthLabel),
                           if (availableCount != null && rosterCount != null)
                             _AvailabilityBadge(
@@ -708,6 +735,37 @@ class _AvailabilityBadge extends StatelessWidget {
               fontSize: 10,
               letterSpacing: 0,
               color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Red "REC" pill: the live-match clock for this match is still running.
+class _RecBadge extends StatelessWidget {
+  const _RecBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: kRedBg,
+        borderRadius: BorderRadius.circular(100),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.fiber_manual_record, size: 9, color: kRedFg),
+          const SizedBox(width: 3),
+          Text(
+            'REC',
+            style: kStyleLabel.copyWith(
+              fontSize: 10,
+              letterSpacing: 0.5,
+              color: kRedFg,
             ),
           ),
         ],
