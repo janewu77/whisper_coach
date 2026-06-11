@@ -531,7 +531,8 @@ class _ReportStyleSectionState extends State<_ReportStyleSection> {
             minLines: 3,
             decoration: const InputDecoration(
               labelText: 'Example texts',
-              hintText: 'Paste one or more texts in the target voice…',
+              hintText: 'Paste one or more texts — separate them with a '
+                  'blank line or ---',
               alignLabelWithHint: true,
             ),
           ),

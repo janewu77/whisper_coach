@@ -9,7 +9,10 @@ from app.schemas import StyleCardResult
 
 SYSTEM_PROMPT = (
     "You analyse example texts written or spoken by one person and distill "
-    "HOW they express themselves — never the specific content. Produce a "
+    "HOW they express themselves — never the specific content. The input may "
+    "contain SEVERAL texts (e.g. multiple old match reports), separated by "
+    "blank lines or '---'; treat them as independent samples of the same "
+    "voice and focus on what is CONSISTENT across them. Produce a "
     "compact style card (under 250 words) covering: overall voice and tone, "
     "sentence rhythm and length, typical vocabulary and filler words, "
     "catchphrases, humour, perspective, clear dos and don'ts, plus 2-3 SHORT "
