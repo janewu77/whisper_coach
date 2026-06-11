@@ -516,6 +516,10 @@ class Api {
         if (formation != null) 'formation': formation,
         if (instructions != null && instructions.isNotEmpty)
           'instructions': instructions,
+        // Reasoning language: the speaker-language setting when chosen;
+        // unset = the backend infers it from the squad/venue.
+        if (SettingsService.instance.speakerLanguage.isNotEmpty)
+          'language': SettingsService.instance.speakerLanguage,
       },
     );
     return Lineup.fromJson(res.data!);

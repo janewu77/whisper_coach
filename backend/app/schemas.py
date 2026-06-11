@@ -349,6 +349,8 @@ class LineupRequest(BaseModel):
     formation: Optional[str] = None
     # Free-text coach instructions (typed or transcribed from voice).
     instructions: Optional[str] = None
+    # ISO 639-1 code for the AI reasoning text; None → infer from squad/venue.
+    language: Optional[str] = None
 
 
 class LineupResult(BaseModel):

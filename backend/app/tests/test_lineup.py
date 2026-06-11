@@ -10,10 +10,20 @@ def stub_generate(monkeypatch):
     calls = {}
 
     async def fake_generate(
-        players, opponent, strength, team_size=None, formation=None, instructions=None
+        players,
+        opponent,
+        strength,
+        team_size=None,
+        formation=None,
+        instructions=None,
+        language=None,
+        **kwargs,
     ):
         calls.update(
-            team_size=team_size, formation=formation, instructions=instructions
+            team_size=team_size,
+            formation=formation,
+            instructions=instructions,
+            language=language,
         )
         size = team_size or 11
         return LineupResult(
@@ -67,7 +77,15 @@ def test_generate_passes_size_formation_instructions(client, team, stub_generate
         "team_size": 7,
         "formation": "2-3-1",
         "instructions": "press high",
+        "language": None,
     }
+
+
+def test_generate_passes_language(client, team, stub_generate):
+    match_id = _make_match(client, team)
+    client.post(f"/api/matches/{match_id}/lineup", json={"language": "de"})
+    assert stub_generate["language"] == "de"
+
 
 
 def test_generate_persists_and_regenerates(client, team, stub_generate):
@@ -200,7 +218,7 @@ def test_generate_by_voice(client, team, stub_generate, monkeypatch):
     r = client.post(
         f"/api/matches/{match_id}/lineup/voice",
         files={"audio": ("cmd.webm", b"\x00\x01", "audio/webm")},
-        data={"team_size": "5", "formation": "1-2-1"},
+        data={"team_size": "5", "formation": "1-2-1", "language": "zh"},
     )
     assert r.status_code == 200
     assert r.json()["formation"] == "1-2-1"
@@ -208,4 +226,5 @@ def test_generate_by_voice(client, team, stub_generate, monkeypatch):
         "team_size": 5,
         "formation": "1-2-1",
         "instructions": "play five at the back",
+        "language": "zh",
     }

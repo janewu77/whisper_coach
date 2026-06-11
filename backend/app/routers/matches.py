@@ -306,6 +306,7 @@ async def _make_lineup(
     team_size: int | None,
     formation: str | None,
     instructions: str | None,
+    language: str | None = None,
 ) -> LineupResult:
     """Shared generate-and-store path for the text and voice lineup routes.
     Does NOT charge credits — each route charges its own modality."""
@@ -330,6 +331,8 @@ async def _make_lineup(
             team_size=team_size,
             formation=formation,
             instructions=instructions,
+            language=language,
+            venue=match.pitch or match.address or match.location or None,
         )
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"lineup generation failed: {exc}")
@@ -364,6 +367,7 @@ async def make_lineup(
         body.team_size,
         body.formation,
         body.instructions,
+        language=body.language,
     )
     match = session.get(Match, match_id)
     credits.charge_text(session, auth0_id, f"Lineup vs {match.opponent}")
@@ -393,7 +397,14 @@ async def make_lineup_voice(
         raise HTTPException(status_code=502, detail=f"transcription failed: {exc}")
 
     result = await _make_lineup(
-        session, auth0_id, match_id, None, team_size, formation, instructions
+        session,
+        auth0_id,
+        match_id,
+        None,
+        team_size,
+        formation,
+        instructions,
+        language=language,
     )
     match = session.get(Match, match_id)
     credits.charge_voice(session, auth0_id, f"Lineup (voice) vs {match.opponent}")

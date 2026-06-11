@@ -31,6 +31,8 @@ async def generate_lineup(
     team_size: int | None = None,
     formation: str | None = None,
     instructions: str | None = None,
+    language: str | None = None,
+    venue: str | None = None,
 ) -> LineupResult:
     agent = build_agent("lineup_generate", LineupResult, GENERATE_PROMPT)
     roster = ", ".join(
@@ -40,14 +42,25 @@ async def generate_lineup(
         for p in players
     )
     size = team_size or 11
+    # The coach's set language wins; otherwise infer from the squad/venue.
+    reason_lang = (
+        f"Write `reason` in the language with ISO 639-1 code '{language}'.\n"
+        if language
+        else (
+            "Write `reason` in the coach's likely language — infer it from "
+            "the player names and the venue; if unclear, use English.\n"
+        )
+    )
     prompt = (
         f"Available players: {roster}.\n"
         f"Opponent: {opponent}.\n"
         f"Opponent strength: {strength or 'unknown'}.\n"
-        f"Team size: {size}-a-side — exactly {size} starters incl. GK.\n"
+        + (f"Venue: {venue}.\n" if venue else "")
+        + f"Team size: {size}-a-side — exactly {size} starters incl. GK.\n"
         + (f"Requested formation: {formation} — use exactly this.\n"
            if formation else "")
         + (f"Coach instructions: {instructions}\n" if instructions else "")
+        + reason_lang
         + "Produce the formation, the starting lineup, and the subs (bench)."
     )
     result = await agent.run(prompt)
