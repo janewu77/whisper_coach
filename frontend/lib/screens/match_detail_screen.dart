@@ -209,6 +209,18 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
           ),
           const SizedBox(height: 16),
 
+          // Detail rows (when & where) — before the squad.
+          _InfoCard(rows: [
+            _InfoRow(Icons.calendar_today_outlined, 'Date', _dateLabel),
+            if (match.kickoffTime != null && match.kickoffTime!.isNotEmpty)
+              _InfoRow(Icons.schedule_outlined, 'Kick-off', match.kickoffTime!),
+            if (match.pitch != null && match.pitch!.isNotEmpty)
+              _InfoRow(Icons.stadium_outlined, 'Pitch / ground', match.pitch!),
+            if (match.address != null && match.address!.isNotEmpty)
+              _InfoRow(Icons.location_on_outlined, 'Address', match.address!),
+          ]),
+          const SizedBox(height: 16),
+
           // Who can play this match (tap a player to move them).
           if (_roster != null) ...[
             Container(
@@ -234,18 +246,6 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
             icon: const Icon(Icons.emoji_events_outlined, size: 18),
             label: const Text('Match summary'),
           ),
-          const SizedBox(height: 16),
-
-          // Detail rows.
-          _InfoCard(rows: [
-            _InfoRow(Icons.calendar_today_outlined, 'Date', _dateLabel),
-            if (match.kickoffTime != null && match.kickoffTime!.isNotEmpty)
-              _InfoRow(Icons.schedule_outlined, 'Kick-off', match.kickoffTime!),
-            if (match.pitch != null && match.pitch!.isNotEmpty)
-              _InfoRow(Icons.stadium_outlined, 'Pitch / ground', match.pitch!),
-            if (match.address != null && match.address!.isNotEmpty)
-              _InfoRow(Icons.location_on_outlined, 'Address', match.address!),
-          ]),
 
           if (match.notes != null && match.notes!.isNotEmpty) ...[
             const SizedBox(height: 16),
