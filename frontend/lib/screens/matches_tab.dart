@@ -400,9 +400,22 @@ class _MatchesTabState extends State<MatchesTab> {
                 final match = matches[index];
                 final matchDate = DateTime.tryParse(match.date);
                 final roster = _roster;
-                final available = (roster == null || matchDate == null)
+                // The coach's per-match list (lineup screen) wins; otherwise
+                // availability derives from absences on the match date.
+                final unavailableIds = match.unavailablePlayerIds;
+                final available = roster == null
                     ? null
-                    : roster.where((p) => p.availableOn(matchDate)).length;
+                    : unavailableIds != null
+                        ? roster
+                            .where((p) =>
+                                p.id == null ||
+                                !unavailableIds.contains(p.id))
+                            .length
+                        : (matchDate == null
+                            ? null
+                            : roster
+                                .where((p) => p.availableOn(matchDate))
+                                .length);
                 return _MatchCard(
                   match: match,
                   ourTeam: TeamService.instance.current?.name ?? 'Our team',
