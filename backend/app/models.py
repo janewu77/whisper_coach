@@ -45,7 +45,8 @@ class CreditTransaction(SQLModel, table=True):
     __tablename__ = "credit_transaction"
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    auth0_id: str = Field(foreign_key="users.auth0_id", index=True)
+    # References the user's surrogate integer id (users.id), not the auth0_id.
+    user_id: int = Field(foreign_key="users.id", index=True)
     amount: int  # + grant, - spend
     balance_after: int
     kind: str  # "initial" | "text" | "image" | "voice"

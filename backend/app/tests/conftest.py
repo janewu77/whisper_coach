@@ -53,12 +53,15 @@ def team_fixture(session):
     if existing is None:
         # Seed with the initial credit grant (balance + ledger entry, like a
         # real registration) so LLM endpoints can be charged.
-        session.add(
-            User(auth0_id=TEST_USER["sub"], email=TEST_USER["email"], credits=100)
+        user = User(
+            auth0_id=TEST_USER["sub"], email=TEST_USER["email"], credits=100
         )
+        session.add(user)
+        session.commit()
+        session.refresh(user)
         session.add(
             CreditTransaction(
-                auth0_id=TEST_USER["sub"],
+                user_id=user.id,
                 amount=100,
                 balance_after=100,
                 kind="initial",

@@ -114,8 +114,10 @@ Every LLM-backed call spends **credits**, billed by the primary input modality:
 follow-up LLM into the single 2-credit charge).
 
 - **Ledger:** `User.credits` is the running balance; `CreditTransaction` is the
-  append-only ledger (`amount` +grant/−spend, `balance_after`, `kind` =
-  `initial`/`text`/`image`/`voice`, `description`). All logic lives in
+  append-only ledger (`user_id` FK → `users.id` — the surrogate integer PK,
+  not the auth0_id; `amount` +grant/−spend, `balance_after`, `kind` =
+  `initial`/`text`/`image`/`voice`, `description`). Migration
+  `e7f8a9b0c1d2_credit_txn_user_id.py` switched the column and backfilled. All logic lives in
   `app/credits.py` (`INITIAL_CREDITS=100`, `COST_*`, `charge_text/image/voice`
   which 402 on an empty balance and commit, `grant_initial`, `balance`,
   `transactions`). Migration `a3b4c5d6e7f8_credits_system.py` adds the column +

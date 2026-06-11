@@ -51,7 +51,7 @@ def grant(
     session.add(user)
     session.add(
         CreditTransaction(
-            auth0_id=auth0_id,
+            user_id=user.id,
             amount=amount,
             balance_after=user.credits,
             kind=kind,
@@ -74,14 +74,17 @@ def ensure_initial_grant(session: Session, auth0_id: str) -> int:
     the migration backfill, or seeded outside the normal register path): the
     ledger is checked for an ``initial`` entry, so a user who legitimately
     spent down to zero is never re-granted."""
+    user = _user(session, auth0_id)
+    if user is None:
+        return 0
     already = session.exec(
         select(CreditTransaction).where(
-            CreditTransaction.auth0_id == auth0_id,
+            CreditTransaction.user_id == user.id,
             CreditTransaction.kind == "initial",
         )
     ).first()
     if already is not None:
-        return balance(session, auth0_id)
+        return user.credits
     return grant_initial(session, auth0_id)
 
 
@@ -100,7 +103,7 @@ def _charge(
     session.add(user)
     session.add(
         CreditTransaction(
-            auth0_id=auth0_id,
+            user_id=user.id,
             amount=-cost,
             balance_after=user.credits,
             kind=kind,
@@ -125,10 +128,13 @@ def charge_voice(session: Session, auth0_id: str, description: str) -> int:
 
 def transactions(session: Session, auth0_id: str) -> list[CreditTransaction]:
     """The user's ledger, newest first."""
+    user = _user(session, auth0_id)
+    if user is None:
+        return []
     return list(
         session.exec(
             select(CreditTransaction)
-            .where(CreditTransaction.auth0_id == auth0_id)
+            .where(CreditTransaction.user_id == user.id)
             .order_by(CreditTransaction.created_at.desc(), CreditTransaction.id.desc())
         ).all()
     )
