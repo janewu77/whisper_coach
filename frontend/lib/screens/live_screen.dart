@@ -19,7 +19,10 @@ sealed class ChatMessage {}
 
 class UserMessage extends ChatMessage {
   final String text;
-  UserMessage(this.text);
+  final DateTime at; // wall-clock send time
+  final String? minute; // match minute label when the clock is running
+  UserMessage(this.text, {DateTime? at, this.minute})
+      : at = at ?? DateTime.now();
 }
 
 class AiMessage extends ChatMessage {
@@ -65,8 +68,10 @@ class _LiveScreenState extends State<LiveScreen> {
 
   // ── Countdown clock (half/period timer) ──────────────────────────────────
   Timer? _countdown;
+  Timer? _metaRefresh; // refreshes the "x min ago" labels
   int _countdownSetMin = 45; // chosen length in minutes
-  int _remainingSec = 0; // > 0 while running/paused
+  int _remainingSec = 0; // > 0 while counting down
+  int _overtimeSec = 0; // counts UP after the countdown reaches zero
   bool _countdownRunning = false;
 
   @override
@@ -76,11 +81,16 @@ class _LiveScreenState extends State<LiveScreen> {
       SystemMessage(
           'Speak or type to log events and get tactical suggestions.'),
     );
+    _metaRefresh = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => mounted ? setState(() {}) : null,
+    );
   }
 
   @override
   void dispose() {
     _countdown?.cancel();
+    _metaRefresh?.cancel();
     _textCtrl.dispose();
     _scrollCtrl.dispose();
     _recorder.dispose();
@@ -89,15 +99,31 @@ class _LiveScreenState extends State<LiveScreen> {
 
   // ── Countdown clock ───────────────────────────────────────────────────────
 
-  String get _countdownLabel {
-    final m = (_remainingSec ~/ 60).toString().padLeft(2, '0');
-    final s = (_remainingSec % 60).toString().padLeft(2, '0');
+  /// The clock is in use (running or paused, incl. overtime).
+  bool get _clockActive =>
+      _countdownRunning || _remainingSec > 0 || _overtimeSec > 0;
+
+  static String _mmss(int seconds) {
+    final m = (seconds ~/ 60).toString().padLeft(2, '0');
+    final s = (seconds % 60).toString().padLeft(2, '0');
     return '$m:$s';
+  }
+
+  String get _countdownLabel => _mmss(_remainingSec);
+
+  /// Current match minute, football style: 12' — or 45+2' in overtime.
+  String get _minuteLabel {
+    if (_remainingSec == 0 && (_overtimeSec > 0 || _countdownRunning)) {
+      return "$_countdownSetMin+${(_overtimeSec ~/ 60) + 1}'";
+    }
+    final elapsed = _countdownSetMin * 60 - _remainingSec;
+    return "${(elapsed ~/ 60) + 1}'";
   }
 
   void _startCountdown() {
     setState(() {
       _remainingSec = _countdownSetMin * 60;
+      _overtimeSec = 0;
       _countdownRunning = true;
     });
     _runCountdown();
@@ -107,17 +133,19 @@ class _LiveScreenState extends State<LiveScreen> {
     _countdown?.cancel();
     _countdown = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
-      if (_remainingSec <= 1) {
-        _countdown?.cancel();
-        setState(() {
+      setState(() {
+        if (_remainingSec > 1) {
+          _remainingSec--;
+        } else if (_remainingSec == 1) {
+          // Time's up — but the clock keeps running into overtime (+MM:SS)
+          // until the coach pauses or resets it.
           _remainingSec = 0;
-          _countdownRunning = false;
           _messages.add(SystemMessage('⏱ $_countdownSetMin min are up!'));
-        });
-        _scrollToBottom();
-      } else {
-        setState(() => _remainingSec--);
-      }
+          _scrollToBottom();
+        } else {
+          _overtimeSec++;
+        }
+      });
     });
   }
 
@@ -135,6 +163,7 @@ class _LiveScreenState extends State<LiveScreen> {
     _countdown?.cancel();
     setState(() {
       _remainingSec = 0;
+      _overtimeSec = 0;
       _countdownRunning = false;
     });
   }
@@ -145,8 +174,9 @@ class _LiveScreenState extends State<LiveScreen> {
     final text = _textCtrl.text.trim();
     if (text.isEmpty) return;
     _textCtrl.clear();
+    final minuteTag = _clockActive ? _minuteLabel : null;
     setState(() {
-      _messages.add(UserMessage(text));
+      _messages.add(UserMessage(text, minute: minuteTag));
       _sending = true;
     });
     _scrollToBottom();
@@ -156,7 +186,7 @@ class _LiveScreenState extends State<LiveScreen> {
         // Pure event logs are registered silently — only show the AI card
         // when it decided the coach needs an answer.
         if (resp.suggestion.respond) {
-          _messages.add(AiMessage(resp.suggestion));
+          _messages.add(AiMessage(resp.suggestion, minute: minuteTag));
         } else {
           _messages.add(SystemMessage('✓ ${resp.suggestion.reason}'));
         }
@@ -244,8 +274,9 @@ class _LiveScreenState extends State<LiveScreen> {
       name: _recordingFilename,
       mimeType: _recordingMimeType,
     );
+    final minuteTag = _clockActive ? _minuteLabel : null;
     setState(() {
-      _messages.add(UserMessage('🎙 Voice note…'));
+      _messages.add(UserMessage('🎙 Voice note…', minute: minuteTag));
       _sending = true;
     });
     _scrollToBottom();
@@ -254,9 +285,9 @@ class _LiveScreenState extends State<LiveScreen> {
       // Replace the placeholder with the actual transcription
       setState(() {
         _messages.removeLast(); // remove "Voice note..."
-        _messages.add(UserMessage(resp.transcription));
+        _messages.add(UserMessage(resp.transcription, minute: minuteTag));
         if (resp.suggestion.respond) {
-          _messages.add(AiMessage(resp.suggestion));
+          _messages.add(AiMessage(resp.suggestion, minute: minuteTag));
         } else {
           _messages.add(SystemMessage('✓ ${resp.suggestion.reason}'));
         }
@@ -404,7 +435,7 @@ class _LiveScreenState extends State<LiveScreen> {
   }
 
   Widget _buildCountdownBar() {
-    final active = _remainingSec > 0 || _countdownRunning;
+    final active = _clockActive;
     final urgent = active && _remainingSec <= 60;
     return Container(
       color: kSurfaceCard,
@@ -453,7 +484,25 @@ class _LiveScreenState extends State<LiveScreen> {
               label: const Text('Start'),
             ),
           ] else ...[
-            // Running / paused: mm:ss + pause/resume + reset.
+            // Running / paused: current minute + remaining mm:ss (+overtime).
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+              decoration: BoxDecoration(
+                color: kBrandSubtle,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                _minuteLabel, // e.g. 23' — or 45+2' in overtime
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: kTextBrand,
+                  fontFeatures: [FontFeature.tabularFigures()],
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
             Text(
               _countdownLabel,
               style: TextStyle(
@@ -464,6 +513,19 @@ class _LiveScreenState extends State<LiveScreen> {
                 height: 1.1,
               ),
             ),
+            if (_overtimeSec > 0) ...[
+              const SizedBox(width: 6),
+              Text(
+                '+${_mmss(_overtimeSec)}',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: kRedFg,
+                  fontFeatures: [FontFeature.tabularFigures()],
+                  height: 1.1,
+                ),
+              ),
+            ],
             const SizedBox(width: 8),
             if (!_countdownRunning)
               Container(
@@ -508,7 +570,8 @@ class _LiveScreenState extends State<LiveScreen> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: switch (msg) {
-        UserMessage(:final text) => _UserBubble(text: text),
+        UserMessage(:final text, :final at, :final minute) =>
+          _UserBubble(text: text, at: at, minute: minute),
         AiMessage(:final suggestion, :final minute) =>
           _AiBubble(suggestion: suggestion, minute: minute),
         SystemMessage(:final text) => _SystemBubble(text: text),
@@ -643,34 +706,67 @@ class _LiveScreenState extends State<LiveScreen> {
 
 class _UserBubble extends StatelessWidget {
   final String text;
-  const _UserBubble({required this.text});
+  final DateTime? at;
+  final String? minute;
+
+  const _UserBubble({required this.text, this.at, this.minute});
+
+  static String _fmtTime(DateTime t) =>
+      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+
+  static String _ago(DateTime t) {
+    final d = DateTime.now().difference(t);
+    if (d.inSeconds < 60) return 'just now';
+    if (d.inMinutes < 60) return '${d.inMinutes} min ago';
+    return '${d.inHours} h ago';
+  }
 
   @override
   Widget build(BuildContext context) {
+    // Clock running → match minute + time; otherwise time + how long ago.
+    final meta = at == null
+        ? null
+        : (minute != null
+            ? '$minute · ${_fmtTime(at!)}'
+            : '${_fmtTime(at!)} · ${_ago(at!)}');
     return Align(
       alignment: Alignment.centerRight,
-      child: Container(
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.75,
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: const BoxDecoration(
-          color: kBrand,
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(kRadiusCard),
-            topRight: Radius.circular(kRadiusCard),
-            bottomLeft: Radius.circular(kRadiusCard),
-            bottomRight: Radius.circular(4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.75,
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: const BoxDecoration(
+              color: kBrand,
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(kRadiusCard),
+                topRight: Radius.circular(kRadiusCard),
+                bottomLeft: Radius.circular(kRadiusCard),
+                bottomRight: Radius.circular(4),
+              ),
+            ),
+            child: Text(
+              text,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                height: 1.5,
+              ),
+            ),
           ),
-        ),
-        child: Text(
-          text,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 14,
-            height: 1.5,
-          ),
-        ),
+          if (meta != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 2, right: 2),
+              child: Text(
+                meta,
+                style: const TextStyle(fontSize: 10, color: kTextTertiary),
+              ),
+            ),
+        ],
       ),
     );
   }
