@@ -14,32 +14,22 @@ void main() {
     );
   }
 
-  testWidgets('defaults to prominent voice input', (tester) async {
+  testWidgets('composer is one input with mic inside and a send button',
+      (tester) async {
     await tester.pumpWidget(buildScreen());
 
-    expect(find.byKey(const Key('voice-record-button')), findsOneWidget);
-    expect(find.text('Tap to speak'), findsOneWidget);
-    expect(find.byKey(const Key('live-note-text-field')), findsNothing);
-
-    final recordButton = tester.getSize(
-      find.byKey(const Key('voice-record-button')),
-    );
-    expect(recordButton, const Size(104, 104));
-
-    final switchButton = tester.getSize(
-      find.byKey(const Key('text-input-mode-button')),
-    );
-    expect(switchButton.height, 44);
-  });
-
-  testWidgets('can switch from voice input to text input', (tester) async {
-    await tester.pumpWidget(buildScreen());
-
-    await tester.tap(find.byKey(const Key('text-input-mode-button')));
-    await tester.pumpAndSettle();
-
+    // Single text field with the voice button as its suffix icon.
     expect(find.byKey(const Key('live-note-text-field')), findsOneWidget);
+    expect(find.byKey(const Key('voice-record-button')), findsOneWidget);
     expect(find.byKey(const Key('send-text-note-button')), findsOneWidget);
-    expect(find.byKey(const Key('voice-record-button')), findsNothing);
+
+    // The old quick actions and mode switcher are gone.
+    expect(find.text('Goal'), findsNothing);
+    expect(find.text('Injury'), findsNothing);
+    expect(find.text('Tap to speak'), findsNothing);
+    expect(find.byKey(const Key('text-input-mode-button')), findsNothing);
+
+    // End match moved into the app bar.
+    expect(find.text('End match'), findsOneWidget);
   });
 }

@@ -38,8 +38,6 @@ class SummaryMessage extends ChatMessage {
   SummaryMessage(this.summary);
 }
 
-enum _InputMode { voice, text }
-
 // ── Screen ────────────────────────────────────────────────────────────────────
 
 class LiveScreen extends StatefulWidget {
@@ -62,7 +60,6 @@ class _LiveScreenState extends State<LiveScreen> {
   bool _recording = false;
   bool _changingRecordingState = false;
   bool _summaryDone = false;
-  _InputMode _inputMode = _InputMode.voice;
   String? _recordingPath;
   String _recordingFilename = 'note.m4a';
   String _recordingMimeType = 'audio/mp4';
@@ -280,13 +277,6 @@ class _LiveScreenState extends State<LiveScreen> {
     }
   }
 
-  // ── Quick actions ─────────────────────────────────────────────────────────
-
-  void _quickAction(String text) {
-    _textCtrl.text = text;
-    _sendText();
-  }
-
   // ── Summary ───────────────────────────────────────────────────────────────
 
   Future<void> _endMatch() async {
@@ -364,23 +354,24 @@ class _LiveScreenState extends State<LiveScreen> {
             Padding(
               padding: const EdgeInsets.only(right: 10),
               child: Center(
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: kRedBg,
-                    borderRadius: BorderRadius.circular(100),
-                    border: Border.all(
-                      color: kRedFg.withValues(alpha: 0.3),
-                      width: 0.5,
+                child: TextButton.icon(
+                  onPressed: _sending ? null : _endMatch,
+                  style: TextButton.styleFrom(
+                    foregroundColor: kRedFg,
+                    backgroundColor: kRedBg,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 4),
+                    minimumSize: Size.zero,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(100),
                     ),
                   ),
-                  child: const Text(
-                    'In progress',
+                  icon: const Icon(Icons.sports_score_outlined, size: 14),
+                  label: const Text(
+                    'End match',
                     style: TextStyle(
                       fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: kRedFg,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
@@ -532,244 +523,87 @@ class _LiveScreenState extends State<LiveScreen> {
   }
 
   Widget _buildComposer() {
-    final inputLocked = _recording || _changingRecordingState || _sending;
-
     return SafeArea(
       top: false,
       child: Container(
         color: kSurfaceCard,
-        padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            // Quick actions
-            SizedBox(
-              height: 36,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                children: [
-                  _QuickChip(
-                    icon: Icons.sports_soccer_outlined,
-                    label: 'Goal',
-                    onTap: () => _quickAction('We scored a goal.'),
+            // One input for both: type, or tap the mic inside and speak.
+            Expanded(
+              child: TextField(
+                key: const Key('live-note-text-field'),
+                controller: _textCtrl,
+                maxLines: 4,
+                minLines: 1,
+                readOnly: _recording,
+                textInputAction: TextInputAction.send,
+                onSubmitted: (_) => _sendText(),
+                decoration: InputDecoration(
+                  hintText: _recording
+                      ? 'Listening… tap the mic to stop & send'
+                      : 'Type or speak what is happening…',
+                  isDense: true,
+                  suffixIcon: Semantics(
+                    button: true,
+                    label: _recording
+                        ? 'Stop voice recording'
+                        : 'Start voice recording',
+                    child: IconButton(
+                      key: const Key('voice-record-button'),
+                      tooltip: _recording ? 'Stop & send' : 'Speak',
+                      onPressed: _sending ? null : _toggleRecording,
+                      icon: Icon(
+                        _recording
+                            ? Icons.stop_rounded
+                            : Icons.mic_none_outlined,
+                        size: 22,
+                        color: _recording ? kRedFg : kTextBrand,
+                      ),
+                    ),
                   ),
-                  const SizedBox(width: 6),
-                  _QuickChip(
-                    icon: Icons.medical_services_outlined,
-                    label: 'Injury',
-                    onTap: () => _quickAction('Player has an injury.'),
-                  ),
-                  const SizedBox(width: 6),
-                  _QuickChip(
-                    icon: Icons.assignment_outlined,
-                    label: 'Summary',
-                    onTap: _summaryDone ? null : _endMatch,
-                  ),
-                ],
+                ),
               ),
             ),
-            const SizedBox(height: 10),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
-              child: _inputMode == _InputMode.voice
-                  ? _buildVoiceInput()
-                  : _buildTextInput(),
-            ),
-            const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerRight,
-              child: _CompactInputModeButton(
-                mode: _inputMode,
-                enabled: !inputLocked,
-                onTap: () {
-                  setState(() {
-                    _inputMode = _inputMode == _InputMode.voice
-                        ? _InputMode.text
-                        : _InputMode.voice;
-                  });
-                },
+            const SizedBox(width: 8),
+            Semantics(
+              button: true,
+              label: 'Send text note',
+              child: GestureDetector(
+                key: const Key('send-text-note-button'),
+                onTap: (_sending || _recording) ? null : _sendText,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: (_sending || _recording)
+                        ? kBorderStrong
+                        : kBrand,
+                    borderRadius: BorderRadius.circular(kRadiusInput),
+                  ),
+                  child: _sending
+                      ? const Center(
+                          child: SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          ),
+                        )
+                      : const Icon(
+                          Icons.send_rounded,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                ),
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildVoiceInput() {
-    return Column(
-      key: const ValueKey('voice-input'),
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Semantics(
-          button: true,
-          label: _recording ? 'Stop voice recording' : 'Start voice recording',
-          child: GestureDetector(
-            key: const Key('voice-record-button'),
-            onTap: _sending ? null : _toggleRecording,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              width: 104,
-              height: 104,
-              decoration: BoxDecoration(
-                color: _recording ? kRedFg : kBrand,
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: _recording ? kRedBg : kBrandSubtle,
-                  width: 7,
-                  strokeAlign: BorderSide.strokeAlignOutside,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color:
-                        (_recording ? kRedFg : kBrand).withValues(alpha: 0.24),
-                    blurRadius: 18,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: Icon(
-                _recording ? Icons.stop_rounded : Icons.mic_rounded,
-                color: Colors.white,
-                size: 46,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 10),
-        Text(
-          _recording ? 'Recording... Tap to stop' : 'Tap to speak',
-          style: const TextStyle(
-            color: kTextPrimary,
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 3),
-        Text(
-          _recording
-              ? 'Your note will be sent when recording stops'
-              : 'Describe what is happening on the pitch',
-          style: kStyleSecondary,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTextInput() {
-    return Row(
-      key: const ValueKey('text-input'),
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        Expanded(
-          child: TextField(
-            key: const Key('live-note-text-field'),
-            controller: _textCtrl,
-            autofocus: true,
-            maxLines: null,
-            textInputAction: TextInputAction.send,
-            onSubmitted: (_) => _sendText(),
-            decoration: const InputDecoration(
-              hintText: 'Type event or ask for advice...',
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Semantics(
-          button: true,
-          label: 'Send text note',
-          child: GestureDetector(
-            key: const Key('send-text-note-button'),
-            onTap: _sending ? null : _sendText,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: _sending ? kBorderStrong : kBrand,
-                borderRadius: BorderRadius.circular(kRadiusInput),
-              ),
-              child: _sending
-                  ? const Center(
-                      child: SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        ),
-                      ),
-                    )
-                  : const Icon(
-                      Icons.send_rounded,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _CompactInputModeButton extends StatelessWidget {
-  final _InputMode mode;
-  final bool enabled;
-  final VoidCallback onTap;
-
-  const _CompactInputModeButton({
-    required this.mode,
-    required this.enabled,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final switchToText = mode == _InputMode.voice;
-    final foreground = enabled ? kTextSecondary : kTextTertiary;
-
-    return Semantics(
-      button: true,
-      enabled: enabled,
-      label: switchToText ? 'Switch to text input' : 'Switch to voice input',
-      child: Material(
-        color: kSurfacePage,
-        borderRadius: BorderRadius.circular(100),
-        child: InkWell(
-          onTap: enabled ? onTap : null,
-          borderRadius: BorderRadius.circular(100),
-          child: Container(
-            key: switchToText
-                ? const Key('text-input-mode-button')
-                : const Key('voice-input-mode-button'),
-            height: 44,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(100),
-              border: Border.all(color: kBorderHairline),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  switchToText ? Icons.keyboard_rounded : Icons.mic_rounded,
-                  size: 17,
-                  color: foreground,
-                ),
-                const SizedBox(width: 5),
-                Text(
-                  switchToText ? 'Text input' : 'Voice input',
-                  style: TextStyle(
-                    color: foreground,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
         ),
       ),
     );
@@ -999,46 +833,3 @@ class _SummaryCard extends StatelessWidget {
   }
 }
 
-// ── Quick action chip ─────────────────────────────────────────────────────────
-
-class _QuickChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback? onTap;
-
-  const _QuickChip({
-    required this.icon,
-    required this.label,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: kSurfaceCard,
-          borderRadius: BorderRadius.circular(100),
-          border: Border.all(color: kBorderStrong, width: 0.5),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 13, color: kTextSecondary),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: kTextPrimary,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
