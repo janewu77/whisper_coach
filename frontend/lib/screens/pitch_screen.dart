@@ -501,21 +501,33 @@ class _PitchScreenState extends State<PitchScreen> {
           ),
           const SizedBox(height: 12),
 
-          // Pitch (3/4) with the subs list to its right (1/4).
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(
-                flex: 3,
-                child: PitchView(
-                  players: pitchPlayers,
-                  selectedId: _selectedPlayerId,
-                  onTap: _onPlayerTap,
+          // Pitch (3/4) with the subs list to its right (1/4). The row gets an
+          // explicit height (pitch width / aspect ratio) because it sits in a
+          // ListView, where stretch + inner Expanded have no bounded height.
+          LayoutBuilder(
+            builder: (context, constraints) {
+              const gap = 8.0;
+              final pitchW = (constraints.maxWidth - gap) * 3 / 4;
+              final rowH = pitchW / 0.65; // PitchView aspect ratio
+              return SizedBox(
+                height: rowH,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: PitchView(
+                        players: pitchPlayers,
+                        selectedId: _selectedPlayerId,
+                        onTap: _onPlayerTap,
+                      ),
+                    ),
+                    const SizedBox(width: gap),
+                    Expanded(flex: 1, child: _SubsPanel(subs: _lineup.subs)),
+                  ],
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(flex: 1, child: _SubsPanel(subs: _lineup.subs)),
-            ],
+              );
+            },
           ),
           const SizedBox(height: 12),
 
