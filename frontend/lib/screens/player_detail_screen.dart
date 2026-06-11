@@ -532,24 +532,31 @@ class _PlayerDetailScreenState extends State<PlayerDetailScreen> {
                       Text('Attackers at the top → goalkeeper at the bottom.',
                           style: kStyleSecondary),
                       const SizedBox(height: 10),
+                      // One Row per formation line — never wraps; the whole
+                      // line scales down to fit narrow screens instead.
                       for (final line in _kPositionLines)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 8),
                           child: SizedBox(
                             width: double.infinity,
-                            child: Wrap(
-                              alignment: WrapAlignment.center,
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: line
-                                  .map((c) => FilterChip(
-                                        label: Text(c),
-                                        selected: _positions.contains(c),
-                                        onSelected: (_) => _togglePosition(c),
-                                        selectedColor: kBrandSubtle,
-                                        checkmarkColor: kTextBrand,
-                                      ))
-                                  .toList(),
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  for (var i = 0; i < line.length; i++) ...[
+                                    if (i > 0) const SizedBox(width: 8),
+                                    FilterChip(
+                                      label: Text(line[i]),
+                                      selected: _positions.contains(line[i]),
+                                      onSelected: (_) =>
+                                          _togglePosition(line[i]),
+                                      selectedColor: kBrandSubtle,
+                                      checkmarkColor: kTextBrand,
+                                    ),
+                                  ],
+                                ],
+                              ),
                             ),
                           ),
                         ),
