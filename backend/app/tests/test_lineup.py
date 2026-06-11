@@ -60,7 +60,8 @@ def test_generate_returns_formation(client, team, stub_generate):
     assert body["formation"] == "4-3-3"
     assert {s["player"] for s in body["lineup"]} == {"John", "David"}
     assert body["subs"] == [
-        {"player": "Sub One", "position": "GK", "nickname": None}
+        {"player": "Sub One", "position": "GK", "nickname": None,
+         "x": None, "y": None}
     ]
     assert "reason" in body
 
@@ -96,7 +97,8 @@ def test_generate_persists_and_regenerates(client, team, stub_generate):
     r = client.get(f"/api/matches/{match_id}")
     assert r.json()["lineup"]["formation"] == "4-3-3"
     assert r.json()["lineup"]["subs"] == [
-        {"player": "Sub One", "position": "GK", "nickname": None}
+        {"player": "Sub One", "position": "GK", "nickname": None,
+         "x": None, "y": None}
     ]
 
 
@@ -132,7 +134,8 @@ def test_bench_autofilled_with_remaining_roster(client, team, session, monkeypat
     # David (the only other roster player) was appended to the bench with his
     # preferred position and nickname.
     assert body["subs"] == [
-        {"player": "David", "position": "CM", "nickname": "Dave"}
+        {"player": "David", "position": "CM", "nickname": "Dave",
+         "x": None, "y": None}
     ]
     # the read path returns the completed squad too
     again = client.get(f"/api/matches/{match_id}").json()["lineup"]
@@ -269,6 +272,27 @@ def test_save_manual_lineup_edit(client, team, stub_generate):
     again = client.get(f"/api/matches/{match_id}").json()["lineup"]
     assert [s["player"] for s in again["lineup"]] == ["David"]
     assert [s["player"] for s in again["subs"]] == ["John"]
+
+
+def test_save_lineup_keeps_custom_coordinates(client, team, stub_generate):
+    """Free-position drags (custom x/y) persist through save and reads."""
+    match_id = _make_match(client, team)
+    client.post(f"/api/matches/{match_id}/lineup", json={})
+    r = client.put(
+        f"/api/matches/{match_id}/lineup",
+        json={
+            "lineup": [
+                {"player": "John", "position": "ST", "x": 33.5, "y": 21.0}
+            ],
+            "subs": [{"player": "David", "position": "CM"}],
+        },
+    )
+    assert r.status_code == 200
+    slot = r.json()["lineup"][0]
+    assert (slot["x"], slot["y"]) == (33.5, 21.0)
+
+    again = client.get(f"/api/matches/{match_id}").json()["lineup"]["lineup"][0]
+    assert (again["x"], again["y"]) == (33.5, 21.0)
 
 
 def test_save_lineup_requires_existing(client, team, stub_generate):

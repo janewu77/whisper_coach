@@ -339,6 +339,10 @@ class LineupSlot(BaseModel):
     # The player's nickname (attached server-side from the roster, not by the
     # agent) so the pitch can label dots with what teammates call them.
     nickname: Optional[str] = None
+    # Custom pitch coordinates in percent (0-100), set when the coach drags a
+    # player to a free spot. Null = the app lays out by position code.
+    x: Optional[float] = None
+    y: Optional[float] = None
 
 
 class LineupRequest(BaseModel):

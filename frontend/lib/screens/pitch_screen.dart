@@ -232,22 +232,31 @@ class _PitchScreenState extends State<PitchScreen> {
 
   // ── Drag & drop edits (swap positions / pitch ↔ bench) ──────────────────
 
-  /// Two starters swap positions (players stay, position codes trade).
+  /// Two starters swap positions (players stay; position codes + any custom
+  /// pitch spots trade places).
   void _swapStarters(int a, int b) {
     if (a == b) return;
     final sa = _lineup.lineup[a];
     final sb = _lineup.lineup[b];
     setState(() {
       _lineup.lineup[a] = LineupSlot(
-          player: sa.player, position: sb.position, nickname: sa.nickname);
+          player: sa.player,
+          position: sb.position,
+          nickname: sa.nickname,
+          x: sb.x,
+          y: sb.y);
       _lineup.lineup[b] = LineupSlot(
-          player: sb.player, position: sa.position, nickname: sb.nickname);
+          player: sb.player,
+          position: sa.position,
+          nickname: sb.nickname,
+          x: sa.x,
+          y: sa.y);
       _selectedPlayerId = null;
     });
     _saveLineup();
   }
 
-  /// A sub takes a starter's place (and position); the starter is benched.
+  /// A sub takes a starter's place (position + spot); the starter is benched.
   void _swapWithBench(int starterIdx, int subIdx) {
     final starter = _lineup.lineup[starterIdx];
     final sub = _lineup.subs[subIdx];
@@ -255,11 +264,28 @@ class _PitchScreenState extends State<PitchScreen> {
       _lineup.lineup[starterIdx] = LineupSlot(
           player: sub.player,
           position: starter.position,
-          nickname: sub.nickname);
+          nickname: sub.nickname,
+          x: starter.x,
+          y: starter.y);
       _lineup.subs[subIdx] = LineupSlot(
           player: starter.player,
           position: starter.position,
           nickname: starter.nickname);
+      _selectedPlayerId = null;
+    });
+    _saveLineup();
+  }
+
+  /// Drop on empty grass: pin the starter to that exact spot (percent coords).
+  void _moveStarter(int index, double x, double y) {
+    final s = _lineup.lineup[index];
+    setState(() {
+      _lineup.lineup[index] = LineupSlot(
+          player: s.player,
+          position: s.position,
+          nickname: s.nickname,
+          x: x,
+          y: y);
       _selectedPlayerId = null;
     });
     _saveLineup();
@@ -587,6 +613,7 @@ class _PitchScreenState extends State<PitchScreen> {
                         onSwapStarters: _swapStarters,
                         onSubIn: (subIdx, starterIdx) =>
                             _swapWithBench(starterIdx, subIdx),
+                        onMoveStarter: _moveStarter,
                       ),
                     ),
                     const SizedBox(width: gap),
@@ -604,7 +631,8 @@ class _PitchScreenState extends State<PitchScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            'Hold & drag a player to swap positions — or between pitch and bench.',
+            'Hold & drag a player anywhere on the pitch, onto a teammate to '
+            'swap, or between pitch and bench.',
             style: kStyleSecondary.copyWith(fontSize: 11, color: kTextTertiary),
           ),
           const SizedBox(height: 12),

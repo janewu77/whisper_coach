@@ -51,8 +51,9 @@ List<PitchPlayer> layoutFromLineup(Lineup lineup) {
       initials: initials,
       label: slot.displayName,
       position: slot.position,
-      x: coords[i].x,
-      y: coords[i].y,
+      // A free-drag position on the slot overrides the code-derived layout.
+      x: slot.x ?? coords[i].x,
+      y: slot.y ?? coords[i].y,
     );
   });
 }
@@ -164,6 +165,9 @@ class PitchView extends StatelessWidget {
   /// …or drop a bench player onto a starter (sub in / starter out).
   final void Function(int subIndex, int starterIndex)? onSubIn;
 
+  /// Drop a starter on empty grass → free position (percent coordinates).
+  final void Function(int index, double x, double y)? onMoveStarter;
+
   const PitchView({
     super.key,
     required this.players,
@@ -171,6 +175,7 @@ class PitchView extends StatelessWidget {
     this.onTap,
     this.onSwapStarters,
     this.onSubIn,
+    this.onMoveStarter,
   });
 
   @override
@@ -180,7 +185,7 @@ class PitchView extends StatelessWidget {
       child: LayoutBuilder(builder: (context, constraints) {
         final w = constraints.maxWidth;
         final h = constraints.maxHeight;
-        return Stack(
+        final stack = Stack(
           children: [
             // Pitch background
             ClipRRect(
@@ -214,6 +219,24 @@ class PitchView extends StatelessWidget {
               ),
             ),
           ],
+        );
+
+        if (onMoveStarter == null) return stack;
+
+        // Drops on empty grass reposition the dragged starter freely (drops
+        // on a dot are claimed by the dot's own DragTarget first).
+        return DragTarget<Object>(
+          onWillAcceptWithDetails: (d) => d.data is StarterDrag,
+          onAcceptWithDetails: (d) {
+            final box = context.findRenderObject();
+            if (box is! RenderBox) return;
+            final local = box.globalToLocal(d.offset);
+            // d.offset is the feedback's top-left; shift to the dot centre.
+            final x = ((local.dx + 32) / w * 100).clamp(5.0, 95.0);
+            final y = ((local.dy + 25) / h * 100).clamp(5.0, 95.0);
+            onMoveStarter!((d.data as StarterDrag).index, x, y);
+          },
+          builder: (context, _, __) => stack,
         );
       }),
     );

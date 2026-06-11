@@ -3,11 +3,17 @@ class LineupSlot {
   final String position;
   // Nickname from the roster (attached server-side); null when unset.
   final String? nickname;
+  // Custom pitch coordinates (percent 0-100) from free drag & drop;
+  // null = lay out by position code.
+  final double? x;
+  final double? y;
 
   const LineupSlot({
     required this.player,
     required this.position,
     this.nickname,
+    this.x,
+    this.y,
   });
 
   /// What to show on the pitch: the nickname when set, else the first name
@@ -23,12 +29,16 @@ class LineupSlot {
         player: j['player'] as String,
         position: j['position'] as String,
         nickname: j['nickname'] as String?,
+        x: (j['x'] as num?)?.toDouble(),
+        y: (j['y'] as num?)?.toDouble(),
       );
 
   Map<String, dynamic> toJson() => {
         'player': player,
         'position': position,
         if (nickname != null) 'nickname': nickname,
+        if (x != null) 'x': x,
+        if (y != null) 'y': y,
       };
 }
 
