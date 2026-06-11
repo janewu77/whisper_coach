@@ -381,50 +381,47 @@ class _PitchScreenState extends State<PitchScreen> {
             const SizedBox(height: 14),
           ],
 
-          // Team size selector
-          const Text('TEAM SIZE', style: kStyleLabel),
-          const SizedBox(height: 8),
+          // Team size + formation, side by side (dropdowns to save space).
           Row(
             children: [
-              for (final size in const [5, 7, 11]) ...[
-                _SelectChip(
-                  label: '${size}er',
-                  selected: _teamSize == size,
-                  onTap: _regenerating
+              Expanded(
+                child: DropdownButtonFormField<int>(
+                  value: _teamSize,
+                  isDense: true,
+                  decoration: const InputDecoration(
+                      labelText: 'Team size', isDense: true),
+                  items: [
+                    for (final size in const [5, 7, 11])
+                      DropdownMenuItem(value: size, child: Text('${size}er')),
+                  ],
+                  onChanged: _regenerating
                       ? null
-                      : () => setState(() {
-                            _teamSize = size;
+                      : (v) => setState(() {
+                            _teamSize = v ?? _teamSize;
                             _formation = null; // size changed → re-pick
                           }),
                 ),
-                const SizedBox(width: 8),
-              ],
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          // Formation selector for the chosen size
-          const Text('FORMATION', style: kStyleLabel),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _SelectChip(
-                label: 'Auto',
-                selected: _formation == null,
-                onTap: _regenerating
-                    ? null
-                    : () => setState(() => _formation = null),
               ),
-              for (final f in kFormationsBySize[_teamSize]!)
-                _SelectChip(
-                  label: f,
-                  selected: _formation == f,
-                  onTap: _regenerating
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 2,
+                child: DropdownButtonFormField<String>(
+                  value: _formation ?? 'Auto',
+                  isDense: true,
+                  decoration: const InputDecoration(
+                      labelText: 'Formation', isDense: true),
+                  items: [
+                    for (final f in ['Auto', ...kFormationsBySize[_teamSize]!])
+                      DropdownMenuItem(value: f, child: Text(f)),
+                  ],
+                  onChanged: _regenerating
                       ? null
-                      : () => setState(() => _formation = f),
+                      : (v) => setState(
+                          () => _formation = (v == null || v == 'Auto')
+                              ? null
+                              : v),
                 ),
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -558,46 +555,6 @@ class _PitchScreenState extends State<PitchScreen> {
 }
 
 // ── Sub-widgets ───────────────────────────────────────────────────────────────
-
-/// A pill chip used by the team-size and formation selectors.
-class _SelectChip extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback? onTap;
-
-  const _SelectChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        decoration: BoxDecoration(
-          color: selected ? kBrandSubtle : kSurfaceCard,
-          borderRadius: BorderRadius.circular(100),
-          border: Border.all(
-            color: selected ? kBrandBorder : kBorderStrong,
-            width: selected ? 1.5 : 0.5,
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: selected ? kTextBrand : kTextPrimary,
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 /// Narrow bench panel beside the pitch (scrolls when the bench is long).
 class _SubsPanel extends StatelessWidget {
