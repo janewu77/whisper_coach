@@ -12,7 +12,7 @@ from app import credits
 from app.auth import current_auth0_id
 from app.db import get_session
 from app.membership import is_member, team_ids_for
-from app.models import Lineup, Match, Note, Player, Team
+from app.models import Lineup, Match, Note, Player, Team, User
 from app.schemas import (
     AdjustResult,
     LineupEdit,
@@ -599,6 +599,9 @@ async def _make_summary(
     lineup_row = _latest_lineup(session, match_id)
     lineup = _to_lineup_result(lineup_row) if lineup_row else None
     notes = session.exec(select(Note).where(Note.match_id == match_id)).all()
+    # The coach's personal report style (distilled in their profile).
+    user = session.exec(select(User).where(User.auth0_id == auth0_id)).first()
+    style_card = user.summary_style_card if user else None
 
     try:
         result = await summarize_match(
@@ -606,6 +609,7 @@ async def _make_summary(
             [n.content for n in notes],
             instructions=instructions,
             language=language,
+            style_card=style_card,
         )
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"summary failed: {exc}")

@@ -17,6 +17,7 @@ async def summarize_match(
     notes: list[str],
     instructions: str | None = None,
     language: str | None = None,
+    style_card: str | None = None,
 ) -> SummaryResult:
     agent = build_agent("analyst", SummaryResult, SYSTEM_PROMPT)
     formation = lineup.formation if lineup else "unknown"
@@ -37,8 +38,17 @@ async def summarize_match(
         f"Lineup: {starters}.\n"
         f"In-match notes and adjustments:\n{notes_text}\n"
         + (
+            f"Persona style card — write the report in this voice (imitate "
+            f"the rhythm, vocabulary and catchphrases; never copy sample "
+            f"sentences verbatim; apply the style in the report's "
+            f"language):\n{style_card}\n"
+            if style_card
+            else ""
+        )
+        + (
             f"Coach's wishes for the report (style and/or extra information "
-            f"to include — follow them): {instructions}\n"
+            f"to include — they override the style card on conflict): "
+            f"{instructions}\n"
             if instructions
             else ""
         )

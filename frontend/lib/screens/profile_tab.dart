@@ -56,6 +56,8 @@ class ProfileTab extends StatelessWidget {
                   if (code != null) settings.setSpeakerLanguage(code);
                 },
               ),
+              const SizedBox(height: 20),
+              const _ReportStyleSection(),
               if (teams.isNotEmpty) ...[
                 const SizedBox(height: 20),
                 const Text('MY TEAMS', style: kStyleLabel),
@@ -410,6 +412,206 @@ class _TeamCardState extends State<_TeamCard> {
           ],
         ],
       ),
+    );
+  }
+}
+
+/// Personal report style: paste example texts (old summaries, someone's
+/// speeches), distill them into a style card, and every AI match summary is
+/// written in that voice.
+class _ReportStyleSection extends StatefulWidget {
+  const _ReportStyleSection();
+
+  @override
+  State<_ReportStyleSection> createState() => _ReportStyleSectionState();
+}
+
+class _ReportStyleSectionState extends State<_ReportStyleSection> {
+  final _samplesCtrl = TextEditingController();
+  String? _styleCard;
+  bool _loading = true;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _samplesCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    try {
+      final style = await api.getSummaryStyle();
+      if (mounted) {
+        setState(() {
+          _styleCard = style['style_card'] as String?;
+          _samplesCtrl.text = (style['samples'] as String?) ?? '';
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _distill() async {
+    final text = _samplesCtrl.text.trim();
+    if (text.isEmpty) {
+      _snack('Paste some example text first.');
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      final style = await api.distillSummaryStyle(text);
+      if (mounted) {
+        setState(() => _styleCard = style['style_card'] as String?);
+        _snack('Style saved — summaries will use this voice.');
+      }
+    } catch (e) {
+      if (mounted) _snack(dioErrorMessage(e));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _delete() async {
+    setState(() => _busy = true);
+    try {
+      await api.deleteSummaryStyle();
+      if (mounted) {
+        setState(() {
+          _styleCard = null;
+          _samplesCtrl.clear();
+        });
+        _snack('Style removed — summaries use the neutral voice.');
+      }
+    } catch (e) {
+      if (mounted) _snack(dioErrorMessage(e));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  void _snack(String m) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('REPORT STYLE', style: kStyleLabel),
+        const SizedBox(height: 6),
+        Text(
+          'Paste texts in the voice you want (your old match reports, a '
+          'commentator…). AI distills the style, and every match summary is '
+          'written in it.',
+          style: kStyleSecondary,
+        ),
+        const SizedBox(height: 10),
+        if (_loading)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(color: kBrand, strokeWidth: 2),
+            ),
+          )
+        else ...[
+          TextField(
+            controller: _samplesCtrl,
+            maxLines: 6,
+            minLines: 3,
+            decoration: const InputDecoration(
+              labelText: 'Example texts',
+              hintText: 'Paste one or more texts in the target voice…',
+              alignLabelWithHint: true,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _busy ? null : _distill,
+                  icon: _busy
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                              color: Colors.white, strokeWidth: 2),
+                        )
+                      : const Icon(Icons.auto_fix_high_outlined, size: 16),
+                  label: Text(_busy
+                      ? 'Working…'
+                      : (_styleCard == null
+                          ? 'Distill & save'
+                          : 'Re-distill & save')),
+                ),
+              ),
+              if (_styleCard != null) ...[
+                const SizedBox(width: 8),
+                IconButton(
+                  tooltip: 'Remove style',
+                  onPressed: _busy ? null : _delete,
+                  icon: const Icon(Icons.delete_outline,
+                      size: 20, color: kRedFg),
+                ),
+              ],
+            ],
+          ),
+          if (_styleCard != null) ...[
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: kBrandSubtle,
+                borderRadius: BorderRadius.circular(kRadiusCard),
+                border: Border.all(
+                  color: kBrandBorder.withValues(alpha: 0.5),
+                  width: 0.5,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.style_outlined, size: 13, color: kTextBrand),
+                      SizedBox(width: 5),
+                      Text(
+                        'Your distilled style',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: kTextBrand,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    _styleCard!,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: kTextPrimary,
+                      height: 1.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ],
     );
   }
 }

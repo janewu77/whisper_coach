@@ -433,6 +433,25 @@ class PlayerPerformance(BaseModel):
     comment: str
 
 
+class StyleDistillRequest(BaseModel):
+    """Example texts (old summaries, transcripts) pasted by the user."""
+
+    text: str
+
+
+class StyleCardResult(BaseModel):
+    """Style-distiller agent output: a compact description of the voice."""
+
+    style_card: str
+
+
+class SummaryStyleResponse(BaseModel):
+    """The user's stored report style."""
+
+    style_card: Optional[str] = None
+    samples: Optional[str] = None
+
+
 class SummaryRequest(BaseModel):
     """Options for generating the post-match report."""
 

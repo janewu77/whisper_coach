@@ -45,6 +45,30 @@ class Api {
     return res.data!;
   }
 
+  // ── Personal report style ─────────────────────────────────────────────────
+
+  /// The stored style: {'style_card': …, 'samples': …} (values may be null).
+  Future<Map<String, dynamic>> getSummaryStyle() async {
+    final res =
+        await _dio.get<Map<String, dynamic>>('/api/me/summary-style');
+    return res.data!;
+  }
+
+  /// Distill pasted example texts into a style card (1 credit) and store it;
+  /// every match summary is then written in this voice.
+  Future<Map<String, dynamic>> distillSummaryStyle(String text) async {
+    final res = await _dio.post<Map<String, dynamic>>(
+      '/api/me/summary-style',
+      data: {'text': text},
+    );
+    return res.data!;
+  }
+
+  /// Remove the stored style (summaries go back to neutral voice).
+  Future<void> deleteSummaryStyle() async {
+    await _dio.delete('/api/me/summary-style');
+  }
+
   // ── Credits ─────────────────────────────────────────────────────────────
 
   /// The current user's credit balance.

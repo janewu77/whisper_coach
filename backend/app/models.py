@@ -33,6 +33,10 @@ class User(SQLModel, table=True):
     # Running credit balance. Granted INITIAL_CREDITS on first login; every LLM
     # call spends from it. The CreditTransaction table is the append-only ledger.
     credits: int = Field(default=0)
+    # Personal report style: pasted example texts + the distilled style card
+    # (compact voice description) every AI match summary is written in.
+    summary_style_samples: Optional[str] = None
+    summary_style_card: Optional[str] = None
     created_at: datetime = Field(default_factory=_now)
 
 
