@@ -501,16 +501,22 @@ class _PitchScreenState extends State<PitchScreen> {
           ),
           const SizedBox(height: 12),
 
-          // Pitch
-          PitchView(
-            players: pitchPlayers,
-            selectedId: _selectedPlayerId,
-            onTap: _onPlayerTap,
+          // Pitch (3/4) with the subs list to its right (1/4).
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                flex: 3,
+                child: PitchView(
+                  players: pitchPlayers,
+                  selectedId: _selectedPlayerId,
+                  onTap: _onPlayerTap,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(flex: 1, child: _SubsPanel(subs: _lineup.subs)),
+            ],
           ),
-          const SizedBox(height: 12),
-
-          // Starters | Subs
-          _SquadColumns(starters: _lineup.lineup, subs: _lineup.subs),
           const SizedBox(height: 12),
 
           // AI reasoning card
@@ -581,53 +587,16 @@ class _SelectChip extends StatelessWidget {
   }
 }
 
-/// Starters (left) and subs (right), side by side.
-class _SquadColumns extends StatelessWidget {
-  final List<LineupSlot> starters;
+/// Narrow bench panel beside the pitch (scrolls when the bench is long).
+class _SubsPanel extends StatelessWidget {
   final List<LineupSlot> subs;
 
-  const _SquadColumns({required this.starters, required this.subs});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: _SquadList(
-            title: 'STARTING · ${starters.length}',
-            slots: starters,
-            starter: true,
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _SquadList(
-            title: 'SUBS · ${subs.length}',
-            slots: subs,
-            starter: false,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _SquadList extends StatelessWidget {
-  final String title;
-  final List<LineupSlot> slots;
-  final bool starter;
-
-  const _SquadList({
-    required this.title,
-    required this.slots,
-    required this.starter,
-  });
+  const _SubsPanel({required this.subs});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.fromLTRB(8, 10, 8, 8),
       decoration: BoxDecoration(
         color: kSurfaceCard,
         borderRadius: BorderRadius.circular(kRadiusCard),
@@ -636,49 +605,47 @@ class _SquadList extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: kStyleLabel),
+          Text('SUBS · ${subs.length}',
+              style: kStyleLabel.copyWith(fontSize: 9, letterSpacing: 0.3)),
           const SizedBox(height: 8),
-          if (slots.isEmpty)
-            Text('—',
-                style: kStyleSecondary.copyWith(color: kTextTertiary))
+          if (subs.isEmpty)
+            Text('—', style: kStyleSecondary.copyWith(color: kTextTertiary))
           else
-            for (final s in slots)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 30,
-                      padding: const EdgeInsets.symmetric(vertical: 2),
-                      decoration: BoxDecoration(
-                        color: starter ? kBrandSubtle : kSurfacePage,
-                        borderRadius: BorderRadius.circular(5),
-                      ),
-                      child: Text(
-                        s.position,
-                        textAlign: TextAlign.center,
-                        style: kStyleLabel.copyWith(
-                          fontSize: 9,
-                          letterSpacing: 0,
-                          color: starter ? kTextBrand : kTextSecondary,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 7),
-                    Expanded(
-                      child: Text(
-                        s.displayName, // full nickname, or the name
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: kStyleBodyMd.copyWith(
-                          fontWeight:
-                              starter ? FontWeight.w600 : FontWeight.w400,
-                        ),
+            Expanded(
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: [
+                  for (final s in subs)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            s.displayName, // full nickname, or the name
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: kTextPrimary,
+                              height: 1.2,
+                            ),
+                          ),
+                          Text(
+                            s.position,
+                            style: kStyleLabel.copyWith(
+                              fontSize: 8.5,
+                              letterSpacing: 0,
+                              color: kTextTertiary,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
-                ),
+                ],
               ),
+            ),
         ],
       ),
     );
