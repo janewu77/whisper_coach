@@ -16,7 +16,7 @@ import '../main.dart';
 const Map<int, List<String>> kFormationsBySize = {
   5: ['1-2-1', '2-1-1', '1-1-2', '2-2'],
   7: ['2-3-1', '3-2-1', '2-2-2', '3-1-2'],
-  11: ['4-3-3', '4-2-3-1', '3-5-2', '4-4-2'],
+  11: ['4-3-3', '4-2-3-1', '3-5-2', '4-4-2', '3-3-3-1'],
 };
 
 class PitchScreen extends StatefulWidget {
