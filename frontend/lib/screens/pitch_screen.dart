@@ -42,6 +42,7 @@ class _PitchScreenState extends State<PitchScreen> {
   // persisted on the match so generation only uses available players).
   List<Player>? _roster;
   final Set<int> _unavailable = {};
+  bool _squadExpanded = false; // collapsed by default to save screen space
 
   // Voice instructions.
   final _recorder = AudioRecorder();
@@ -409,24 +410,57 @@ class _PitchScreenState extends State<PitchScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // Squad availability: tap a player to move them to the other list.
+          // Squad availability: collapsible block (header shows the counts);
+          // expanded, tap a player to move them to the other list.
           if (_roster != null) ...[
-            _availabilityRow(
-              title: 'AVAILABLE',
-              players: _roster!
-                  .where((p) => !_unavailable.contains(p.id))
-                  .toList(),
-              out: false,
+            InkWell(
+              onTap: () =>
+                  setState(() => _squadExpanded = !_squadExpanded),
+              borderRadius: BorderRadius.circular(6),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    const Icon(Icons.groups_2_outlined,
+                        size: 14, color: kTextSecondary),
+                    const SizedBox(width: 6),
+                    Text(
+                      'SQUAD · '
+                      '${_roster!.length - _unavailable.length} available'
+                      '${_unavailable.isNotEmpty ? ' · ${_unavailable.length} out' : ''}',
+                      style: kStyleLabel,
+                    ),
+                    const Spacer(),
+                    Icon(
+                      _squadExpanded
+                          ? Icons.expand_less
+                          : Icons.expand_more,
+                      size: 18,
+                      color: kTextSecondary,
+                    ),
+                  ],
+                ),
+              ),
             ),
-            const SizedBox(height: 10),
-            _availabilityRow(
-              title: 'NOT AVAILABLE',
-              players: _roster!
-                  .where((p) => _unavailable.contains(p.id))
-                  .toList(),
-              out: true,
-            ),
-            const SizedBox(height: 14),
+            if (_squadExpanded) ...[
+              const SizedBox(height: 8),
+              _availabilityRow(
+                title: 'AVAILABLE',
+                players: _roster!
+                    .where((p) => !_unavailable.contains(p.id))
+                    .toList(),
+                out: false,
+              ),
+              const SizedBox(height: 10),
+              _availabilityRow(
+                title: 'NOT AVAILABLE',
+                players: _roster!
+                    .where((p) => _unavailable.contains(p.id))
+                    .toList(),
+                out: true,
+              ),
+            ],
+            const SizedBox(height: 12),
           ],
 
           // Team size + formation, side by side (dropdowns to save space).
