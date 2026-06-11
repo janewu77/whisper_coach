@@ -271,7 +271,9 @@ def get_match(
 ):
     match = _owned_match_or_404(session, match_id, auth0_id)
     lineup = _latest_lineup(session, match_id)
-    notes = session.exec(select(Note).where(Note.match_id == match_id)).all()
+    notes = session.exec(
+        select(Note).where(Note.match_id == match_id).order_by(Note.id)
+    ).all()
     if lineup:
         # Complete older stored lineups at read time (full bench + nicknames),
         # only drawing bench fill from players available for this match.
@@ -281,7 +283,13 @@ def get_match(
         **MatchResponse(**match.model_dump()).model_dump(),
         "lineup": lineup_out.model_dump() if lineup else None,
         "notes": [
-            {"id": n.id, "kind": n.kind, "content": n.content, "ai_response": n.ai_response}
+            {
+                "id": n.id,
+                "kind": n.kind,
+                "content": n.content,
+                "ai_response": n.ai_response,
+                "created_at": n.created_at.isoformat(),
+            }
             for n in notes
         ],
     }

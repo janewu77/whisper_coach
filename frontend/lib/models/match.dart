@@ -87,11 +87,41 @@ class MatchDraft {
       );
 }
 
+/// A stored in-match note (text or transcribed voice) with the AI response.
+class MatchNote {
+  final int id;
+  final String kind; // 'text' | 'voice'
+  final String content;
+  final Map<String, dynamic>? aiResponse; // AdjustResult shape, may be empty
+  final DateTime? createdAt;
+
+  const MatchNote({
+    required this.id,
+    required this.kind,
+    required this.content,
+    this.aiResponse,
+    this.createdAt,
+  });
+
+  factory MatchNote.fromJson(Map<String, dynamic> j) => MatchNote(
+        id: j['id'] as int,
+        kind: (j['kind'] as String?) ?? 'text',
+        content: (j['content'] as String?) ?? '',
+        aiResponse: j['ai_response'] is Map
+            ? Map<String, dynamic>.from(j['ai_response'] as Map)
+            : null,
+        createdAt: j['created_at'] is String
+            ? DateTime.tryParse(j['created_at'] as String)?.toLocal()
+            : null,
+      );
+}
+
 class MatchDetails {
   final Match match;
   final Lineup? lineup;
+  final List<MatchNote> notes;
 
-  const MatchDetails({required this.match, this.lineup});
+  const MatchDetails({required this.match, this.lineup, this.notes = const []});
 
   factory MatchDetails.fromJson(Map<String, dynamic> json) {
     final lineupJson = json['lineup'];
@@ -100,6 +130,12 @@ class MatchDetails {
       lineup: lineupJson is Map
           ? Lineup.fromJson(Map<String, dynamic>.from(lineupJson))
           : null,
+      notes: (json['notes'] is List)
+          ? (json['notes'] as List)
+              .whereType<Map>()
+              .map((n) => MatchNote.fromJson(Map<String, dynamic>.from(n)))
+              .toList()
+          : const [],
     );
   }
 }

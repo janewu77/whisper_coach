@@ -8,6 +8,7 @@ import 'package:record/record.dart';
 import '../api/api.dart';
 import '../api/client.dart';
 import '../models/suggestion.dart';
+import '../services/match_clock_store.dart';
 import '../models/summary.dart';
 import '../theme.dart';
 import '../widgets/ai_response_card.dart';
@@ -45,14 +46,17 @@ class SummaryMessage extends ChatMessage {
 
 class LiveScreen extends StatefulWidget {
   final LiveScreenArgs args;
+  final Api? apiClient; // injectable for tests
 
-  const LiveScreen({super.key, required this.args});
+  const LiveScreen({super.key, required this.args, this.apiClient});
 
   @override
   State<LiveScreen> createState() => _LiveScreenState();
 }
 
 class _LiveScreenState extends State<LiveScreen> {
+  Api get _api => widget.apiClient ?? api;
+
   final _textCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
   final _recorder = AudioRecorder();
@@ -84,6 +88,72 @@ class _LiveScreenState extends State<LiveScreen> {
     _metaRefresh = Timer.periodic(
       const Duration(seconds: 30),
       (_) => mounted ? setState(() {}) : null,
+    );
+    _restoreHistory();
+    _restoreClock();
+  }
+
+  /// Rebuild the chat from the match's stored notes, so leaving and
+  /// re-entering the screen keeps the conversation.
+  Future<void> _restoreHistory() async {
+    try {
+      final details = await _api.getMatch(widget.args.matchId);
+      if (!mounted || details.notes.isEmpty) return;
+      setState(() {
+        for (final n in details.notes) {
+          _messages.add(UserMessage(n.content, at: n.createdAt));
+          final ai = n.aiResponse;
+          if (ai != null && ai['reason'] is String) {
+            final sugg = Suggestion.fromJson(ai);
+            if (sugg.respond) {
+              _messages.add(AiMessage(sugg));
+            } else {
+              _messages.add(SystemMessage('✓ ${sugg.reason}'));
+            }
+          }
+        }
+      });
+      _scrollToBottom();
+    } catch (_) {
+      // History stays empty when loading fails — new notes still work.
+    }
+  }
+
+  /// Restore the countdown: a running clock kept ticking while away (its end
+  /// time is absolute), a paused one comes back frozen.
+  Future<void> _restoreClock() async {
+    final saved = await MatchClockStore.load(widget.args.matchId);
+    if (saved == null || !mounted) return;
+    final setMin = saved['setMin'] as int? ?? _countdownSetMin;
+    if (saved['running'] == true && saved['endsAtMs'] is int) {
+      final endsAt =
+          DateTime.fromMillisecondsSinceEpoch(saved['endsAtMs'] as int);
+      final diff = endsAt.difference(DateTime.now()).inSeconds;
+      setState(() {
+        _countdownSetMin = setMin;
+        _remainingSec = diff > 0 ? diff : 0;
+        _overtimeSec = diff > 0 ? 0 : -diff;
+        _countdownRunning = true;
+      });
+      _runCountdown();
+    } else {
+      setState(() {
+        _countdownSetMin = setMin;
+        _remainingSec = saved['remainingSec'] as int? ?? 0;
+        _overtimeSec = saved['overtimeSec'] as int? ?? 0;
+        _countdownRunning = false;
+      });
+    }
+  }
+
+  void _persistRunning() {
+    // Absolute end time: now + remaining (already in the past in overtime).
+    final endsAt = DateTime.now()
+        .add(Duration(seconds: _remainingSec - _overtimeSec));
+    MatchClockStore.saveRunning(
+      widget.args.matchId,
+      setMin: _countdownSetMin,
+      endsAtMs: endsAt.millisecondsSinceEpoch,
     );
   }
 
@@ -126,6 +196,7 @@ class _LiveScreenState extends State<LiveScreen> {
       _overtimeSec = 0;
       _countdownRunning = true;
     });
+    _persistRunning();
     _runCountdown();
   }
 
@@ -152,10 +223,17 @@ class _LiveScreenState extends State<LiveScreen> {
   void _pauseCountdown() {
     _countdown?.cancel();
     setState(() => _countdownRunning = false);
+    MatchClockStore.savePaused(
+      widget.args.matchId,
+      setMin: _countdownSetMin,
+      remainingSec: _remainingSec,
+      overtimeSec: _overtimeSec,
+    );
   }
 
   void _resumeCountdown() {
     setState(() => _countdownRunning = true);
+    _persistRunning();
     _runCountdown();
   }
 
@@ -166,6 +244,7 @@ class _LiveScreenState extends State<LiveScreen> {
       _overtimeSec = 0;
       _countdownRunning = false;
     });
+    MatchClockStore.clear(widget.args.matchId);
   }
 
   // ── Text note ────────────────────────────────────────────────────────────
@@ -181,7 +260,7 @@ class _LiveScreenState extends State<LiveScreen> {
     });
     _scrollToBottom();
     try {
-      final resp = await api.sendNote(widget.args.matchId, text);
+      final resp = await _api.sendNote(widget.args.matchId, text);
       setState(() {
         // Pure event logs are registered silently — only show the AI card
         // when it decided the coach needs an answer.
@@ -281,7 +360,7 @@ class _LiveScreenState extends State<LiveScreen> {
     });
     _scrollToBottom();
     try {
-      final resp = await api.sendVoiceNote(widget.args.matchId, file);
+      final resp = await _api.sendVoiceNote(widget.args.matchId, file);
       // Replace the placeholder with the actual transcription
       setState(() {
         _messages.removeLast(); // remove "Voice note..."
@@ -327,7 +406,7 @@ class _LiveScreenState extends State<LiveScreen> {
 
     setState(() => _sending = true);
     try {
-      final summary = await api.getSummary(widget.args.matchId);
+      final summary = await _api.getSummary(widget.args.matchId);
       setState(() {
         _messages.add(SummaryMessage(summary));
         _summaryDone = true;
